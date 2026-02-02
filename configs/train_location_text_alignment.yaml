@@ -1,0 +1,47 @@
+# Optional: seed for reproducibility
+seed_everything: 42
+
+# Model parameters 
+model:
+  text_model: "ViT-B-32"
+  location_model: "microsoft/SatCLIP-ViT16-L40"
+  location_model_filename: "satclip-vit16-l40.ckpt"
+  learning_rate: 0.00001
+  weight_decay: 0.0 # no decay
+  lambda_alignment: 10.0
+  logit_scale_temperature: 0.07
+  sigma: 1.0
+# DataModule parameters 
+data:
+  data_path: /home/ricke/satcam/satcam/datasets/no_clouds_no_snow
+  text_model: "ViT-B-32"
+  batch_size: 6960
+  num_workers: 6
+  transform: null
+  mode: "both"
+
+# Trainer configuration
+trainer:
+  logger:
+    class_path: lightning.pytorch.loggers.MLFlowLogger
+    init_args:
+      experiment_name: 'Location2Text_S2_n'
+      tags: {dataset: 'no_cloud_no_snow', loss_alignment: True, snow: False}
+  # log 4 times per epoch
+  val_check_interval: 0.25
+  
+      
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        dirpath: '/home/ricke/satcam/satcam/checkpoints-alignment'
+        filename: 'Location2Text_S2-{epoch:02d}-{val_loss:.4f}'
+        save_top_k: 1
+        monitor: "val_loss"
+        save_last: true
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
+      init_args:
+        monitor: "val_loss"
+        patience: 10
+        mode: min
+  max_epochs: 200
