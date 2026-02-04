@@ -209,4 +209,6 @@ __marimo__/
 .DS_Store
 
 satclip_index.csv
+text-descriptions/index.csv
+text-descriptions/index_with_ee.csv
 *.csv
