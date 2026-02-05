@@ -209,3 +209,7 @@ __marimo__/
 .DS_Store
 
 satclip_index.csv
+
+checkpoints/
+s2-100k/
+wandb/
