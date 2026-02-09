@@ -36,8 +36,8 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         self.output_dim = get_location_model_output_dim(self.location_model)
         self.text_model = TextEmbeddingModel(text_model=text_model, text_vocabulary=text_vocabulary, train_text_model=train_text_model, target_dim=self.output_dim)
         self.learning_rate = learning_rate
-        logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / logit_scale_temperature))
-        self.loss_fn = ConceptLoss(logit_scale=logit_scale, lambda_alignment=lambda_alignment, sigma=sigma)
+        self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / logit_scale_temperature), requires_grad=False)
+        self.loss_fn = ConceptLoss(logit_scale=self.logit_scale, lambda_alignment=lambda_alignment, sigma=sigma)
         self.weight_decay = weight_decay
         self.save_hyperparameters()
         
@@ -77,6 +77,7 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         return loss
     
     def configure_optimizers(self):
+<<<<<<< HEAD
         # Collect all trainable parameters
         params = []
         
@@ -88,6 +89,11 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         
         # Add logit_scale parameter from loss function
         params.append(self.loss_fn.logit_scale)
+=======
+        params = [
+            param for param in self.text_model.parameters() if param.requires_grad # only want to train the text encoder
+        ]
+>>>>>>> 77caa0d (resolved text encoder bug)
         # decay helps with reghhularizaion
         optimizer = torch.optim.AdamW([{"params": params,"weight_decay": self.weight_decay}],lr=self.learning_rate)
         
