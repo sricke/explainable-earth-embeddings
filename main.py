@@ -37,7 +37,7 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         self.text_model = TextEmbeddingModel(text_model=text_model, text_vocabulary=text_vocabulary, train_text_model=train_text_model, target_dim=self.output_dim)
         self.learning_rate = learning_rate
         logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / logit_scale_temperature), requires_grad=True)
-        self.loss_fn = ConceptLoss(logit_scale=self.logit_scale, lambda_alignment=lambda_alignment, sigma=sigma)
+        self.loss_fn = ConceptLoss(logit_scale=logit_scale, lambda_alignment=lambda_alignment, sigma=sigma)
         self.weight_decay = weight_decay
         self.save_hyperparameters()
         
