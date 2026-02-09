@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-
+from utils import get_location_model_output_dim
 # Add project root to path so we can import satclip
 project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
@@ -13,30 +13,28 @@ import torch.nn as nn
 from lightning.pytorch.cli import LightningCLI
 
 from modeling import LocationEmbeddingModel, TextEmbeddingModel
-from dataset import BigEarthNetv2_S2DataModule
+from dataset import LocationDescriptionDataModule
 from datetime import datetime
-import open_clip
+
 from loss import ConceptLoss
 class Location2TextLightningModule(lightning.pytorch.LightningModule):
     def __init__(self, 
-                 text_model: str,
                  location_model: str,
                  location_model_filename: str,
-                 text_model_filename: str,
+                 text_model: str,
+                 text_vocabulary: str,
                  train_text_model: bool,
                  learning_rate: float,
                  weight_decay: float,
                  logit_scale_temperature: float,
                  lambda_alignment: float,
                  sigma: float,
-                 train_location_model: bool,
-                 normalize_features: bool=True
                  ):
         super().__init__()
+        print('train_text_model', train_text_model)
         self.location_model = LocationEmbeddingModel(location_model=location_model, location_model_filename=location_model_filename, target_dim=None, train_location_model=False)
-        target_dim = self.location_model.dim_out
-        self.text_model = TextEmbeddingModel(text_model=text_model, text_model_filename=text_model_filename, train_text_model=train_text_model, target_dim=target_dim)
-        self.normalize_features = normalize_features
+        self.output_dim = get_location_model_output_dim(self.location_model)
+        self.text_model = TextEmbeddingModel(text_model=text_model, text_vocabulary=text_vocabulary, train_text_model=train_text_model, target_dim=self.output_dim)
         self.learning_rate = learning_rate
         logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / logit_scale_temperature))
         self.loss_fn = ConceptLoss(logit_scale=logit_scale, lambda_alignment=lambda_alignment, sigma=sigma)
@@ -45,8 +43,8 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         
     def on_fit_start(self):
         if self.logger is not None:
-            self.logger.log_hyperparams({'target_dim': self.location_model.target_dim,
-                                         'location_dim': self.location_model.location_dim})
+            self.logger.log_hyperparams({'target_dim': self.output_dim,
+                                         'text_dim': self.text_model.text_output_dim})
         
     def compute_loss(self, logits_per_text, logits_per_location):
         return self.loss_fn(logits_per_text, logits_per_location)
@@ -55,8 +53,8 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
             
     def forward_step(self, batch):
         locations, descriptions = batch
-        logits_per_text = self.text_model(descriptions, normalize=self.normalize_features)
-        logits_per_location = self.location_model(locations, normalize=self.normalize_features)
+        logits_per_text = self.text_model(descriptions)
+        logits_per_location = self.location_model(locations)
         
         # normalize after projection
         logits_per_text = logits_per_text / logits_per_text.norm(dim=1, keepdim=True)
@@ -111,7 +109,7 @@ def cli_main(config_filename: str):
    
     cli = LightningCLI(
         model_class=Location2TextLightningModule,
-        datamodule_class=BigEarthNetv2_S2DataModule,
+        datamodule_class=LocationDescriptionDataModule,
         save_config_kwargs=dict(
             config_filename=config_fn,
             overwrite=True,
@@ -146,7 +144,7 @@ def cli_main(config_filename: str):
 
 
 if __name__ == "__main__":
-    config_fn = "./configs/train_location_text_alignment_encoder_10.yaml"
+    config_fn = "./configs/train.yaml"
 
     cli_main(config_fn)
         

@@ -210,3 +210,7 @@ __marimo__/
 
 satclip_index.csv
 *.csv
+
+checkpoints/
+s2-100k/
+wandb/

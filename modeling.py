@@ -1,7 +1,7 @@
 from typing import Literal, Optional, Union
 import sys
 from pathlib import Path
-
+from utils import get_location_model_output_dim
 # Add project root to path so we can import satclip
 project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
@@ -21,24 +21,23 @@ class Encoder(nn.Module):
         for param in self.model.parameters():
             param.requires_grad = train_encoder
         self.embed_project = None
-        self.location_dim= self.model.nnet.last_layer.dim_out
         if target_dim is not None:
-            self.embed_project = nn.Linear(self.location_dim, target_dim).double()
+            self.text_output_dim = self.model.text_projection.shape[1]
+            self.embed_project = nn.Linear(self.text_output_dim, target_dim)
         self.target_dim = target_dim
         self.train_encoder = train_encoder
+        if not train_encoder:
+            self.model.eval()
         
     def encode_features(self, x):
         pass
         
-    def forward(self, x, normalize=False):
-        last_hidden_state = self.encode_features(x, normalize)
+    def forward(self, x):
+        last_hidden_state = self.encode_features(x)
         if self.embed_project is not None:
-            embedding_output = self.embed_project(last_hidden_state)
-        else:
-            raise ValueError("No projection layer added to train")
-            embedding_output = last_hidden_state
+            last_hidden_state = self.embed_project(last_hidden_state)
  
-        return embedding_output
+        return last_hidden_state
 
 class LocationEmbeddingModel(Encoder):
     def __init__(
@@ -47,30 +46,31 @@ class LocationEmbeddingModel(Encoder):
         location_model_filename: str,
         train_location_model: bool,
         target_dim: int = None,
+        dtype: torch.dtype = torch.float32,
     ):
         model = get_satclip(hf_hub_download(location_model, location_model_filename), device="cpu")
+        self.dtype = dtype
         super().__init__(model, train_location_model, target_dim)
-
     
-    def encode_features(self, x, normalize=False):
+    def encode_features(self, x):
         ## Encode location
-        if self.train_encoder_model:
+        if self.train_encoder:
             embedding = self.model(x.double())
         else:
             with torch.no_grad():
                 embedding = self.model(x.double())
-        if normalize:
-            embedding = embedding / embedding.norm(dim=1, keepdim=True)
+        embedding = embedding.type(self.dtype)
         return embedding
             
             
 class TextEmbeddingModel(Encoder):
-    def __init__(self, text_model: str, text_model_filename: str, train_text_model: bool, target_dim: int = None):
-        model = open_clip.create_model(text_model, pretrained='laion2b_s34b_b79k')
+    def __init__(self, text_model: str, text_vocabulary: str, train_text_model: bool, target_dim: int = None, dtype: torch.dtype = torch.float32):
+        model = open_clip.create_model(text_model, pretrained=text_vocabulary)
         self.tokenizer = open_clip.get_tokenizer(text_model)
+        self.dtype = dtype
         super().__init__(model, train_text_model, target_dim)
         
-    def encode_features(self, x, normalize=False):
+    def encode_features(self, x):
         if isinstance(x, str) or isinstance(x, list):
             x = self.tokenizer(x).to(self.device)
         if self.train_encoder:
@@ -78,6 +78,5 @@ class TextEmbeddingModel(Encoder):
         else:
             with torch.no_grad():
                 embedding = self.model.encode_text(x)
-        if normalize:
-            embedding = embedding / embedding.norm(dim=1, keepdim=True)
+        embedding = embedding.type(self.dtype)
         return embedding
