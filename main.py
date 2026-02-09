@@ -83,19 +83,8 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         # Add text model parameters (if trainable) and projection layer
         if self.text_model.train_encoder:
             params.extend([
-                param for param in self.text_model.model.parameters() if param.requires_grad
+                param for param in self.text_model.parameters() if param.requires_grad
             ])
-        
-        # Always add the projection layer if it exists (it's always trainable)
-        if self.text_model.embed_project is not None:
-            params.extend([
-                param for param in self.text_model.embed_project.parameters() if param.requires_grad
-            ])
-        
-        # Add location model parameters (if trainable)
-        params.extend([
-            param for param in self.location_model.parameters() if param.requires_grad
-        ])
         
         # Add logit_scale parameter from loss function
         params.append(self.loss_fn.logit_scale)
