@@ -66,6 +66,10 @@ class LocationEmbeddingModel(Encoder):
 class TextEmbeddingModel(Encoder):
     def __init__(self, text_model: str, text_vocabulary: str, train_text_model: bool, target_dim: int = None, dtype: torch.dtype = torch.float32):
         model = open_clip.create_model(text_model, pretrained=text_vocabulary)
+        
+        # don't need vision encoder
+        del model.visual
+        
         self.tokenizer = open_clip.get_tokenizer(text_model)
         self.dtype = dtype
         super().__init__(model, train_text_model, target_dim)
