@@ -112,15 +112,15 @@ model:
   location_model_filename: satclip-vit16-l10.ckpt
   text_model: ViT-B-32
   text_vocabulary: laion2b_s34b_b79k
-  train_text_model: false
-  learning_rate: 1.0e-05
-  weight_decay: 0.0
+  train_text_model: true
+  learning_rate: 0.001
+  weight_decay: 0.01
   logit_scale_temperature: 0.07
-  lambda_alignment: 10.0
+  lambda_alignment: 0.0
   sigma: 1.0
 data:
   data_path: ../../data/s2-100k
-  batch_size: 2048
+  batch_size: 512
   num_workers: 6
   text_model: ViT-B-32
   transform: null

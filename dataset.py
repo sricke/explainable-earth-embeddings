@@ -121,6 +121,7 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             shuffle=True,
+            worker_init_fn=lambda worker_id: torch.manual_seed(42 + worker_id)
         )
 
     def val_dataloader(self):

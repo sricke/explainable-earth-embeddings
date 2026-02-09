@@ -67,7 +67,7 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         loss = self.compute_loss(logits_per_text, logits_per_location)
         current_lr = self.optimizers().param_groups[0]['lr']
         self.log_dict({"train_loss": loss,
-                  "learning_rate": current_lr})
+                  "learning_rate": current_lr}, on_step=True, on_epoch=True, prog_bar=True)
         return loss
     
     def validation_step(self, batch):
@@ -75,30 +75,43 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         loss = self.compute_loss(logits_per_text, logits_per_location)
         self.log_dict({"val_loss": loss}, on_step=True, on_epoch=True)
         return loss
-    
+
     def configure_optimizers(self):
-        # Collect all trainable parameters
-        params = []
-        
-        # Add text model parameters (if trainable) and projection layer
+        named_params = []
+    
         if self.text_model.train_encoder:
-            params.extend([
-                param for param in self.text_model.parameters() if param.requires_grad
+            named_params.extend([
+                (f"text_model.{n}", p) 
+                for n, p in self.text_model.named_parameters() 
+                if p.requires_grad
             ])
         
-        # Add logit_scale parameter from loss function
-        params.append(self.loss_fn.logit_scale)
-
-        # decay helps with reghhularizaion
-        optimizer = torch.optim.AdamW([{"params": params,"weight_decay": self.weight_decay}],lr=self.learning_rate)
+        named_params.append(("loss_fn.logit_scale", self.loss_fn.logit_scale))
         
-        # LinearLR scheduler: linearly decays from start_factor to end_factor
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        # no decay for biases, norms, and 1D params
+        exclude = (
+            lambda n, p: p.ndim < 2
+            or "bn" in n
+            or "ln" in n
+            or "bias" in n
+            or "logit_scale" in n
+        )
+        
+        no_decay_params = [p for n, p in named_params if exclude(n, p)]
+        decay_params = [p for n, p in named_params if not exclude(n, p)]
+        
+        optimizer = torch.optim.AdamW(
+            [
+                {"params": no_decay_params, "weight_decay": 0.0},
+                {"params": decay_params, "weight_decay": self.weight_decay},
+            ],
+            lr=self.learning_rate,
+        )
+        
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
-            mode="min",
-            patience=2, # epoch level
-            factor=0.1,   # new_lr = lr * factor
-            eps=1e-8, # minimum decay applied to lr
+            T_max=self.trainer.max_epochs,
+            eta_min=1e-6
         )
         
         return {
@@ -106,10 +119,8 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
             "lr_scheduler": {
                 "scheduler": scheduler,
                 "interval": "epoch",  # Update each epoch
-                "monitor": "val_loss", 
             }
         }
-        
 
 
         
@@ -132,12 +143,10 @@ def cli_main(config_filename: str):
     )
 
     ts = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    run_name = f"Location2Text_S2_{ts}"
+    lambda_align = cli.model.hparams.lambda_alignment
+    run_name = f"Location2Text_S2_lambda{lambda_align}_{ts}"
     if cli.trainer.logger is not None:
         cli.trainer.logger.experiment.name = run_name
-        # log datamodule hyperparams
-        # model hyperparams are logged in class
-        cli.trainer.logger.log_hyperparams(cli.datamodule.hparams)
 
     
     # Create folder to log configs
