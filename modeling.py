@@ -84,3 +84,8 @@ class TextEmbeddingModel(Encoder):
                 embedding = self.model.encode_text(x)
         embedding = embedding.type(self.dtype)
         return embedding
+
+    @property
+    def device(self):
+        return next(self.model.parameters()).device   
+

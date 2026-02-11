@@ -2,9 +2,13 @@ import sys
 import os
 import json
 from pathlib import Path
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
 parent = Path(os.path.abspath(__file__)).parent
 sys.path.insert(0, str(parent))
 sys.path.append(str(parent.parent / "SpLiCE"))
+
 from splice import *
 from PIL import Image
 import torch
@@ -63,115 +67,123 @@ def get_example_image(path, plot=True, results_folder="results"):
 
     return rgb_image_display
 
-# Load Lightning checkpoint
-checkpoint_path = "/home/ricke/satcam/satcam/checkpoints-alignment-encoder-10/Location2Text_S2-epoch=11-val_loss=12.2384.ckpt"
+if __name__ == "__main__":
+    from IPython import embed; embed()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-model = Location2TextLightningModule.load_from_checkpoint(checkpoint_path, device="cuda")
-model.eval()
+    # Load Lightning checkpoint
+    checkpoint_path = "../../outputs/explainable-earth-embeddings/checkpoints/Text2Location-epoch=199-val_loss=1.6525.ckpt"
 
-vocab_path = str(parent / 'satellite_vocab_land.json')
-## Compute embedded dictionary, mean-center and normalize
-use_satellite_concepts = True
-satellite_concepts_words = []
-satellite_concepts = []
-if use_satellite_concepts:
+    model = Location2TextLightningModule.load_from_checkpoint(checkpoint_path, device="cuda")
+    model.eval()
+
+    vocab_path = str(parent / 'satellite_vocab_land.json')
+    ## Compute embedded dictionary, mean-center and normalize
+
+    satellite_concepts_words = []
+    satellite_concepts = []
     with open(vocab_path, "r") as f:
         vocab = json.load(f)
         
-    for word in vocab:
+    for word in tqdm(vocab, desc="Iterating through vocab..."):
         embedding = model.text_model_predict(word, normalize=True)
-        # Ensure 1D tensor [embed_dim] - single word returns [1, embed_dim]
         if len(embedding.shape) == 2:
-            embedding = embedding.squeeze(0)  # Remove batch dimension
-        satellite_concepts.append(embedding)
+            embedding = embedding.squeeze(0)
+        satellite_concepts.append(embedding.cpu())  # Move to CPU immediately
         satellite_concepts_words.append(word)
-    # not considering plural words
-    # vocab = [v for v in vocab if not vocab[v]['is_plural']]
-else:
-    vocab = []
-    vocabulary_size = 10000
-    with open("/home/ricke/.cache/splice/vocab/laion.txt", "r") as f:
-        lines = f.readlines()
-        if vocabulary_size > 0:
-            lines = lines[-vocabulary_size:]
-        for line in lines:
-            line = line.strip()
-            vocab.append(line)
-            embedding = model.text_model_predict(line, normalize=True) #normalize text
-            # Ensure 1D tensor [embed_dim] - single word returns [1, embed_dim]
-            if len(embedding.shape) == 2:
-                embedding = embedding.squeeze(0)  # Remove batch dimension
-            satellite_concepts.append(embedding)
-            satellite_concepts_words.append(line)
+    
+    # Clear GPU memory after encoding vocab
+    torch.cuda.empty_cache()
 
-satellite_concepts = torch.stack(satellite_concepts)  # Should be [num_concepts, embed_dim]
-# Verify it's 2D
-if len(satellite_concepts.shape) != 2:
-    raise ValueError(f"Expected 2D tensor [num_concepts, embed_dim], got shape {satellite_concepts.shape}")
+    satellite_concepts = torch.stack(satellite_concepts).to(device)
+    satellite_concepts = torch.nn.functional.normalize(satellite_concepts, dim=1)
+    satellite_concepts = torch.nn.functional.normalize(satellite_concepts-torch.mean(satellite_concepts, dim=0), dim=1)
 
+    satclip_df = pd.read_csv(str(parent / "text-descriptions/index.csv"))
 
-satellite_concepts = torch.nn.functional.normalize(satellite_concepts, dim=1) # this normalize is redundant because it is already normalized in the model
-satellite_concepts = torch.nn.functional.normalize(satellite_concepts-torch.mean(satellite_concepts, dim=0), dim=1) 
+    output_dim = model.output_dim
+    satclip_embeddings = torch.zeros(len(satclip_df), output_dim).to(device)
 
-
-satclip_df = pd.read_csv(str(parent / "satclip_index.csv"))
-satclip_embeddings = torch.zeros(len(satclip_df), 512).to("cuda")
-with torch.no_grad():
-    locations = satclip_df[["lon", "lat"]].values.astype(np.float64)
-    locations = torch.tensor(locations).to("cuda")
-    dataloader = DataLoader(locations, batch_size=6960, shuffle=False)
-    i = 0
-    for batch in tqdm(dataloader, total=len(dataloader), desc="Encoding location embeddings"):
-        satclip_embeddings[i:i+batch.shape[0]] = model.location_model(batch) # unnormalized
-        i += batch.shape[0]
+    with torch.no_grad():
+        locations = satclip_df[["lon", "lat"]].values.astype(np.float64)
+        locations = torch.tensor(locations, device=device)  # Create directly on device
+        
+        # Reduce batch size to prevent memory issues
+        dataloader = DataLoader(locations, batch_size=512, shuffle=False)  # Reduced from 6960
+        i = 0
+        for batch in tqdm(dataloader, total=len(dataloader), desc="Encoding location embeddings"):
+            satclip_embeddings[i:i+batch.shape[0]] = model.location_model(batch)
+            i += batch.shape[0]
+            
+            # Clear cache every N batches
+            if i % 5120 == 0:  # Every 10 batches with batch_size=512
+                torch.cuda.empty_cache()
 
     satclip_embeddings = torch.nn.functional.normalize(satclip_embeddings, dim=1) 
-    mean_embedding_locs = torch.mean(satclip_embeddings, dim=0).to("cuda") #get mean
-    
-    splicemodel = SPLICE(mean_embedding_locs, satellite_concepts, clip=model, device="cuda", return_weights=True, return_cosine=True, l1_penalty=0.01)
-    
-   
-    for batch_index, batch in tqdm(enumerate(dataloader), total=len(dataloader), desc="Going through batches"):
-        # Process each location coordinate in the batch
-        results = []
-        for index, location_coords in tqdm(enumerate(batch), total=len(batch), desc="Decomposing location embeddings"):
-            # Ensure 2D tensor [1, 2] for encode_image
-            location_coords = location_coords.unsqueeze(0)  # shape: [1, 2]
-            sparse_weights, cosine_similarity = splicemodel.encode_image(location_coords)         # shape = [1, 10000], l0 norm = 9
-            reconstruction = splicemodel.recompose_image(sparse_weights)   # shape = [1, 512]  
-            sparse_weights = sparse_weights.squeeze()
-            
-            image_index = batch_index * 6960 + index
-            location = satclip_df.iloc[image_index]
-            image_path = location['fn']
-            """
-            image_path = os.path.join("/home/ricke/satcam/images1", image_path)
-            if not os.path.exists(image_path):
-                continue
-            print(image_path)
-            rgb_image = get_example_image(image_path)
-            """
-            """ print(f"Cosine similarity: {cosine_similarity.item()}")
-            for i, weight_idx in enumerate(torch.sort(sparse_weights, descending=True)[1]):
+    mean_embedding_locs = torch.mean(satclip_embeddings, dim=0).to(device)
 
-                print(f"{satellite_concepts_words[weight_idx.item()]}: {sparse_weights[weight_idx.item()].item()}")"""
-            # Store weights for this location
-            weights_array = sparse_weights.detach().cpu().numpy()
-            result = {}
-            result['lat'] = location['lat']
-            result['lon'] = location['lon']
-            result['fn'] = location['fn']
-            result['weights'] = weights_array
-            result['cosine_similarity'] = cosine_similarity.item()
-            for index in range(len(sparse_weights)):
-                result[satellite_concepts_words[index]] = sparse_weights[index].item()
-            results.append(result)
-        # Create DataFrame and save to parquet
+    l1_penalty = 0.05
+    splicemodel = SPLICE(
+        mean_embedding_locs, 
+        satellite_concepts, 
+        clip=None,  # <-- set to None since we're passing pre-computed embeddings
+        device="cuda", 
+        return_weights=True, 
+        return_cosine=True, 
+        l1_penalty=l1_penalty # might want to make smaller....
+    )
+
+    # iterate through PRECOMPUTED embeddings
+    results = []
+    for index in tqdm(range(len(satclip_embeddings)), desc="Decomposing location embeddings"):
+        location_embedding = satclip_embeddings[index].unsqueeze(0)  # shape: [1, 256]
+        
+        # normalize and center
+        location_embedding = torch.nn.functional.normalize(location_embedding, dim=1)
+        centered_location_embedding = torch.nn.functional.normalize(location_embedding - mean_embedding_locs, dim=1)
+        
+        # decompose using pre-computed embedding
+        sparse_weights = splicemodel.decompose(centered_location_embedding)
+        
+        # reconstruct and compute similarity
+        recon_location = splicemodel.recompose_image(sparse_weights)
+        recon_location = torch.nn.functional.normalize(recon_location, dim=1)
+        recon_location = torch.nn.functional.normalize(recon_location + mean_embedding_locs, dim=1)
+        
+        cosine_similarity = torch.nn.functional.cosine_similarity(
+            recon_location, location_embedding, dim=1
+        )
+        
+        sparse_weights = sparse_weights.squeeze()
+        
+        location = satclip_df.iloc[index]
+        
+        result = {
+            'lat': location['lat'],
+            'lon': location['lon'],
+            'fn': location['fn'],
+            'cosine_similarity': cosine_similarity.item()
+        }
+        
+        for concept_idx, concept_word in enumerate(satellite_concepts_words):
+            result[concept_word] = sparse_weights[concept_idx].item()
+        
+        results.append(result)
+        
+        if (index + 1) % 10000 == 0:
+            batch_num = (index + 1) // 10000
+            weights_df = pd.DataFrame(results)
+            output_path = str(parent / f"location_weights_batch_{batch_num}.parquet")
+            weights_df.to_parquet(output_path, index=False)
+            print(f"Saved batch {batch_num} with {len(results)} locations to {output_path}")
+            results = [] 
+            torch.cuda.empty_cache()
+
+    if results:
+        from IPython import embed; embed()
+        batch_num = (len(satclip_embeddings) // 10000) + 1
         weights_df = pd.DataFrame(results)
-        output_path = str(parent / f"location_weights_batch_{batch_index}.parquet")
+        output_path = str(parent / f"location_weights_batch_{batch_num}_l1_penalty_{l1_penalty}_num_samples_{num_samples}.parquet")
         weights_df.to_parquet(output_path, index=False)
-        print(f"Saved weights for {len(results)} locations to {output_path}")
-
-
-
-
+        print(f"Saved final batch with {len(results)} locations to {output_path}")
+        torch.cuda.empty_cache()

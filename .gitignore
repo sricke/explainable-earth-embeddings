@@ -217,3 +217,7 @@ s2-100k/
 wandb/
 
 satclip/
+SpLiCE/
+*.json
+*.txt
+*.parquet

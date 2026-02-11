@@ -15,8 +15,10 @@ from lightning.pytorch.cli import LightningCLI
 from modeling import LocationEmbeddingModel, TextEmbeddingModel
 from dataset import LocationDescriptionDataModule
 from datetime import datetime
+import open_clip
 
 from loss import ConceptLoss
+
 class Location2TextLightningModule(lightning.pytorch.LightningModule):
     def __init__(self, 
                  location_model: str,
@@ -34,6 +36,7 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         print('train_text_model', train_text_model)
         self.location_model = LocationEmbeddingModel(location_model=location_model, location_model_filename=location_model_filename, target_dim=None, train_location_model=False)
         self.output_dim = get_location_model_output_dim(self.location_model)
+        self.text_model_str = text_model
         self.text_model = TextEmbeddingModel(text_model=text_model, text_vocabulary=text_vocabulary, train_text_model=train_text_model, target_dim=self.output_dim)
         self.learning_rate = learning_rate
         logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / logit_scale_temperature), requires_grad=True)
@@ -121,6 +124,15 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
                 "interval": "epoch",  # Update each epoch
             }
         }
+
+    def text_model_predict(self, text, normalize=False):
+        self.eval()
+        with torch.no_grad():
+            # text_model will tokenize internally
+            embeddings = self.text_model(text)
+            if normalize:
+                embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
+        return embeddings
 
 
         
