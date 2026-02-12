@@ -398,3 +398,6 @@ def convert_weights(model: nn.Module):
                     attr.data = attr.data.half()
 
     model.apply(_convert_weights_to_fp16)
+
+if __name__ == "__main__":
+    from IPython import embed; embed()

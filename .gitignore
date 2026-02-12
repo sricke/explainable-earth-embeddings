@@ -221,3 +221,5 @@ SpLiCE/
 *.json
 *.txt
 *.parquet
+*.pth
+*.png
