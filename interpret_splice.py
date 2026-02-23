@@ -1,4 +1,6 @@
 import pandas as pd
+import matplotlib.pyplot as plt
+
 
 def interpret_location_index(df, idx):
     location = df.iloc[idx]
@@ -12,7 +14,7 @@ def interpret_location_index(df, idx):
     print(top_concepts)
 
 def check_reconstruction_quality(df):
-    print(f"Mean cosine similarity: {df['mse'].mean():.3f}")
+    print(f"Mean MSE: {df['mse'].mean():.3f}")
     print(f"Min: {df['mse'].min():.3f}")
     print(f"Max: {df['mse'].max():.3f}")
 
@@ -56,6 +58,30 @@ def analyze_specific_concept(df, concept_name, top_n=None, threshold=0.5):
     print(f"  Std dev: {activated[concept_name].std():.4f}")
     
     return activated
+
+
+def plot_active_concepts_vs_mse(df, threshold=0.0):
+    """
+    Scatter plot: number of active concepts vs reconstruction error (MSE)
+    
+    Args:
+        df: DataFrame with concept columns + 'mse'
+        threshold: Minimum weight to consider a concept "active"
+    """
+    concept_cols = df.columns.drop(['lat', 'lon', 'fn', 'mse'])
+    
+    # Count number of active concepts per location
+    active_counts = (df[concept_cols] > threshold).sum(axis=1)
+    
+    # Plot
+    plt.figure(figsize=(8,6))
+    plt.scatter(active_counts, df['mse'], alpha=0.6)
+    plt.xlabel("Number of Active Concepts")
+    plt.ylabel("Reconstruction MSE")
+    plt.title("Active Concepts vs Reconstruction Error")
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.show()
+    plt.savefig('test.png')
 
 if __name__ == "__main__":
 
