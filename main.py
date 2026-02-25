@@ -21,8 +21,10 @@ from loss import ConceptLoss
 
 class Location2TextLightningModule(lightning.pytorch.LightningModule):
     def __init__(self, 
+                 location_model_type: str,
                  location_model: str,
                  location_model_filename: str,
+                 text_model_type: str,
                  text_model: str,
                  text_vocabulary: str,
                  train_text_model: bool,
@@ -34,15 +36,32 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
                  ):
         super().__init__()
         print('train_text_model', train_text_model)
-        self.location_model = LocationEmbeddingModel(location_model=location_model, location_model_filename=location_model_filename, target_dim=None, train_location_model=False)
+        self.location_model = LocationEmbeddingModel(location_model_type=location_model_type, location_model=location_model, location_model_filename=location_model_filename, target_dim=None, train_location_model=False)
         self.output_dim = get_location_model_output_dim(self.location_model)
+
         self.text_model_str = text_model
-        self.text_model = TextEmbeddingModel(text_model=text_model, text_vocabulary=text_vocabulary, train_text_model=train_text_model, target_dim=self.output_dim)
+        self.text_model = TextEmbeddingModel(text_model_type=text_model_type, text_model=text_model, text_vocabulary=text_vocabulary, train_text_model=train_text_model, target_dim=self.output_dim)
+
+        # self.text_linear = nn.Linear(self.output_dim, self.output_dim)
+        # self._init_identity(self.text_linear)
+
+        # freeze text model, train only linear
+        for param in self.text_model.parameters():
+            param.requires_grad = False
+        # for param in self.text_linear.parameters():
+        #     param.requires_grad = True
+
         self.learning_rate = learning_rate
         logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / logit_scale_temperature), requires_grad=True)
         self.loss_fn = ConceptLoss(logit_scale=logit_scale, lambda_alignment=lambda_alignment, sigma=sigma)
         self.weight_decay = weight_decay
         self.save_hyperparameters()
+
+    def _init_identity(self, layer: nn.Linear):
+        """Initialize a square linear layer as identity + small noise."""
+        assert layer.in_features == layer.out_features, "Must be square for identity init"
+        nn.init.eye_(layer.weight)
+        nn.init.zeros_(layer.bias)
         
     def on_fit_start(self):
         if self.logger is not None:
@@ -51,12 +70,13 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         
     def compute_loss(self, logits_per_text, logits_per_location):
         return self.loss_fn(logits_per_text, logits_per_location)
-
-
             
     def forward_step(self, batch):
         locations, descriptions = batch
         logits_per_text = self.text_model(descriptions)
+        # print("text_model output shape:", logits_per_text.shape)
+        # print("text_linear in_features:", self.text_linear.in_features)
+        logits_per_text = self.text_linear(logits_per_text)
         logits_per_location = self.location_model(locations)
         
         # normalize after projection
@@ -80,18 +100,17 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         return loss
 
     def configure_optimizers(self):
+        # still need to re-implement if train encoder is true
+        # for now, just finetunes the linear layer and logit scale
         named_params = []
-    
-        if self.text_model.train_encoder:
-            named_params.extend([
-                (f"text_model.{n}", p) 
-                for n, p in self.text_model.named_parameters() 
-                if p.requires_grad
-            ])
         
+        named_params.extend([
+            (f"text_linear.{n}", p)
+            for n, p in self.text_linear.named_parameters()
+            if p.requires_grad
+        ])
         named_params.append(("loss_fn.logit_scale", self.loss_fn.logit_scale))
         
-        # no decay for biases, norms, and 1D params
         exclude = (
             lambda n, p: p.ndim < 2
             or "bn" in n
@@ -103,27 +122,13 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         no_decay_params = [p for n, p in named_params if exclude(n, p)]
         decay_params = [p for n, p in named_params if not exclude(n, p)]
         
-        optimizer = torch.optim.AdamW(
+        return torch.optim.AdamW(
             [
                 {"params": no_decay_params, "weight_decay": 0.0},
                 {"params": decay_params, "weight_decay": self.weight_decay},
             ],
             lr=self.learning_rate,
         )
-        
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer,
-            T_max=self.trainer.max_epochs,
-            eta_min=1e-6
-        )
-        
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "interval": "epoch",  # Update each epoch
-            }
-        }
 
     def text_model_predict(self, text, normalize=False):
         self.eval()
@@ -134,7 +139,7 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
                 embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
         return embeddings
 
-
+from lightning.pytorch.callbacks import EarlyStopping
         
 def cli_main(config_filename: str):
     config_fn = Path(config_filename)
@@ -147,16 +152,29 @@ def cli_main(config_filename: str):
             overwrite=True,
         ),
         trainer_defaults={
-            "log_every_n_steps": 10 # controls how often Lightning sends metrics to loggers
+            "log_every_n_steps": 10
         },
         parser_kwargs={"default_config_files": [config_fn]},
         seed_everything_default=0,
         run=False,
     )
+    early_stop_cb = None
+    for cb in cli.trainer.callbacks:
+        if isinstance(cb, EarlyStopping):
+            early_stop_cb = cb
+            break
+
+    # now modify it
+    if early_stop_cb is not None:
+        early_stop_cb.monitor = "val_loss"
+        early_stop_cb.patience = 10
+        early_stop_cb.mode = "min"
+        early_stop_cb.verbose = True
 
     ts = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     lambda_align = cli.model.hparams.lambda_alignment
-    run_name = f"Location2Text_S2_lambda{lambda_align}_{ts}"
+    dataset_name = cli.datamodule.hparams.dataset_name
+    run_name = f"Location2Text_{dataset_name}_S2_lambda{lambda_align}_{ts}"
     if cli.trainer.logger is not None:
         cli.trainer.logger.experiment.name = run_name
 

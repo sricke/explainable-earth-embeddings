@@ -9,6 +9,8 @@ parent = Path(os.path.abspath(__file__)).parent
 sys.path.insert(0, str(parent))
 sys.path.append(str(parent.parent / "SpLiCE"))
 
+wikipedia_dataset_path = parent / "../../data/s2-100k/wikipedia-dataset/"
+
 from splice import *
 from PIL import Image
 import torch
@@ -71,12 +73,31 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # Load Lightning checkpoint
-    checkpoint_path = "../../outputs/explainable-earth-embeddings/checkpoints/Text2Location-epoch=199-val_loss=1.6525.ckpt"
+    #checkpoint_path = "../../outputs/explainable-earth-embeddings/wikipedia-dataset/checkpoints/Text2Location-epoch=143-val_loss=5.1047.ckpt"
 
-    model = Location2TextLightningModule.load_from_checkpoint(checkpoint_path, device="cuda")
-    model.eval()
+    checkpoint_path = 'location2text_pretrained.ckpt'
 
-    vocab_path = str(parent / 'satellite_vocab_land.json')
+    # change later...
+    model = Location2TextLightningModule(
+        location_model_type="geoclip",
+        location_model=None,
+        location_model_filename=None,
+        text_model_type="geoclip",
+        text_model="geoclip",
+        text_vocabulary="openai",
+        train_text_model=False,
+        learning_rate=1e-4,
+        weight_decay=1e-2,
+        logit_scale_temperature=0.07,
+        lambda_alignment=1.0,
+        sigma=1.0,
+    )
+    ckpt = torch.load(checkpoint_path, map_location="cuda", weights_only=False)
+    model.load_state_dict(ckpt["state_dict"])
+    model.eval().to("cuda")
+
+
+    vocab_path = str(parent / 'text-descriptions-wikipedia/geospatial_concepts.json')
     ## Compute embedded dictionary, mean-center and normalize
 
     satellite_concepts_words = []
@@ -98,29 +119,32 @@ if __name__ == "__main__":
     satellite_concepts = torch.nn.functional.normalize(satellite_concepts, dim=1)
     satellite_concepts = torch.nn.functional.normalize(satellite_concepts-torch.mean(satellite_concepts, dim=0), dim=1)
 
-    num_samples = 10000
-    satclip_df = pd.read_csv(str(parent / "text-descriptions/index_with_ee.csv"))
+    num_samples = 100
+    latlon_df = pd.read_csv(str(wikipedia_dataset_path / "dataset.csv"))
     if num_samples is not None:
-        satclip_df = satclip_df.sample(n=num_samples, random_state=42)
+        latlon_df = latlon_df.sample(n=num_samples, random_state=42)
 
     output_dim = model.output_dim
-    satclip_embeddings = torch.zeros(len(satclip_df), output_dim).to(device)
+    latlon_embeddings = torch.zeros(len(latlon_df), output_dim).to(device)
 
     with torch.no_grad():
-        locations = satclip_df[["lon", "lat"]].values.astype(np.float64)
+        locations = latlon_df[["lon", "lat"]].values.astype(np.float64)
         locations = torch.tensor(locations, device=device) 
         
         dataloader = DataLoader(locations, batch_size=512, shuffle=False)
         i = 0
         for batch in tqdm(dataloader, total=len(dataloader), desc="Encoding location embeddings"):
-            satclip_embeddings[i:i+batch.shape[0]] = model.location_model(batch)
+            try:
+                latlon_embeddings[i:i+batch.shape[0]] = model.location_model(batch)
+            except Exception as e:
+                from IPython import embed; embed()
             i += batch.shape[0]
             
             if i % 5120 == 0:  # every 10 batches with batch_size=512
                 torch.cuda.empty_cache()
 
-    satclip_embeddings = torch.nn.functional.normalize(satclip_embeddings, dim=1) 
-    mean_embedding_locs = torch.mean(satclip_embeddings, dim=0).to(device)
+    latlon_embeddings = torch.nn.functional.normalize(latlon_embeddings, dim=1) 
+    mean_embedding_locs = torch.mean(latlon_embeddings, dim=0).to(device)
 
     l1_penalty = 0.05
     splicemodel = SPLICE(
@@ -135,8 +159,8 @@ if __name__ == "__main__":
 
     # iterate through PRECOMPUTED embeddings
     results = []
-    for index in tqdm(range(len(satclip_embeddings)), desc="Decomposing location embeddings"):
-        location_embedding = satclip_embeddings[index].unsqueeze(0)  # shape: [1, 256]
+    for index in tqdm(range(len(latlon_embeddings)), desc="Decomposing location embeddings"):
+        location_embedding = latlon_embeddings[index].unsqueeze(0)  # shape: [1, 256]
         
         # normalize and center
         location_embedding = torch.nn.functional.normalize(location_embedding, dim=1)
@@ -156,7 +180,7 @@ if __name__ == "__main__":
 
         sparse_weights = sparse_weights.squeeze()
 
-        location = satclip_df.iloc[index]
+        location = latlon_df.iloc[index]
 
         result = {
             'lat': location['lat'],
@@ -169,6 +193,7 @@ if __name__ == "__main__":
             result[concept_word] = sparse_weights[concept_idx].item()
         
         results.append(result)
+
         
         if (index + 1) % 10000 == 0:
             batch_num = (index + 1) // 10000
@@ -180,7 +205,7 @@ if __name__ == "__main__":
             torch.cuda.empty_cache()
 
     if results:
-        batch_num = (len(satclip_embeddings) // 10000) + 1
+        batch_num = (len(latlon_embeddings) // 10000) + 1
         weights_df = pd.DataFrame(results)
         output_path = str(parent / f"location_weights_batch_{batch_num}_l1_penalty_{l1_penalty}_num_samples_{num_samples}.parquet")
         weights_df.to_parquet(output_path, index=False)

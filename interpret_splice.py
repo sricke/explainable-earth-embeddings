@@ -85,5 +85,5 @@ def plot_active_concepts_vs_mse(df, threshold=0.0):
 
 if __name__ == "__main__":
 
-    df = pd.read_parquet('location_weights_batch_1_l1_penalty_0.05_num_samples_10000.parquet')
+    df = pd.read_parquet('location_weights_batch_1_l1_penalty_0.05_num_samples_100.parquet')
     from IPython import embed; embed()

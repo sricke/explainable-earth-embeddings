@@ -1,11 +1,17 @@
+from pathlib import Path
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import torch
-def train_split(folder_path, test_size=0.2, random_state=42):
-    df = pd.read_csv(f"{folder_path}/index_with_descriptions.csv")
+
+def train_split(file_path, test_size=0.2, random_state=42):
+    df = pd.read_csv(file_path)
     df_train, df_test = train_test_split(df, test_size=test_size, random_state=random_state)
-    df_train.to_csv(f"{folder_path}/train.csv", index=False)
-    df_test.to_csv(f"{folder_path}/val.csv", index=False)
+
+    output_train = file_path.parent / "train.csv"
+    output_val = file_path.parent / "val.csv"
+
+    df_train.to_csv(output_train, index=False)
+    df_test.to_csv(output_val, index=False)
     return df_train, df_test
 
 def get_location_model_output_dim(location_model):
@@ -14,4 +20,5 @@ def get_location_model_output_dim(location_model):
     return output_dim
 
 if __name__ == "__main__":
-    train_split("/home/ricke/satcam/explainable-earth-embeddings/s2-100k")
+    file_path = Path("../../data/s2-100k/wikipedia-dataset/dataset.csv")
+    train_split(file_path)

@@ -80,6 +80,7 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
     def __init__(
         self,
         data_path: Path,
+        dataset_name: str = "default",
         batch_size: int = 64,
         num_workers: int = 6,
         text_model: str = 'ViT-B-32',
@@ -87,6 +88,7 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
         mode: str = "both",
     ):
         super().__init__()
+        self.dataset_name = dataset_name
         self.data_path = data_path
         self.text_model = text_model
         self.batch_size = batch_size
