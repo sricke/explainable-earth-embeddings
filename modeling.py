@@ -81,7 +81,7 @@ class TextEmbeddingModel(Encoder):
 
         if text_model == 'ViT-B-32':
             model = open_clip.create_model(text_model, pretrained=text_vocabulary)
-            del model.visual
+            del model.visual # just need text encoder
             self.tokenizer = open_clip.get_tokenizer(text_model)
             output_dim = model.text_projection.shape[1]
 
@@ -91,7 +91,7 @@ class TextEmbeddingModel(Encoder):
 
             loc_image_clip_model = GeoCLIP()
             image_encoder = loc_image_clip_model.image_encoder
-            clip_model = image_encoder.CLIP          # full CLIPModel, not clip_model.text_model
+            clip_model = image_encoder.CLIP          # full CLIPModel
             mlp = image_encoder.mlp
 
             self.tokenizer = AutoTokenizer.from_pretrained("openai/clip-vit-large-patch14")

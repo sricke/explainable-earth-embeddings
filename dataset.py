@@ -67,7 +67,7 @@ class LocationDescriptionDataset(NonGeoDataset):
             raise NotImplementedError("Transformations are not implemented for this dataset yet")
         row = self.data.iloc[index]
         label = row['description']
-        point = torch.tensor([row['lon'], row['lat']])
+        point = torch.tensor([row['lat'], row['lon']]) #CHANGE FOR SATCLIP
         tokenized_label = self.tokenizer(label).squeeze(0)
         return point, tokenized_label
 
