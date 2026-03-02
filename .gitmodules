@@ -1,0 +1,6 @@
+[submodule "satclip"]
+	path = satclip
+	url = https://github.com/microsoft/satclip.git
+[submodule "CLIP_Surgery"]
+	path = CLIP_Surgery
+	url = https://github.com/xmed-lab/CLIP_Surgery.git
