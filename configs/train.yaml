@@ -46,7 +46,7 @@ trainer:
   callbacks:
   - class_path: lightning.pytorch.callbacks.ModelCheckpoint
     init_args:
-      dirpath: ../../outputs/explainable-earth-embeddings/wikipedia-dataset/checkpoints
+      dirpath: ../../outputs/explainable-earth-embeddings/geoyfcc-text/checkpoints
       filename: Text2Location-{epoch:02d}-{val_loss:.4f}
       monitor: val_loss
       verbose: false
@@ -109,22 +109,24 @@ trainer:
   enable_autolog_hparams: true
   model_registry: null
 model:
-  location_model: microsoft/SatCLIP-ViT16-L10
-  location_model_filename: satclip-vit16-l10.ckpt
-  text_model: ViT-B-32
-  text_vocabulary: laion2b_s34b_b79k
+  location_model_type: geoclip
+  location_model: geoclip
+  location_model_filename: geoclip
+  text_model_type: geoclip
+  text_model: geoclip
+  text_vocabulary: openai
   train_text_model: true
-  learning_rate: 0.001
+  finetune_mode: geoclip_text_mlp_only
+  learning_rate: 0.0001
   weight_decay: 0.01
   logit_scale_temperature: 0.07
   lambda_alignment: 0.0
   sigma: 1.0
 data:
-  data_path: ../../data/s2-100k/wikipedia-dataset/
-  dataset_name: Wikipedia-Dataset
+  data_path: ../../data/geoyfcc/
+  dataset_name: GeoYFCC-Text
   batch_size: 512
   num_workers: 6
-  text_model: ViT-B-32
   transform: null
   mode: both
 optimizer: null

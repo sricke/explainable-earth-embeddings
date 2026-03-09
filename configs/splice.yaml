@@ -2,8 +2,9 @@
 
 device: "cuda"
 num_samples: 10000      # set to null to use all rows
-max_vocab_size: 15000
+max_vocab_size: 20000
 batch_size: 100
+top_k: 10
 
 dataset_csv: "../../data/s2-100k/ee-dataset/dataset.csv"
 
@@ -11,24 +12,21 @@ models:
   - label: "geoclip_pretrained"
     ckpt_path: "location2text_pretrained.ckpt"
 
+# Either specify vocab_files explicitly, or leave this commented and keep vocab_dirs
+# to have them automatically expanded at load time.
 vocab_dirs:
-  - "text-descriptions-wikipedia"
-  - "text-descriptions-ee"
+  - "vocabs"
 
 l1_penalties: [0.35, 0.25, 0.15]
 
 known_locations:
   "New York City": [40.7128, -74.0060]
-  "Paris": [48.8566, 2.3522]
-  "Tokyo": [35.6895, 139.6917]
-  "Sydney": [-33.8688, 151.2093]
-  "Cairo": [30.0444, 31.2357]
-  "London": [51.5074, -0.1278]
-  "Los Angeles": [34.0522, -118.2437]
-  "Rio de Janeiro": [-22.9068, -43.1729]
-  "Delhi": [28.7041, 77.1025]
-  "Shanghai": [31.2304, 121.4737]
+  "Grand Canyon": [36.1069, -112.1129]
+  "Rome": [41.9028, 12.4964]
+  "Dar es Salaam": [-6.7924, 39.2083]
+  "Da Nang": [16.0544, 108.2022]
   "Himilayas": [30.427193, 95.643024]
+  "Sahara Desert": [23.4162, 13.4064]
 
 output:
   parquet_dir: "splice_outputs"

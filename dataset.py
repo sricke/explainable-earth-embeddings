@@ -33,7 +33,6 @@ class LocationDescriptionDataset(NonGeoDataset):
         self,
         root: Path = 'data',
         split: str = 'train', # train, val, test
-        text_model: str = 'ViT-B-32',
         transforms: Callable[[dict[str, Tensor]], dict[str, Tensor]] | None = None,
         download: bool = False,
     ) -> None:
@@ -48,7 +47,6 @@ class LocationDescriptionDataset(NonGeoDataset):
                 entry and returns a transformed version
             download: if True, download dataset and store it in the root directory
         """
-        self.tokenizer = open_clip.get_tokenizer(text_model)
         self.data = pd.read_csv(f"{root}/{split}.csv")
         self.transforms = transforms
 
@@ -66,10 +64,14 @@ class LocationDescriptionDataset(NonGeoDataset):
         if self.transforms is not None:
             raise NotImplementedError("Transformations are not implemented for this dataset yet")
         row = self.data.iloc[index]
-        label = row['description']
+        label = row['description'] if 'description' in self.data.columns else row['text']
+        if isinstance(label, (tuple, list)):
+            label = list(label)   # tuple -> list of strings
+            # or:  label = ' '.join(label)   # tuple -> one string
+        else:
+            label = str(label) 
         point = torch.tensor([row['lat'], row['lon']]) #CHANGE FOR SATCLIP
-        tokenized_label = self.tokenizer(label).squeeze(0)
-        return point, tokenized_label
+        return point, label
 
     def plot(self) -> Figure:
         """Plot a sample of the dataset for visualization purposes.
@@ -83,14 +85,12 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
         dataset_name: str = "default",
         batch_size: int = 64,
         num_workers: int = 6,
-        text_model: str = 'ViT-B-32',
         transform: str = None,
         mode: str = "both",
     ):
         super().__init__()
         self.dataset_name = dataset_name
         self.data_path = data_path
-        self.text_model = text_model
         self.batch_size = batch_size
         self.num_workers = num_workers
         
@@ -100,8 +100,10 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
 
         self.mode = mode
         self.save_hyperparameters()
+
+        df = pd.read_csv(f'{self.data_path}/train.csv')
         
-        self.columns = ['fn', 'lat', 'lon', 'description']
+        self.columns = ['fn', 'lat', 'lon', 'description'] if 'description' in df.columns else ['fn', 'lat', 'lon', 'text']
 
     def prepare_data(self) -> None:
         if not os.path.exists(self.data_path):
@@ -114,8 +116,8 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
                 raise ValueError(f"Data path {self.data_path} does not contain {column} column")
 
     def setup(self, stage="fit"):
-        self.train_dataset = LocationDescriptionDataset(root=self.data_path, split='train', text_model=self.text_model, transforms=self.train_transform)
-        self.val_dataset = LocationDescriptionDataset(root=self.data_path, split='val', text_model=self.text_model, transforms=None)
+        self.train_dataset = LocationDescriptionDataset(root=self.data_path, split='train', transforms=self.train_transform)
+        self.val_dataset = LocationDescriptionDataset(root=self.data_path, split='val', transforms=None)
 
     def train_dataloader(self):
         return DataLoader(
@@ -123,7 +125,9 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             shuffle=True,
-            worker_init_fn=lambda worker_id: torch.manual_seed(42 + worker_id)
+            worker_init_fn=lambda worker_id: torch.manual_seed(42 + worker_id),
+            pin_memory=True,
+            persistent_workers=True if self.num_workers > 0 else False,
         )
 
     def val_dataloader(self):
@@ -132,7 +136,8 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             shuffle=False,
-            #persistent_workers=True if self.num_workers > 0 else False,
+            persistent_workers=True if self.num_workers > 0 else False,
+            pin_memory=True,
         )
 
     def test_dataloader(self):

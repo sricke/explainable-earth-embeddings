@@ -84,6 +84,7 @@ class TextEmbeddingModel(Encoder):
             del model.visual # just need text encoder
             self.tokenizer = open_clip.get_tokenizer(text_model)
             output_dim = model.text_projection.shape[1]
+            self.embed_project = nn.Linear(output_dim, target_dim) if target_dim is not None else None
 
         elif text_model == 'geoclip':
             from geoclip import GeoCLIP
@@ -114,6 +115,7 @@ class TextEmbeddingModel(Encoder):
 
             model = CLIPTextWithMLP(clip_model, mlp)
             output_dim = 512  # GeoCLIP MLP output dim
+            self.embed_project = None
 
         else:
             raise ValueError(f"Unsupported text model: {text_model}")
@@ -125,13 +127,16 @@ class TextEmbeddingModel(Encoder):
         self.train_encoder = train_text_model
         if not train_text_model:
             self.model.eval()
-        # self.embed_project = nn.Linear(output_dim, target_dim) if target_dim is not None else None
-        self.embed_project = None
+
         self.target_dim = target_dim
+        self.text_output_dim = output_dim
 
     def encode_features(self, x):
         if not isinstance(x, (str, list)):
-            raise ValueError(f"Expected str or list, got {type(x)}")
+            if isinstance(x, tuple):
+                x = list[str](x)
+            else:
+                raise ValueError(f"Expected str or list, got {type(x)}")
 
         if self.text_model_type == 'geoclip':
             tokens = self.tokenizer(x, return_tensors="pt", padding=True, truncation=True)
