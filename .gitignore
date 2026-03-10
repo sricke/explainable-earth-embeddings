@@ -211,6 +211,7 @@ __marimo__/
 satclip_index.csv
 *.csv
 satclip/
+.vscode/
 
 checkpoints/
 s2-100k/
@@ -225,3 +226,8 @@ post-hoc-cbm/
 *.pth
 *.png
 *.ckpt
+*.pt
+*.pkl
+*.csv
+*.jsonl
+text-descriptions-wildsat/wildsat-dataset-api/

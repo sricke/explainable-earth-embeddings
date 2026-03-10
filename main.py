@@ -172,10 +172,10 @@ def cli_main(config_filename: str):
             early_stop_cb = cb
             break
 
-    # now modify it
+    # now modify it (ensure EarlyStopping is configured as desired)
     if early_stop_cb is not None:
         early_stop_cb.monitor = "val_loss"
-        early_stop_cb.patience = 3
+        early_stop_cb.patience = 5
         early_stop_cb.mode = "min"
         early_stop_cb.verbose = True
         early_stop_cb.min_delta = 0.001
