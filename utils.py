@@ -15,9 +15,22 @@ def train_split(file_path, test_size=0.2, random_state=42):
     return df_train, df_test
 
 def get_location_model_output_dim(location_model):
-    embedding = location_model(torch.randn(1, 2)) # dummy location
-    output_dim = embedding.shape[1]
-    return output_dim
+    """Infer the output embedding dimension of a location encoder.
+
+    We avoid touching SatCLIP internals by doing a single, cheap forward
+    pass on a dummy lat/lon point, using the same device and dtype as
+    the location model's parameters.
+    """
+    # Get device and dtype from the first parameter
+    param = next(location_model.parameters())
+    device = param.device
+    dtype = param.dtype
+
+    dummy = torch.zeros(1, 2, device=device, dtype=dtype)
+    with torch.no_grad():
+        embedding = location_model(dummy)
+
+    return embedding.shape[1]
 
 if __name__ == "__main__":
     file_path = Path("../../data/s2-100k/wikipedia-dataset/dataset.csv")

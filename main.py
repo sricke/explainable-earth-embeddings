@@ -51,7 +51,7 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         self.weight_decay = weight_decay
         self.save_hyperparameters()
 
-        set_finetune_mode(self.text_model.model, finetune_mode)
+        set_finetune_mode(self.text_model, finetune_mode)
 
     def _init_identity(self, layer: nn.Linear):
         """Initialize a square linear layer as identity + small noise."""

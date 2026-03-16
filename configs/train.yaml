@@ -4,7 +4,7 @@ trainer:
   accelerator: gpu
   strategy: auto
   devices:
-  - 0
+  - 2
   num_nodes: 1
   precision: null
   logger:
@@ -110,8 +110,8 @@ trainer:
   model_registry: null
 model:
   location_model_type: satclip
-  location_model: microsoft/SatCLIP-ViT16-L40   # TODO: set to SatCLIP HF repo id or local alias
-  location_model_filename: satclip-vit16-l40.ckpt  # TODO: set to SatCLIP checkpoint filename within the repo
+  location_model: microsoft/SatCLIP-ViT16-L40
+  location_model_filename: satclip-vit16-l40.ckpt
   text_model_type: geoclip
   text_model: geoclip
   text_vocabulary: openai
@@ -129,4 +129,5 @@ data:
   num_workers: 6
   transform: null
   mode: both
-
+optimizer: null
+lr_scheduler: null

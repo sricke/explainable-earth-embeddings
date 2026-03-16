@@ -103,7 +103,7 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
 
         df = pd.read_csv(f'{self.data_path}/train.csv')
         
-        self.columns = ['fn', 'lat', 'lon', 'description'] if 'description' in df.columns else ['fn', 'lat', 'lon', 'text']
+        self.columns = ['lat', 'lon', 'description'] if 'description' in df.columns else ['lat', 'lon', 'text']
 
     def prepare_data(self) -> None:
         if not os.path.exists(self.data_path):
