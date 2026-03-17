@@ -216,6 +216,8 @@ satclip/
 checkpoints/
 s2-100k/
 00_wandb/
+wandb/
+*.wandb
 
 satclip/
 SpLiCE/
