@@ -2,7 +2,7 @@ from typing import Literal, Optional, Union
 import sys
 from pathlib import Path
 from utils import get_location_model_output_dim
-# Add project root to path so we can import satclip
+# Add project root to path so we can import external.satclip
 project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
@@ -11,7 +11,7 @@ import torch
 import open_clip
 import torch.nn as nn
 from huggingface_hub import hf_hub_download
-from satclip.satclip.load import get_satclip
+from external.satclip.satclip.load import get_satclip
 from transformers.modeling_outputs import BaseModelOutputWithPooling
 import torch.nn.functional as F
 import torch.nn as nn

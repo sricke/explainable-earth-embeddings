@@ -9,15 +9,16 @@ top_k: 10
 dataset_csv: "../../data/s2-100k/ee-dataset/dataset.csv"
 
 models:
-  - label: "geoclip_pretrained"
-    ckpt_path: "location2text_pretrained.ckpt"
+  - label: "satclip-geoyfcc"
+    ckpt_dir: "~/outputs/explainable-earth-embeddings/satclip/geoyfcc-text/checkpoints"
+    ckpt_name: "Text2Location-epoch=46-val_loss=1.3700.ckpt"
 
 # Either specify vocab_files explicitly, or leave this commented and keep vocab_dirs
 # to have them automatically expanded at load time.
 vocab_dirs:
-  - "vocabs"
+  - "0_vocabs"
 
-l1_penalties: [0.35, 0.25, 0.15]
+l1_penalties: [0.25, 0.15]
 
 known_locations:
   "New York City": [40.7128, -74.0060]

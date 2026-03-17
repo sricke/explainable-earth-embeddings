@@ -2,52 +2,9 @@ from pathlib import Path
 from typing import Tuple
 
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 
-
-class BaseTextDataset:
-    """Base utilities for text datasets."""
-
-    # We only keep lat, lon and text to be minimal and model-agnostic.
-    REQUIRED_COLUMNS = {"lat", "lon", "text"}
-
-    @staticmethod
-    def ensure_output_dir(path: Path) -> None:
-        path.mkdir(parents=True, exist_ok=True)
-
-    @classmethod
-    def validate_dataframe(cls, df: pd.DataFrame) -> pd.DataFrame:
-        """Ensure dataframe contains required columns."""
-        missing = cls.REQUIRED_COLUMNS - set(df.columns)
-        if missing:
-            raise ValueError(f"Missing required columns: {missing}")
-
-        # Always return just the required columns, dropping rows with NaNs.
-        return df[list(cls.REQUIRED_COLUMNS)].dropna()
-
-    @classmethod
-    def create_csv_splits(
-        cls,
-        df: pd.DataFrame,
-        output_dir: Path,
-        test_size: float = 0.1,
-        random_state: int = 42,
-    ) -> Tuple[Path, Path]:
-        """Create train/val CSV splits."""
-        cls.ensure_output_dir(output_dir)
-
-        train_df, val_df = train_test_split(
-            df, test_size=test_size, random_state=random_state, shuffle=True
-        )
-
-        train_path = output_dir / "train.csv"
-        val_path = output_dir / "val.csv"
-
-        train_df.to_csv(train_path, index=False)
-        val_df.to_csv(val_path, index=False)
-
-        return train_path, val_path
+from .base import BaseTextDataset
 
 
 class GeoYFCCTextDataset(BaseTextDataset, Dataset):
@@ -127,9 +84,6 @@ class GeoYFCCTextDataset(BaseTextDataset, Dataset):
             raise FileNotFoundError(f"GeoYFCC pickle not found: {pkl_path}")
 
         df = pd.read_pickle(pkl_path)
-        # Dataset currently has no explicit language column, so we cannot
-        # reliably filter by language. If needed, language-based filtering
-        # should be done upstream when creating the pickle.
 
         required_cols = {"lat", "lon", "text"}
         missing = required_cols - set(df.columns)
@@ -160,17 +114,3 @@ class GeoYFCCTextDataset(BaseTextDataset, Dataset):
             random_state=random_state,
         )
 
-
-if __name__ == "__main__":
-    # Example usage
-
-    pkl_path = Path("~/data/geoyfcc/geoyfcc_text_filtered_single_label.pkl")
-    output_dir = Path("~/data/geoyfcc_geoclip_satclip")
-
-    train_csv, val_csv = GeoYFCCTextDataset.create_splits_from_pickle(
-        pkl_path=pkl_path,
-        output_dir=output_dir,
-    )
-
-    print("Train CSV:", train_csv)
-    print("Val CSV:", val_csv)

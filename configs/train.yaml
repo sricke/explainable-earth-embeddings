@@ -123,11 +123,18 @@ model:
   lambda_alignment: 0.0
   sigma: 1.0
 data:
-  data_path: ../../data/geoyfcc/
-  dataset_name: GeoYFCC-Text
+  data_path: /home/libe2152/data/wildsat
+  dataset_name: WildSat-Text
   batch_size: 512
   num_workers: 6
   transform: null
   mode: both
+  source_csv_path: /home/libe2152/data/wildsat/geolocated_text_distribution_habitat_only.csv
+  source_pkl_path: null
+  section_types:
+  - range
+  - habitat
+  test_size: 0.1
+  random_state: 42
 optimizer: null
 lr_scheduler: null

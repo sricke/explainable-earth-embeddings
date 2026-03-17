@@ -1,4 +1,4 @@
-from satclip.satclip.loss import SatCLIPLoss
+from external.satclip.satclip.loss import SatCLIPLoss
 import torch.nn.functional as F
 import torch.nn as nn
 import torch
