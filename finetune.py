@@ -3,15 +3,16 @@ import torch.nn as nn
 
 FINETUNE_MODE_OPTIONS = Literal[
     "none",
+    "mlp",
     "linear_only",
     "all",
     "geoclip_text_mlp_only"
 ]
 
 def set_finetune_mode(text_model, finetune_mode: str):
-    """Set which parts of the TextEmbeddingModel are trainable.
+    """Set which parts of the TextEncoder are trainable.
 
-    Note: Call this with the `TextEmbeddingModel` instance (not the wrapped
+    Note: Call this with the `TextEncoder` instance (not the wrapped
     backend model), so we can also handle optional projection heads.
     """
     for param in text_model.parameters():
@@ -20,9 +21,9 @@ def set_finetune_mode(text_model, finetune_mode: str):
     if finetune_mode == "none":
         return
 
-    elif finetune_mode == "linear_only":
+    elif finetune_mode in {"linear_only", "mlp"}:
         if getattr(text_model, "embed_project", None) is None:
-            raise ValueError("linear_only requires text_model.embed_project to exist")
+            raise ValueError("mlp/linear_only requires text_model.embed_project to exist")
         for param in text_model.embed_project.parameters():
             param.requires_grad = True
 

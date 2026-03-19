@@ -18,7 +18,7 @@ class WildSatTextDataset(BaseTextDataset, Dataset):
          (e.g., geolocated_text_dataset.csv) and then load the selected split.
 
     Typical raw WildSat columns:
-        taxon_id, species_name, section_name, section_type, text, lat, lon
+        taxon_id, species_name, section_name, text, lat, lon
     """
 
     def __init__(
@@ -27,7 +27,6 @@ class WildSatTextDataset(BaseTextDataset, Dataset):
         csv_path: Path | str | None = None,
         wildsat_csv_path: Path | str | None = None,
         output_dir: Path | str | None = None,
-        section_types: tuple[str, ...] | list[str] | None = ("range", "habitat"),
         test_size: float = 0.1,
         random_state: int = 42,
     ):
@@ -38,7 +37,7 @@ class WildSatTextDataset(BaseTextDataset, Dataset):
         print(
             f"[WildSatTextDataset.__init__] split={split} "
             f"csv_path={csv_path!r} wildsat_csv_path={wildsat_csv_path!r} "
-            f"output_dir={output_dir!r} section_types={section_types} "
+            f"output_dir={output_dir!r} "
             f"test_size={test_size} random_state={random_state}"
         )
 
@@ -62,7 +61,6 @@ class WildSatTextDataset(BaseTextDataset, Dataset):
             train_csv, val_csv = self.create_splits_from_wildsat_csv(
                 wildsat_csv_path=raw_path,
                 output_dir=output_dir,
-                section_types=section_types,
                 test_size=test_size,
                 random_state=random_state,
             )
@@ -93,8 +91,7 @@ class WildSatTextDataset(BaseTextDataset, Dataset):
     @classmethod
     def load_wildsat_csv(
         cls,
-        wildsat_csv_path: Path,
-        section_types: tuple[str, ...] | list[str] | None = ("range", "habitat"),
+        wildsat_csv_path: Path
     ) -> pd.DataFrame:
         """Load raw WildSat CSV and normalize to minimal columns."""
         wildsat_csv_path = Path(wildsat_csv_path).expanduser()
@@ -111,22 +108,6 @@ class WildSatTextDataset(BaseTextDataset, Dataset):
         if missing:
             raise ValueError(f"WildSat CSV is missing required columns: {missing}")
 
-        if section_types is not None and "section_type" in df.columns:
-            normalized = {s.lower() for s in section_types}
-            print(
-                "[WildSatTextDataset.load_wildsat_csv] filtering by "
-                f"section_types={normalized}"
-            )
-            print(
-                "[WildSatTextDataset.load_wildsat_csv] section_type value_counts:\n"
-                f"{df['section_type'].value_counts(dropna=False).to_string()}"
-            )
-            df = df[df["section_type"].astype(str).str.lower().isin(normalized)]
-            print(
-                f"[WildSatTextDataset.load_wildsat_csv] rows after section_type "
-                f"filter={len(df):,}"
-            )
-
         return df[["lat", "lon", "text"]]
 
     @classmethod
@@ -134,20 +115,16 @@ class WildSatTextDataset(BaseTextDataset, Dataset):
         cls,
         wildsat_csv_path: Path,
         output_dir: Path,
-        section_types: tuple[str, ...] | list[str] | None = ("range", "habitat"),
         test_size: float = 0.1,
         random_state: int = 42,
     ) -> Tuple[Path, Path]:
         """Create train/val CSV splits directly from raw WildSat CSV."""
-        df = cls.load_wildsat_csv(
-            wildsat_csv_path=wildsat_csv_path,
-            section_types=section_types,
-        )
+        df = cls.load_wildsat_csv(wildsat_csv_path=wildsat_csv_path)
         df = cls.validate_dataframe(df)
         if df.empty:
             raise ValueError(
-                "No WildSat rows remain after filtering/validation. "
-                "Check `section_types` or input data quality."
+                "No WildSat rows remain after validation. "
+                "Check input data quality."
             )
 
         print(

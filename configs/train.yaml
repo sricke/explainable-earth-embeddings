@@ -4,7 +4,7 @@ trainer:
   accelerator: gpu
   strategy: auto
   devices:
-  - 2
+  - 0
   num_nodes: 1
   precision: null
   logger:
@@ -32,7 +32,7 @@ trainer:
       allow_val_change: null
       group: null
       job_type: null
-      mode: null
+      mode: offline
       force: null
       reinit: null
       resume: null
@@ -46,14 +46,14 @@ trainer:
   callbacks:
   - class_path: lightning.pytorch.callbacks.ModelCheckpoint
     init_args:
-      dirpath: ../../outputs/explainable-earth-embeddings/geoyfcc-text/checkpoints
+      dirpath: ../../outputs/explainable-earth-embeddings/satclip/wildsat-text/checkpoints
       filename: Text2Location-{epoch:02d}-{val_loss:.4f}
       monitor: val_loss
       verbose: false
       save_last: true
       save_top_k: 1
       save_on_exception: false
-      save_weights_only: false
+      save_weights_only: true
       mode: min
       auto_insert_metric_name: true
       every_n_train_steps: null
@@ -85,7 +85,7 @@ trainer:
   limit_test_batches: null
   limit_predict_batches: null
   overfit_batches: 0.0
-  val_check_interval: 1.0
+  val_check_interval: null
   check_val_every_n_epoch: 1
   num_sanity_val_steps: null
   log_every_n_steps: 10
@@ -109,32 +109,35 @@ trainer:
   enable_autolog_hparams: true
   model_registry: null
 model:
-  location_model_type: satclip
-  location_model: microsoft/SatCLIP-ViT16-L40
-  location_model_filename: satclip-vit16-l40.ckpt
-  text_model_type: geoclip
-  text_model: geoclip
-  text_vocabulary: openai
-  train_text_model: true
-  finetune_mode: geoclip_text_mlp_only
+  location_backend: satclip
+  location_model_id: microsoft/SatCLIP-ViT16-L40
+  location_checkpoint: satclip-vit16-l40.ckpt
+  text_backend: gritlm
+  text_model_id: GritLM/GritLM-7B
+  text_pretrained: null
+  train_text_model: false
+  text_projection_head: mlp2
+  text_projection_hidden_dim: 1024
+  checkpoint_projection_only: true
+  finetune_mode: mlp
   learning_rate: 0.0001
   weight_decay: 0.01
   logit_scale_temperature: 0.07
   lambda_alignment: 0.0
   sigma: 1.0
+  text_chunk_granularity: null
+  text_chunk_pooling: mean
 data:
   data_path: /home/libe2152/data/wildsat
   dataset_name: WildSat-Text
-  batch_size: 512
+  batch_size: 8
   num_workers: 6
   transform: null
   mode: both
   source_csv_path: /home/libe2152/data/wildsat/geolocated_text_distribution_habitat_only.csv
   source_pkl_path: null
-  section_types:
-  - range
-  - habitat
   test_size: 0.1
   random_state: 42
+  debug_print_examples: 0
 optimizer: null
 lr_scheduler: null

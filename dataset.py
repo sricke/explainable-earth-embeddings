@@ -37,6 +37,7 @@ class LocationDescriptionDataset(NonGeoDataset):
         split: str = 'train', # train, val, test
         transforms: Callable[[dict[str, Tensor]], dict[str, Tensor]] | None = None,
         download: bool = False,
+        debug_print_examples: int = 0,
     ) -> None:
         """Initialize the dataset.
 
@@ -51,6 +52,7 @@ class LocationDescriptionDataset(NonGeoDataset):
         """
         self.data = pd.read_csv(f"{root}/{split}.csv")
         self.transforms = transforms
+        self.debug_print_examples = max(0, int(debug_print_examples))
         if "description" in self.data.columns:
             self.text_column = "description"
         elif "text" in self.data.columns:
@@ -81,11 +83,10 @@ class LocationDescriptionDataset(NonGeoDataset):
         else:
             label = str(label)
 
-        # Debug-print a small number of examples to make it clear
-        # what text is being passed to the encoder.
+        # Optional debug print to inspect raw text going to the encoder.
         if not hasattr(self, "_debug_printed_examples"):
             self._debug_printed_examples = 0
-        if self._debug_printed_examples < 3:
+        if self._debug_printed_examples < self.debug_print_examples:
             snippet = label[:300]
             print(
                 "[LocationDescriptionDataset.__getitem__] "
@@ -114,9 +115,9 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
         mode: str = "both",
         source_csv_path: str | None = None,
         source_pkl_path: str | None = None,
-        section_types: tuple[str, ...] | list[str] | None = ("range", "habitat"),
         test_size: float = 0.1,
         random_state: int = 42,
+        debug_print_examples: int = 0,
     ):
         super().__init__()
         self.dataset_name = dataset_name
@@ -131,9 +132,9 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
         self.mode = mode
         self.source_csv_path = source_csv_path
         self.source_pkl_path = source_pkl_path
-        self.section_types = section_types
         self.test_size = test_size
         self.random_state = random_state
+        self.debug_print_examples = max(0, int(debug_print_examples))
         self.save_hyperparameters()
 
         self.columns = ['lat', 'lon', 'text']
@@ -176,7 +177,6 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
             WildSatTextDataset.create_splits_from_wildsat_csv(
                 wildsat_csv_path=Path(raw_csv_path),
                 output_dir=Path(self.data_path),
-                section_types=self.section_types,
                 test_size=self.test_size,
                 random_state=self.random_state,
             )
@@ -229,8 +229,18 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
                 raise ValueError(f"Data path {self.data_path} does not contain {column} column")
 
     def setup(self, stage="fit"):
-        self.train_dataset = LocationDescriptionDataset(root=self.data_path, split='train', transforms=self.train_transform)
-        self.val_dataset = LocationDescriptionDataset(root=self.data_path, split='val', transforms=None)
+        self.train_dataset = LocationDescriptionDataset(
+            root=self.data_path,
+            split='train',
+            transforms=self.train_transform,
+            debug_print_examples=self.debug_print_examples,
+        )
+        self.val_dataset = LocationDescriptionDataset(
+            root=self.data_path,
+            split='val',
+            transforms=None,
+            debug_print_examples=self.debug_print_examples,
+        )
 
     def train_dataloader(self):
         return DataLoader(
@@ -255,5 +265,3 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         raise NotImplementedError("Test dataloader is not implemented for this dataset yet")
-
-        

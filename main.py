@@ -1,101 +1,169 @@
 import sys
 from pathlib import Path
-from utils import get_location_model_output_dim
-# Add project root to path so we can import satclip
-project_root = Path(__file__).parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
-import lightning.pytorch
-import torch
-import numpy as np
-import torch.nn as nn
-from lightning.pytorch.cli import LightningCLI
-
-from modeling import LocationEmbeddingModel, TextEmbeddingModel
-from dataset import LocationDescriptionDataModule
 from datetime import datetime
-from finetune import set_finetune_mode
+from typing import Optional
 
+import numpy as np
+import torch
+import torch.nn as nn
+import lightning.pytorch
+from lightning.pytorch.cli import LightningCLI
+from lightning.pytorch.callbacks import EarlyStopping
+
+from utils import get_location_model_output_dim
+from modeling import LocationEncoder, TextEncoder
+from modeling.model_specs import (
+    format_default_model_specs,
+    resolve_location_config,
+    resolve_text_config,
+)
+from dataset import LocationDescriptionDataModule
+from finetune import set_finetune_mode
 from loss import ConceptLoss
 
+
 class Location2TextLightningModule(lightning.pytorch.LightningModule):
-    def __init__(self, 
-                 location_model_type: str,
-                 location_model: str,
-                 location_model_filename: str,
-                 text_model_type: str,
-                 text_model: str,
-                 text_vocabulary: str,
-                 train_text_model: bool,
-                 finetune_mode: str,
-                 learning_rate: float,
-                 weight_decay: float,
-                 logit_scale_temperature: float,
-                 lambda_alignment: float,
-                 sigma: float,
-                 ):
+    """Train a location encoder against a text encoder.
+
+    Preferred args:
+      - location_backend, location_model_id, location_checkpoint
+      - text_backend, text_model_id, text_pretrained
+    """
+
+    def __init__(
+        self,
+        location_backend: str = "satclip",
+        location_model_id: Optional[str] = None,
+        location_checkpoint: Optional[str] = None,
+        text_backend: str = "geoclip",
+        text_model_id: Optional[str] = None,
+        text_pretrained: Optional[str] = None,
+        train_text_model: bool = False,
+        text_projection_head: str = "linear",
+        text_projection_hidden_dim: Optional[int] = None,
+        checkpoint_projection_only: bool = False,
+        finetune_mode: str = "none",
+        learning_rate: Optional[float] = None,
+        weight_decay: Optional[float] = None,
+        logit_scale_temperature: Optional[float] = None,
+        lambda_alignment: Optional[float] = None,
+        sigma: Optional[float] = None,
+        text_chunk_granularity: Optional[str] = None,
+        text_chunk_pooling: str = "mean",
+    ):
         super().__init__()
-        print('train_text_model', train_text_model)
-        self.location_model = LocationEmbeddingModel(location_model_type=location_model_type, location_model=location_model, location_model_filename=location_model_filename, target_dim=None, train_location_model=False)
+
+        self.location_config = resolve_location_config(
+            backend=location_backend,
+            model_id=location_model_id,
+            checkpoint_filename=location_checkpoint,
+        )
+        self.text_config = resolve_text_config(
+            backend=text_backend,
+            model_id=text_model_id,
+            pretrained=text_pretrained,
+        )
+
+        # ---- encoders ----
+        self.location_model = LocationEncoder(
+            backend=self.location_config["backend"],
+            model_id=self.location_config["model_id"],
+            checkpoint_filename=self.location_config["checkpoint_filename"],
+            train_location_model=False,
+        )
         self.output_dim = get_location_model_output_dim(self.location_model)
 
-        self.text_model_str = text_model
-        self.text_model = TextEmbeddingModel(text_model_type=text_model_type, text_model=text_model, text_vocabulary=text_vocabulary, train_text_model=train_text_model, target_dim=self.output_dim)
+        self.text_model = TextEncoder(
+            backend=self.text_config["backend"],
+            model_id=self.text_config["model_id"],
+            pretrained=self.text_config["pretrained"],
+            trainable=train_text_model,
+            projection_head=text_projection_head,
+            projection_hidden_dim=text_projection_hidden_dim,
+            target_dim=self.output_dim,
+            text_chunk_granularity=text_chunk_granularity,
+            text_chunk_pooling=text_chunk_pooling,
+        )
+        self.checkpoint_projection_only = checkpoint_projection_only
 
-
+        # ---- loss / optimizer hyperparams ----
         self.learning_rate = learning_rate
-        logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / logit_scale_temperature), requires_grad=True)
-        self.logit_scale = logit_scale
-        self.loss_fn = ConceptLoss(logit_scale=self.logit_scale, lambda_alignment=lambda_alignment, sigma=sigma)
         self.weight_decay = weight_decay
-        self.save_hyperparameters()
+
+        has_all_hparams = all(
+            v is not None
+            for v in [learning_rate, weight_decay, logit_scale_temperature,
+                       lambda_alignment, sigma]
+        )
+        if has_all_hparams:
+            self.logit_scale = nn.Parameter(
+                torch.ones([]) * np.log(1 / logit_scale_temperature),
+                requires_grad=True,
+            )
+            self.loss_fn = ConceptLoss(
+                logit_scale=self.logit_scale,
+                lambda_alignment=lambda_alignment,
+                sigma=sigma,
+            )
+            self.save_hyperparameters()
+        else:
+            self.logit_scale = None
+            self.loss_fn = None
 
         set_finetune_mode(self.text_model, finetune_mode)
 
-    def _init_identity(self, layer: nn.Linear):
-        """Initialize a square linear layer as identity + small noise."""
-        assert layer.in_features == layer.out_features, "Must be square for identity init"
-        nn.init.eye_(layer.weight)
-        nn.init.zeros_(layer.bias)
-        
+    # ---- lifecycle hooks ----
+
     def on_fit_start(self):
+        print(format_default_model_specs())
+        print(f"Resolved location config: {self.location_config}")
+        print(f"Resolved text config: {self.text_config}")
         if self.logger is not None:
-            self.logger.log_hyperparams({'target_dim': self.output_dim,
-                                         'text_dim': self.text_model.text_output_dim})
-        
-    def compute_loss(self, logits_per_text, logits_per_location):
-        return self.loss_fn(logits_per_text, logits_per_location)
-            
+            self.logger.log_hyperparams({
+                "target_dim": self.output_dim,
+                "text_dim": self.text_model.text_output_dim,
+                "location_backend": self.location_config["backend"],
+                "location_model_id": self.location_config["model_id"],
+                "location_checkpoint": self.location_config["checkpoint_filename"],
+                "text_backend": self.text_config["backend"],
+                "text_model_id": self.text_config["model_id"],
+                "text_pretrained": self.text_config["pretrained"],
+            })
+
+    # ---- forward / loss ----
+
     def forward_step(self, batch):
         locations, descriptions = batch
-        logits_per_text = self.text_model(descriptions)
+        text_emb = self.text_model(descriptions)
+        loc_emb = self.location_model(locations)
+        text_emb = text_emb / text_emb.norm(dim=1, keepdim=True)
+        loc_emb = loc_emb / loc_emb.norm(dim=1, keepdim=True)
+        return text_emb, loc_emb
 
-        logits_per_location = self.location_model(locations)
-        
-        # normalize after projection
-        logits_per_text = logits_per_text / logits_per_text.norm(dim=1, keepdim=True)
-        logits_per_location = logits_per_location / logits_per_location.norm(dim=1, keepdim=True)
-
-        return logits_per_text, logits_per_location
+    def _compute_loss(self, text_emb, loc_emb):
+        if self.loss_fn is None:
+            raise RuntimeError(
+                "Loss not initialized. Provide all training hyperparameters "
+                "or load from a checkpoint that includes them."
+            )
+        return self.loss_fn(text_emb, loc_emb)
 
     def training_step(self, batch):
-        locations, descriptions = batch
-        logits_per_text, logits_per_location = self.forward_step(batch)
-        loss = self.compute_loss(logits_per_text, logits_per_location)
-        current_lr = self.optimizers().param_groups[0]['lr']
-        batch_size = locations.size(0)
+        locations, _ = batch
+        text_emb, loc_emb = self.forward_step(batch)
+        loss = self._compute_loss(text_emb, loc_emb)
+        lr = self.optimizers().param_groups[0]["lr"]
         self.log_dict(
-            {"train_loss": loss, "learning_rate": current_lr},
+            {"train_loss": loss, "learning_rate": lr},
             on_step=True, on_epoch=True, prog_bar=True,
-            batch_size=batch_size,
+            batch_size=locations.size(0),
         )
         return loss
 
     def validation_step(self, batch):
-        locations, descriptions = batch
-        logits_per_text, logits_per_location = self.forward_step(batch)
-        loss = self.compute_loss(logits_per_text, logits_per_location)
+        locations, _ = batch
+        text_emb, loc_emb = self.forward_step(batch)
+        loss = self._compute_loss(text_emb, loc_emb)
         self.log_dict(
             {"val_loss": loss},
             on_step=True, on_epoch=True,
@@ -103,106 +171,98 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
         )
         return loss
 
+    # ---- optimizer ----
+
     def configure_optimizers(self):
-        # Collect all trainable parameters (as decided by set_finetune_mode)
+        if self.learning_rate is None or self.weight_decay is None:
+            raise RuntimeError("Optimizer hyperparameters not set.")
+        if self.logit_scale is None:
+            raise RuntimeError("logit_scale not initialized.")
+
         self.logit_scale.requires_grad = True
-        named_params = [
-            (name, p)
-            for name, p in self.named_parameters()
-            if p.requires_grad
-        ]
+        named_params = [(n, p) for n, p in self.named_parameters() if p.requires_grad]
 
-        # Exclude biases, norms, and logit_scale from weight decay
-        def exclude(name, p):
-            lname = name.lower()
-            return (
-                p.ndim < 2
-                or "bn" in lname
-                or "ln" in lname
-                or "bias" in lname
-                or "logit_scale" in name
-            )
+        def _no_decay(name, param):
+            ln = name.lower()
+            return param.ndim < 2 or any(k in ln for k in ("bn", "ln", "bias", "logit_scale"))
 
-        no_decay_params = [p for name, p in named_params if exclude(name, p)]
-        decay_params = [p for name, p in named_params if not exclude(name, p)]
-
-        optimizer = torch.optim.AdamW(
+        return torch.optim.AdamW(
             [
-                {"params": no_decay_params, "weight_decay": 0.0},
-                {"params": decay_params, "weight_decay": self.weight_decay},
+                {"params": [p for n, p in named_params if _no_decay(n, p)], "weight_decay": 0.0},
+                {"params": [p for n, p in named_params if not _no_decay(n, p)], "weight_decay": self.weight_decay},
             ],
             lr=self.learning_rate,
         )
-        return optimizer
 
+    # ---- inference helper ----
+
+    @torch.no_grad()
     def text_model_predict(self, text, normalize=False):
         self.eval()
-        with torch.no_grad():
-            # text_model will tokenize internally
-            embeddings = self.text_model(text)
-            if normalize:
-                embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
-        return embeddings
+        emb = self.text_model(text)
+        if normalize:
+            emb = emb / emb.norm(dim=-1, keepdim=True)
+        return emb
 
-from lightning.pytorch.callbacks import EarlyStopping
-        
+    def on_save_checkpoint(self, checkpoint):
+        if not self.checkpoint_projection_only:
+            return
+
+        state_dict = checkpoint.get("state_dict", {})
+        keep_prefix = "text_model.embed_project."
+        filtered = {k: v for k, v in state_dict.items() if k.startswith(keep_prefix)}
+        if not filtered:
+            raise RuntimeError(
+                "checkpoint_projection_only=True but no projection-head weights were found "
+                "under 'text_model.embed_project.*'."
+            )
+
+        checkpoint["state_dict"] = filtered
+        # Drop trainer/runtime payload so files only contain projection weights.
+        checkpoint.pop("optimizer_states", None)
+        checkpoint.pop("lr_schedulers", None)
+        checkpoint.pop("callbacks", None)
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
+
 def cli_main(config_filename: str):
-
     lightning.pytorch.seed_everything(42)
-
     config_fn = Path(config_filename)
-   
+
     cli = LightningCLI(
         model_class=Location2TextLightningModule,
         datamodule_class=LocationDescriptionDataModule,
-        save_config_kwargs=dict(
-            config_filename=config_fn,
-            overwrite=True,
-        ),
-        trainer_defaults={
-            "log_every_n_steps": 10
-        },
+        save_config_kwargs=dict(config_filename=config_fn, overwrite=True),
+        trainer_defaults={"log_every_n_steps": 10},
         parser_kwargs={"default_config_files": [config_fn]},
         seed_everything_default=42,
         run=False,
     )
-    early_stop_cb = None
+
     for cb in cli.trainer.callbacks:
         if isinstance(cb, EarlyStopping):
-            early_stop_cb = cb
+            cb.monitor = "val_loss"
+            cb.patience = 5
+            cb.mode = "min"
+            cb.verbose = True
+            cb.min_delta = 0.001
             break
 
-    # now modify it (ensure EarlyStopping is configured as desired)
-    if early_stop_cb is not None:
-        early_stop_cb.monitor = "val_loss"
-        early_stop_cb.patience = 5
-        early_stop_cb.mode = "min"
-        early_stop_cb.verbose = True
-        early_stop_cb.min_delta = 0.001
-
     ts = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    lambda_align = cli.model.hparams.lambda_alignment
-    dataset_name = cli.datamodule.hparams.dataset_name
-    run_name = f"Location2Text_{dataset_name}_S2_lambda{lambda_align}_{ts}"
+    lam = cli.model.hparams.lambda_alignment
+    ds = cli.datamodule.hparams.dataset_name
+    run_name = f"Location2Text_{ds}_lambda{lam}_{ts}"
     if cli.trainer.logger is not None:
         cli.trainer.logger.experiment.name = run_name
 
-    
-    # Create folder to log configs
-    dirname_cfg = Path(config_fn).parent
     log_dir = cli.trainer.default_root_dir or "./lightning_logs"
-    dir_log_cfg = Path(log_dir) / dirname_cfg
-    dir_log_cfg.mkdir(parents=True, exist_ok=True)
-    
+    (Path(log_dir) / config_fn.parent).mkdir(parents=True, exist_ok=True)
 
-    cli.trainer.fit(
-        model=cli.model,
-        datamodule=cli.datamodule,
-    )
+    cli.trainer.fit(model=cli.model, datamodule=cli.datamodule)
 
 
 if __name__ == "__main__":
-    config_fn = "./configs/train.yaml"
-
-    cli_main(config_fn)
-        
+    cli_main("./configs/train.yaml")
