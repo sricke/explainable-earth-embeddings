@@ -87,6 +87,7 @@ class TextEncoder(nn.Module):
         trainable: bool | None = None,
         projection_head: str = "linear", # linear, mlp2, two_layer_mlp
         projection_hidden_dim: int | None = None,
+        projection_dropout: float = 0.0,
         *,
         # legacy aliases (for old configs/scripts)
         text_model_type: str | None = None,
@@ -113,6 +114,9 @@ class TextEncoder(nn.Module):
         self.text_chunk_pooling = text_chunk_pooling
         self.projection_head = projection_head
         self.projection_hidden_dim = projection_hidden_dim
+        self.projection_dropout = float(projection_dropout)
+        if self.projection_dropout < 0.0 or self.projection_dropout >= 1.0:
+            raise ValueError("projection_dropout must be in [0.0, 1.0).")
         if trainable is None:
             trainable = bool(train_text_model)
 
@@ -148,11 +152,11 @@ class TextEncoder(nn.Module):
                     nn.init.zeros_(self.embed_project.bias)
                 elif projection_head in {"mlp2", "two_layer_mlp"}:
                     hidden = projection_hidden_dim or max(output_dim, target_dim)
-                    self.embed_project = nn.Sequential(
-                        nn.Linear(output_dim, hidden),
-                        nn.GELU(),
-                        nn.Linear(hidden, target_dim),
-                    )
+                    layers: list[nn.Module] = [nn.Linear(output_dim, hidden), nn.GELU()]
+                    if self.projection_dropout > 0.0:
+                        layers.append(nn.Dropout(self.projection_dropout))
+                    layers.append(nn.Linear(hidden, target_dim))
+                    self.embed_project = nn.Sequential(*layers)
                     for module in self.embed_project:
                         if isinstance(module, nn.Linear):
                             nn.init.normal_(module.weight, mean=0.0, std=0.02)
@@ -246,6 +250,19 @@ class TextEncoder(nn.Module):
     # ---- public interface --------------------------------------------------
 
     def forward(self, x) -> torch.Tensor:
+        if isinstance(x, torch.Tensor):
+            embedding = x.to(device=self.device, dtype=self.dtype)
+            if self.embed_project is not None:
+                if embedding.shape[-1] == self.text_output_dim:
+                    embedding = self.embed_project(embedding)
+                elif self.target_dim is not None and embedding.shape[-1] != self.target_dim:
+                    raise ValueError(
+                        "Cached embedding dimension does not match either "
+                        f"text_output_dim={self.text_output_dim} or target_dim={self.target_dim}. "
+                        f"Got shape {tuple(embedding.shape)}."
+                    )
+            return embedding
+
         if isinstance(x, tuple):
             x = list(x)
         if isinstance(x, str):

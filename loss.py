@@ -11,17 +11,19 @@ class ConceptLoss(SatCLIPLoss):
             rank=0,
             world_size=1,
             logit_scale=1.0,
+            logit_scale_max=100.0,
             lambda_alignment=10.0,
             sigma=1.0,
     ):
         super().__init__(local_loss, cache_labels, rank, world_size)
         self.logit_scale = logit_scale
+        self.logit_scale_max = float(logit_scale_max)
         self.lambda_alignment = lambda_alignment
         self.sigma = sigma
         
     def contrastive_loss(self, logits_per_text, logits_per_location):
         device = logits_per_text.device
-        logit_scale = self.logit_scale.exp()
+        logit_scale = self.logit_scale.exp().clamp(max=self.logit_scale_max)
         cosine_sim_text = logit_scale * logits_per_text @ logits_per_location.t()
         cosine_sim_location = cosine_sim_text.t()
         labels = self.get_ground_truth(device, cosine_sim_text.shape[0])

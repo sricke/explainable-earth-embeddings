@@ -18,7 +18,7 @@ trainer:
       id: null
       anonymous: null
       project: explainable-earth-embeddings
-      log_model: all
+      log_model: false
       experiment: null
       prefix: ''
       checkpoint_name: null
@@ -65,7 +65,7 @@ trainer:
     init_args:
       monitor: val_loss
       min_delta: 0.0
-      patience: 5
+      patience: 15
       verbose: false
       mode: min
       strict: true
@@ -109,28 +109,34 @@ trainer:
   enable_autolog_hparams: true
   model_registry: null
 model:
-  location_backend: satclip
-  location_model_id: microsoft/SatCLIP-ViT16-L40
-  location_checkpoint: satclip-vit16-l40.ckpt
-  text_backend: gritlm
-  text_model_id: GritLM/GritLM-7B
-  text_pretrained: null
-  train_text_model: false
-  text_projection_head: mlp2
-  text_projection_hidden_dim: 1024
-  checkpoint_projection_only: true
-  finetune_mode: mlp
-  learning_rate: 0.0001
-  weight_decay: 0.01
-  logit_scale_temperature: 0.07
-  lambda_alignment: 0.0
-  sigma: 1.0
-  text_chunk_granularity: null
-  text_chunk_pooling: mean
+  location_model:
+    backend: satclip
+    model_id: microsoft/SatCLIP-ViT16-L40
+    checkpoint: satclip-vit16-l40.ckpt
+  text_model:
+    backend: gritlm
+    model_id: GritLM/GritLM-7B
+    pretrained: null
+    train_text_model: false
+    projection_head: mlp2
+    projection_hidden_dim: 512
+    projection_dropout: 0.0
+    chunk_granularity: null
+    chunk_pooling: mean
+  hyperparameters:
+    checkpoint_projection_only: true
+    finetune_mode: mlp
+    learning_rate: 0.00001
+    weight_decay: 0.01
+    logit_scale_temperature: 0.07
+    logit_scale_max: 100.0
+    lambda_alignment: 0.0
+    sigma: 1.0
+    lr_scheduler: null
 data:
   data_path: /home/libe2152/data/wildsat
   dataset_name: WildSat-Text
-  batch_size: 8
+  batch_size: 128
   num_workers: 6
   transform: null
   mode: both
@@ -139,5 +145,5 @@ data:
   test_size: 0.1
   random_state: 42
   debug_print_examples: 0
+  text_embedding_cache_path: null
 optimizer: null
-lr_scheduler: null

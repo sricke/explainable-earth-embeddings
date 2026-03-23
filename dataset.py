@@ -1,6 +1,7 @@
 from collections.abc import Callable
 import os
 from pathlib import Path
+from typing import Optional
 
 from matplotlib.pyplot import Figure
 from torch import Tensor
@@ -38,6 +39,7 @@ class LocationDescriptionDataset(NonGeoDataset):
         transforms: Callable[[dict[str, Tensor]], dict[str, Tensor]] | None = None,
         download: bool = False,
         debug_print_examples: int = 0,
+        text_embedding_cache_path: Optional[str] = None,
     ) -> None:
         """Initialize the dataset.
 
@@ -53,14 +55,49 @@ class LocationDescriptionDataset(NonGeoDataset):
         self.data = pd.read_csv(f"{root}/{split}.csv")
         self.transforms = transforms
         self.debug_print_examples = max(0, int(debug_print_examples))
+        self.text_column: Optional[str] = None
         if "description" in self.data.columns:
             self.text_column = "description"
         elif "text" in self.data.columns:
             self.text_column = "text"
-        else:
+        self.embedding_index_column = "embedding_index"
+        if text_embedding_cache_path is None and self.text_column is None:
             raise ValueError(
                 f"{root}/{split}.csv must contain either 'description' or 'text' column"
             )
+        self.cached_text_embeddings: Optional[torch.Tensor] = None
+        if text_embedding_cache_path is not None:
+            cache_path = Path(text_embedding_cache_path).expanduser()
+            if not cache_path.exists():
+                raise FileNotFoundError(f"Text embedding cache not found: {cache_path}")
+            cached = torch.load(cache_path, map_location="cpu")
+            if not isinstance(cached, torch.Tensor):
+                raise TypeError(
+                    f"Expected a torch.Tensor cache at {cache_path}, got {type(cached)!r}"
+                )
+            if cached.ndim != 2:
+                raise ValueError(
+                    f"Cached embeddings must be 2D [N, D], got shape={tuple(cached.shape)}"
+                )
+            if self.embedding_index_column not in self.data.columns:
+                raise ValueError(
+                    f"{root}/{split}.csv must contain '{self.embedding_index_column}' "
+                    "column when using text_embedding_cache_path."
+                )
+            idx = self.data[self.embedding_index_column]
+            if idx.isna().any():
+                raise ValueError(
+                    f"Found NaN values in '{self.embedding_index_column}' "
+                    f"for split={split!r}."
+                )
+            min_idx = int(idx.min())
+            max_idx = int(idx.max())
+            if min_idx < 0 or max_idx >= int(cached.shape[0]):
+                raise ValueError(
+                    f"Embedding indices out of bounds for split={split!r}: "
+                    f"min={min_idx}, max={max_idx}, cache_rows={cached.shape[0]}"
+                )
+            self.cached_text_embeddings = cached
 
     def __len__(self) -> int:
         """The length of the dataset"""
@@ -76,25 +113,34 @@ class LocationDescriptionDataset(NonGeoDataset):
         if self.transforms is not None:
             raise NotImplementedError("Transformations are not implemented for this dataset yet")
         row = self.data.iloc[index]
-        label = row[self.text_column]
-        if isinstance(label, (tuple, list)):
-            label = list(label)   # tuple -> list of strings
-            # or:  label = ' '.join(label)   # tuple -> one string
+        label: str | torch.Tensor
+        if self.cached_text_embeddings is not None:
+            emb_idx = int(row[self.embedding_index_column])
+            label = self.cached_text_embeddings[emb_idx]
         else:
-            label = str(label)
+            if self.text_column is None:
+                raise ValueError(
+                    "No text column available ('description' or 'text') "
+                    "and no text embedding cache configured."
+                )
+            label = row[self.text_column]
+            if isinstance(label, (tuple, list)):
+                label = list(label)
+            else:
+                label = str(label)
 
-        # Optional debug print to inspect raw text going to the encoder.
-        if not hasattr(self, "_debug_printed_examples"):
-            self._debug_printed_examples = 0
-        if self._debug_printed_examples < self.debug_print_examples:
-            snippet = label[:300]
-            print(
-                "[LocationDescriptionDataset.__getitem__] "
-                f"index={index}, text_column={self.text_column!r}, "
-                f"text_len={len(label)} chars, "
-                f"snippet={snippet!r}, lat={row['lat']}, lon={row['lon']}"
-            )
-            self._debug_printed_examples += 1
+            # Optional debug print to inspect raw text going to the encoder.
+            if not hasattr(self, "_debug_printed_examples"):
+                self._debug_printed_examples = 0
+            if self._debug_printed_examples < self.debug_print_examples:
+                snippet = label[:300]
+                print(
+                    "[LocationDescriptionDataset.__getitem__] "
+                    f"index={index}, text_column={self.text_column!r}, "
+                    f"text_len={len(label)} chars, "
+                    f"snippet={snippet!r}, lat={row['lat']}, lon={row['lon']}"
+                )
+                self._debug_printed_examples += 1
 
         point = torch.tensor([row['lat'], row['lon']], dtype=torch.float32) #CHANGE FOR SATCLIP
         return point, label
@@ -118,6 +164,7 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
         test_size: float = 0.1,
         random_state: int = 42,
         debug_print_examples: int = 0,
+        text_embedding_cache_path: str | None = None,
     ):
         super().__init__()
         self.dataset_name = dataset_name
@@ -135,6 +182,7 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
         self.test_size = test_size
         self.random_state = random_state
         self.debug_print_examples = max(0, int(debug_print_examples))
+        self.text_embedding_cache_path = text_embedding_cache_path
         self.save_hyperparameters()
 
         self.columns = ['lat', 'lon', 'text']
@@ -222,7 +270,10 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
         df = pd.read_csv(train_csv)
         if df.empty:
             raise ValueError(f"Data path {self.data_path} is empty")
-        columns = ['lat', 'lon', 'description'] if 'description' in df.columns else ['lat', 'lon', 'text']
+        if self.text_embedding_cache_path is not None:
+            columns = ['lat', 'lon', 'embedding_index']
+        else:
+            columns = ['lat', 'lon', 'description'] if 'description' in df.columns else ['lat', 'lon', 'text']
         self.columns = columns
         for column in columns:
             if column not in df.columns:
@@ -234,12 +285,14 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
             split='train',
             transforms=self.train_transform,
             debug_print_examples=self.debug_print_examples,
+            text_embedding_cache_path=self.text_embedding_cache_path,
         )
         self.val_dataset = LocationDescriptionDataset(
             root=self.data_path,
             split='val',
             transforms=None,
             debug_print_examples=self.debug_print_examples,
+            text_embedding_cache_path=self.text_embedding_cache_path,
         )
 
     def train_dataloader(self):

@@ -62,12 +62,14 @@ cfg.setdefault("model", {})
 # MLP-only training:
 # - keep pretrained GritLM frozen
 # - train only projection head
-cfg["model"]["train_text_model"] = False
-cfg["model"]["finetune_mode"] = "mlp"
-cfg["model"]["text_projection_head"] = "mlp2"
-cfg["model"]["checkpoint_projection_only"] = True
-cfg["model"]["lambda_alignment"] = lambda_alignment
-cfg["model"]["text_chunk_granularity"] = None
+cfg["model"].setdefault("hyperparameters", {})
+cfg["model"]["hyperparameters"]["finetune_mode"] = "mlp"
+cfg["model"]["hyperparameters"]["checkpoint_projection_only"] = True
+cfg["model"]["hyperparameters"]["lambda_alignment"] = lambda_alignment
+cfg["model"].setdefault("text_model", {})
+cfg["model"]["text_model"]["train_text_model"] = False
+cfg["model"]["text_model"]["projection_head"] = "mlp2"
+cfg["model"]["text_model"]["chunk_granularity"] = None
 
 cfg.setdefault("trainer", {})
 cfg["trainer"]["devices"] = [0]
@@ -76,6 +78,8 @@ if isinstance(logger, dict):
     init_args = logger.setdefault("init_args", {})
     init_args["mode"] = "online"
     init_args["name"] = label
+    # Keep W&B metric logging, but disable model/checkpoint artifacts.
+    init_args["log_model"] = False
 
 callbacks = cfg.get("trainer", {}).get("callbacks", [])
 for cb in callbacks:

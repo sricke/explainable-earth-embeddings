@@ -15,10 +15,9 @@ if __name__ == "__main__":
 
     # 1. build — pretrained weights loaded automatically in each encoder's __init__
     model = Location2TextLightningModule(
-        location_backend="geoclip",
-        text_backend="geoclip",
+        location_model={"backend": "geoclip"},
+        text_model={"backend": "geoclip", "train_text_model": False},
         finetune_mode="none",  # freeze all text model weights
-        train_text_model=False
     )
     model.eval()
 

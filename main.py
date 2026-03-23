@@ -1,7 +1,7 @@
-import sys
 from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
+import importlib
 
 import numpy as np
 import torch
@@ -26,32 +26,48 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
     """Train a location encoder against a text encoder.
 
     Preferred args:
-      - location_backend, location_model_id, location_checkpoint
-      - text_backend, text_model_id, text_pretrained
+      - location_model: {backend, model_id, checkpoint}
+      - text_model: {backend, model_id, pretrained, train_text_model, projection_*}
     """
 
     def __init__(
         self,
-        location_backend: str = "satclip",
-        location_model_id: Optional[str] = None,
-        location_checkpoint: Optional[str] = None,
-        text_backend: str = "geoclip",
-        text_model_id: Optional[str] = None,
-        text_pretrained: Optional[str] = None,
-        train_text_model: bool = False,
-        text_projection_head: str = "linear",
-        text_projection_hidden_dim: Optional[int] = None,
-        checkpoint_projection_only: bool = False,
-        finetune_mode: str = "none",
-        learning_rate: Optional[float] = None,
-        weight_decay: Optional[float] = None,
-        logit_scale_temperature: Optional[float] = None,
-        lambda_alignment: Optional[float] = None,
-        sigma: Optional[float] = None,
-        text_chunk_granularity: Optional[str] = None,
-        text_chunk_pooling: str = "mean",
+        location_model: Optional[dict[str, Any]] = None,
+        text_model: Optional[dict[str, Any]] = None,
+        hyperparameters: Optional[dict[str, Any]] = None,
     ):
         super().__init__()
+        location_model = location_model or {}
+        text_model = text_model or {}
+        hyperparameters = hyperparameters or {}
+
+        checkpoint_projection_only = hyperparameters.get("checkpoint_projection_only")
+        finetune_mode = hyperparameters.get("finetune_mode")
+        learning_rate = hyperparameters.get("learning_rate")
+        weight_decay = hyperparameters.get("weight_decay")
+        logit_scale_temperature = hyperparameters.get("logit_scale_temperature")
+        logit_scale_max = hyperparameters.get("logit_scale_max")
+        lambda_alignment = hyperparameters.get("lambda_alignment")
+        sigma = hyperparameters.get("sigma")
+        lr_scheduler = hyperparameters.get("lr_scheduler")
+
+        location_backend = location_model.get("backend")
+        location_model_id = location_model.get("model_id")
+        location_checkpoint = location_model.get(
+            "checkpoint", location_model.get("checkpoint_filename")
+        )
+
+        text_backend = text_model.get("backend")
+        text_model_id = text_model.get("model_id")
+        text_pretrained = text_model.get("pretrained")
+        train_text_model = text_model.get("train_text_model")
+        text_projection_head = text_model.get(
+            "projection_layer", text_model.get("projection_head")
+        )
+        text_projection_hidden_dim = text_model.get("projection_hidden_dim")
+        text_projection_dropout = text_model.get("projection_dropout")
+        text_chunk_granularity = text_model.get("chunk_granularity")
+        text_chunk_pooling = text_model.get("chunk_pooling")
 
         self.location_config = resolve_location_config(
             backend=location_backend,
@@ -80,15 +96,18 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
             trainable=train_text_model,
             projection_head=text_projection_head,
             projection_hidden_dim=text_projection_hidden_dim,
+            projection_dropout=text_projection_dropout,
             target_dim=self.output_dim,
             text_chunk_granularity=text_chunk_granularity,
             text_chunk_pooling=text_chunk_pooling,
         )
         self.checkpoint_projection_only = checkpoint_projection_only
+        self.lambda_alignment = lambda_alignment
 
         # ---- loss / optimizer hyperparams ----
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
+        self.lr_scheduler = lr_scheduler
 
         has_all_hparams = all(
             v is not None
@@ -102,6 +121,7 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
             )
             self.loss_fn = ConceptLoss(
                 logit_scale=self.logit_scale,
+                logit_scale_max=logit_scale_max,
                 lambda_alignment=lambda_alignment,
                 sigma=sigma,
             )
@@ -186,12 +206,50 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
             ln = name.lower()
             return param.ndim < 2 or any(k in ln for k in ("bn", "ln", "bias", "logit_scale"))
 
-        return torch.optim.AdamW(
+        optimizer = torch.optim.AdamW(
             [
                 {"params": [p for n, p in named_params if _no_decay(n, p)], "weight_decay": 0.0},
                 {"params": [p for n, p in named_params if not _no_decay(n, p)], "weight_decay": self.weight_decay},
             ],
             lr=self.learning_rate,
+        )
+
+        if self.lr_scheduler is None:
+            return optimizer
+        scheduler = self._build_lr_scheduler(optimizer)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "epoch",
+                "frequency": 1,
+            },
+        }
+
+    @staticmethod
+    def _load_class(class_path: str):
+        module_name, class_name = class_path.rsplit(".", 1)
+        module = importlib.import_module(module_name)
+        return getattr(module, class_name)
+
+    def _build_lr_scheduler(self, optimizer):
+        scheduler_cfg = self.lr_scheduler
+        if isinstance(scheduler_cfg, dict):
+            class_path = scheduler_cfg.get("class_path")
+            if not class_path:
+                raise ValueError(
+                    "lr_scheduler dict must include 'class_path'."
+                )
+            init_args = dict(scheduler_cfg.get("init_args", {}) or {})
+            scheduler_cls = self._load_class(class_path)
+            return scheduler_cls(optimizer=optimizer, **init_args)
+        if isinstance(scheduler_cfg, type):
+            return scheduler_cfg(optimizer=optimizer)
+        if callable(scheduler_cfg):
+            return scheduler_cfg(optimizer=optimizer)
+        raise TypeError(
+            "lr_scheduler must be either a dict with class_path/init_args, "
+            "a scheduler class, or a callable that accepts optimizer."
         )
 
     # ---- inference helper ----
@@ -252,11 +310,14 @@ def cli_main(config_filename: str):
             break
 
     ts = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    lam = cli.model.hparams.lambda_alignment
+    lam = cli.model.lambda_alignment
     ds = cli.datamodule.hparams.dataset_name
     run_name = f"Location2Text_{ds}_lambda{lam}_{ts}"
     if cli.trainer.logger is not None:
-        cli.trainer.logger.experiment.name = run_name
+        current_name = getattr(cli.trainer.logger.experiment, "name", None)
+        # Keep explicit run names from config/sweep scripts.
+        if current_name is None or str(current_name).strip() == "":
+            cli.trainer.logger.experiment.name = run_name
 
     log_dir = cli.trainer.default_root_dir or "./lightning_logs"
     (Path(log_dir) / config_fn.parent).mkdir(parents=True, exist_ok=True)
