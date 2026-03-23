@@ -117,9 +117,21 @@ run_one() {
   local weight_decay="$3"
   local dropout="$4"
   local label="$5"
+  local ckpt_dir="/media/volume/xAi-data/outputs/explainable-earth-embeddings/satclip/wildsat-text/checkpoints/${label}"
   local cfg_out
-  cfg_out="$(build_cfg "${lambda_alignment}" "${scheduler_mode}" "${weight_decay}" "${dropout}" "${label}")"
   local log_file="${LOG_DIR}/${label}.log"
+
+  if [[ -d "${ckpt_dir}" ]]; then
+    {
+      echo "=================================================================="
+      echo "Skipping ${label}"
+      echo "Checkpoint directory already exists: ${ckpt_dir}"
+      echo "=================================================================="
+    } | tee -a "${log_file}"
+    return 0
+  fi
+
+  cfg_out="$(build_cfg "${lambda_alignment}" "${scheduler_mode}" "${weight_decay}" "${dropout}" "${label}")"
 
   {
     echo "=================================================================="
@@ -139,10 +151,10 @@ run_one() {
     2>&1 | tee -a "${log_file}"
 }
 
-schedulers=("none" "cosine")
+schedulers=("none")
 lambda_alignments=("0.0" "0.1" "0.5")
-weight_decays=("0.05" "0.1" "0.25")
-dropouts=("0.0" "0.1" "0.2")
+weight_decays=("0.05")
+dropouts=("0.0" "0.1")
 
 echo "Running WildSat hyperparameter sweeps on GPU ${GPU_ID}"
 echo "Logs directory: ${LOG_DIR}"
