@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import datetime
 from typing import Any, Optional
+import os
 import importlib
 
 import numpy as np
@@ -9,6 +10,7 @@ import torch.nn as nn
 import lightning.pytorch
 from lightning.pytorch.cli import LightningCLI
 from lightning.pytorch.callbacks import EarlyStopping
+from lightning.pytorch.callbacks import ModelCheckpoint
 
 from utils import get_location_model_output_dim
 from modeling import LocationEncoder, TextEncoder
@@ -308,6 +310,13 @@ def cli_main(config_filename: str):
             cb.verbose = True
             cb.min_delta = 0.001
             break
+
+    output_root = getattr(cli.datamodule, "output_root", None)
+    if output_root:
+        for cb in cli.trainer.callbacks:
+            if isinstance(cb, ModelCheckpoint) and cb.dirpath:
+                if not os.path.isabs(cb.dirpath):
+                    cb.dirpath = os.path.join(output_root, cb.dirpath)
 
     ts = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     lam = cli.model.lambda_alignment

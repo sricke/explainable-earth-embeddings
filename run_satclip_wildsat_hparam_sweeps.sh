@@ -16,12 +16,13 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_CFG="${REPO_ROOT}/configs/train.yaml"
 TS="$(date +%Y%m%d_%H%M%S)"
 LOG_DIR="${REPO_ROOT}/logs/wildsat_hparam_sweeps/${TS}"
+HOME_DIR="/media/volume/xAi-data"
 mkdir -p "${LOG_DIR}"
 
 if [[ -n "${PYTHON_BIN:-}" ]]; then
   PYTHON_BIN="${PYTHON_BIN}"
-elif [[ -x "/home/libe2152/miniconda3/envs/xai/bin/python" ]]; then
-  PYTHON_BIN="/home/libe2152/miniconda3/envs/xai/bin/python"
+elif [[ -x "${HOME_DIR}/miniconda3/envs/xai/bin/python" ]]; then
+  PYTHON_BIN="${HOME_DIR}/miniconda3/envs/xai/bin/python"
 else
   PYTHON_BIN="python"
 fi
