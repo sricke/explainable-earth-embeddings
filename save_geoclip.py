@@ -10,7 +10,12 @@ from main import Location2TextLightningModule
 
 
 if __name__ == "__main__":
-    CKPT_DIR = "/home/libe2152/outputs/explainable-earth-embeddings/geoclip/pretrained/checkpoints"
+    HOME_DIR = "/media/volume/xAi-data"
+    OUTPUT_DIR = "outputs"
+    CKPT_DIR = (
+        f"{HOME_DIR}/{OUTPUT_DIR}/explainable-earth-embeddings/"
+        "geoclip/pretrained/checkpoints"
+    )
     CKPT_OUT = f"{CKPT_DIR}/location2text_pretrained.ckpt"
 
     # 1. build — pretrained weights loaded automatically in each encoder's __init__

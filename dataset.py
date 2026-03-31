@@ -16,8 +16,8 @@ from torch.utils.data import DataLoader
 
 import open_clip
 import torch
-from datasets.geoyfcc import GeoYFCCTextDataset
-from datasets.wildsat import WildSatTextDataset
+from align_datasets.geoyfcc import GeoYFCCTextDataset
+from align_datasets.wildsat import WildSatTextDataset
 
 class LocationDescriptionDataset(NonGeoDataset):
     """
@@ -154,6 +154,9 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
     def __init__(
         self,
         data_path: Path,
+        home_dir: str = "/media/volume/xAi-data",
+        data_dir: str = "data",
+        output_dir: str = "outputs",
         dataset_name: str = "default",
         batch_size: int = 64,
         num_workers: int = 6,
@@ -168,7 +171,14 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
     ):
         super().__init__()
         self.dataset_name = dataset_name
-        self.data_path = data_path
+        self.home_dir = os.path.expanduser(str(home_dir)).rstrip("/")
+        self.data_dir = str(data_dir).strip().strip("/")
+        self.output_dir = str(output_dir).strip().strip("/")
+        self.data_root = f"{self.home_dir}/{self.data_dir}" if self.data_dir else self.home_dir
+        self.output_root = (
+            f"{self.home_dir}/{self.output_dir}" if self.output_dir else self.home_dir
+        )
+        self.data_path = self._resolve_data_path(data_path)
         self.batch_size = batch_size
         self.num_workers = num_workers
         
@@ -177,15 +187,23 @@ class LocationDescriptionDataModule(pl.LightningDataModule):
             raise NotImplementedError("Transformations are not implemented for this dataset yet")
 
         self.mode = mode
-        self.source_csv_path = source_csv_path
-        self.source_pkl_path = source_pkl_path
+        self.source_csv_path = self._resolve_data_path(source_csv_path)
+        self.source_pkl_path = self._resolve_data_path(source_pkl_path)
         self.test_size = test_size
         self.random_state = random_state
         self.debug_print_examples = max(0, int(debug_print_examples))
-        self.text_embedding_cache_path = text_embedding_cache_path
+        self.text_embedding_cache_path = self._resolve_data_path(text_embedding_cache_path)
         self.save_hyperparameters()
 
         self.columns = ['lat', 'lon', 'text']
+
+    def _resolve_data_path(self, value: str | Path | None) -> str | None:
+        if value is None:
+            return None
+        path_str = os.path.expandvars(os.path.expanduser(str(value)))
+        if not os.path.isabs(path_str):
+            return f"{self.data_root}/{path_str.lstrip('/')}"
+        return path_str
 
     def _split_paths(self) -> tuple[str, str]:
         train_csv = os.path.join(self.data_path, "train.csv")

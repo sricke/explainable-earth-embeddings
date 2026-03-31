@@ -46,7 +46,7 @@ trainer:
   callbacks:
   - class_path: lightning.pytorch.callbacks.ModelCheckpoint
     init_args:
-      dirpath: ../../outputs/explainable-earth-embeddings/satclip/wildsat-text/checkpoints
+      dirpath: /media/volume/xAi-data/outputs/explainable-earth-embeddings/satclip/wildsat-text/checkpoints
       filename: Text2Location-{epoch:02d}-{val_loss:.4f}
       monitor: val_loss
       verbose: false
@@ -134,13 +134,16 @@ model:
     sigma: 1.0
     lr_scheduler: null
 data:
-  data_path: /home/libe2152/data/wildsat
+  home_dir: /media/volume/xAi-data
+  data_dir: data
+  output_dir: outputs
+  data_path: wildsat
   dataset_name: WildSat-Text
   batch_size: 128
   num_workers: 6
   transform: null
   mode: both
-  source_csv_path: /home/libe2152/data/wildsat/geolocated_text_distribution_habitat_only.csv
+  source_csv_path: wildsat/geolocated_text_distribution_habitat_only_with_embedding_index.csv
   source_pkl_path: null
   test_size: 0.1
   random_state: 42

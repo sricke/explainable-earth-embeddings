@@ -1,7 +1,9 @@
 from pathlib import Path
 from datetime import datetime
 from typing import Any, Optional
+import os
 import importlib
+import warnings
 
 import numpy as np
 import torch
@@ -9,6 +11,7 @@ import torch.nn as nn
 import lightning.pytorch
 from lightning.pytorch.cli import LightningCLI
 from lightning.pytorch.callbacks import EarlyStopping
+from lightning.pytorch.callbacks import ModelCheckpoint
 
 from utils import get_location_model_output_dim
 from modeling import LocationEncoder, TextEncoder
@@ -131,6 +134,38 @@ class Location2TextLightningModule(lightning.pytorch.LightningModule):
             self.loss_fn = None
 
         set_finetune_mode(self.text_model, finetune_mode)
+
+    @classmethod
+    def load_from_checkpoint(
+        cls,
+        checkpoint_path: str,
+        *args,
+        **kwargs,
+    ):
+        if "strict" not in kwargs:
+            checkpoint = torch.load(
+                checkpoint_path,
+                map_location=kwargs.get("map_location", "cpu"),
+            )
+            state_dict = checkpoint.get("state_dict", {})
+            is_projection_only = bool(state_dict) and all(
+                k.startswith("text_model.embed_project.") for k in state_dict
+            )
+
+            hparams = checkpoint.get("hyper_parameters", {}) or {}
+            text_cfg = hparams.get("text_model", {}) or {}
+            text_backend = str(text_cfg.get("backend", "")).lower()
+            is_gritlm = text_backend == "gritlm"
+
+            if is_projection_only and is_gritlm:
+                warnings.warn(
+                    "Detected projection-only GritLM checkpoint; loading with strict=False.",
+                    RuntimeWarning,
+                )
+                kwargs = dict(kwargs)
+                kwargs["strict"] = False
+
+        return super().load_from_checkpoint(checkpoint_path, *args, **kwargs)
 
     # ---- lifecycle hooks ----
 
@@ -308,6 +343,13 @@ def cli_main(config_filename: str):
             cb.verbose = True
             cb.min_delta = 0.001
             break
+
+    output_root = getattr(cli.datamodule, "output_root", None)
+    if output_root:
+        for cb in cli.trainer.callbacks:
+            if isinstance(cb, ModelCheckpoint) and cb.dirpath:
+                if not os.path.isabs(cb.dirpath):
+                    cb.dirpath = os.path.join(output_root, cb.dirpath)
 
     ts = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     lam = cli.model.lambda_alignment
