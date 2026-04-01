@@ -1,35 +1,59 @@
-"""Elevation dataset from WorldClim v2.1 (SRTM-based, 10 arc-minute)."""
+"""Elevation outcomes sampled at point locations."""
+
+from __future__ import annotations
+
 from pathlib import Path
 
-from .utils import RasterDataset, download_file, extract_zip, get_data_dir
+import numpy as np
+import torch
 
-_URL = "https://geodata.ucdavis.edu/climate/worldclim/2_1/base/wc2.1_10m_elev.zip"
+from .utils import (
+    DEFAULT_PREDICTION_TASKS_DIR,
+    get_task_embeddings,
+    load_outcomes_sampled_csv,
+    load_task_embeddings_and_values,
+)
+
+# Linear probing: holdout fraction and RNG seed for row indices (see linear_probing.utils.load_embeddings_and_labels).
+TEST_SIZE = 0.2
+SPLIT_RANDOM_STATE = 42
 
 
-class ElevationDataset(RasterDataset):
-    """
-    Global elevation in metres from WorldClim v2.1 (SRTM-based).
+def load_lat_lon_value(*, data_dir: Path | str | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Load ``lat``, ``lon``, ``elevation`` from ``~/data/prediction_tasks/elevation`` (or ``data_dir``)."""
+    path = Path(data_dir).expanduser() if data_dir is not None else DEFAULT_PREDICTION_TASKS_DIR / "elevation"
+    return load_outcomes_sampled_csv(path, value_col="elevation")
 
-    __getitem__ returns ((lat, lon), elevation_m).
-    """
 
-    DEFAULT_FILENAME = "wc2.1_10m_elev.tif"
-    TASK_NAME = "elevation"
+def get_embeddings(
+    backend: str = "satclip",
+    *,
+    device: str = "cuda",
+    force: bool = False,
+    **kwargs,
+) -> torch.Tensor:
+    return get_task_embeddings(
+        "elevation",
+        load_lat_lon_value,
+        backend=backend,
+        device=device,
+        force=force,
+        **kwargs,
+    )
 
-    def __init__(self, file_path=None, data_dir=None, download=False):
-        super().__init__(self.TASK_NAME, file_path=file_path, data_dir=data_dir, download=download)
 
-    def download(self, data_dir=None):
-        data_dir = get_data_dir(data_dir or self._data_dir)
-        tif = data_dir / self.DEFAULT_FILENAME
-
-        if tif.exists():
-            print(f"{self.DEFAULT_FILENAME} already exists, skipping.")
-        else:
-            zip_path = download_file(_URL, data_dir)
-            extract_zip(zip_path, data_dir)
-            
-        if not tif.exists():
-            raise FileNotFoundError(f"Expected {tif} after extraction.")
-        self._file_path = tif
-        return tif
+def load_embeddings_and_values(
+    backend: str = "satclip",
+    *,
+    device: str = "cuda",
+    force: bool = False,
+    **kwargs,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, torch.Tensor]:
+    return load_task_embeddings_and_values(
+        "elevation",
+        load_lat_lon_value,
+        backend=backend,
+        device=device,
+        force=force,
+        **kwargs,
+    )

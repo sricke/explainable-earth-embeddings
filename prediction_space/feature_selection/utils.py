@@ -8,39 +8,84 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 
+def _adaptive_fig_height(n_rows, min_height=6, per_row=0.04, max_height=40):
+    return min(max(min_height, n_rows * per_row), max_height)
 
-def plot_importance_heatmap(importance_matrices: dict, embeddings: dict,
-                             task_names: list, method: str = "lasso",
-                             top_k: int = 64, out_path: Path = None):
-    """Heatmap of sparse model importance scores (rows=top dims, cols=tasks).
 
-    Args:
-        importance_matrices: {emb_name: {"lasso": ndarray(n_dims, n_tasks), "enet": ...}}
-        embeddings: dict of embedding arrays (used for ordering only)
-        task_names: ordered list of task/dataset names
-        method: "lasso" or "enet"
-        top_k: number of top dims to show (by mean importance)
-        out_path: save path; if None, just shows
-    """
-    fig, axes = plt.subplots(1, len(embeddings), figsize=(8 * len(embeddings), 14))
-    if len(embeddings) == 1:
-        axes = [axes]
+def _sparse_yticks(ax, n_rows, target_ticks=20):
+    stride = max(1, n_rows // target_ticks)
+    ticks = np.arange(0, n_rows, stride)
+    ax.set_yticks(ticks + 0.5)
+    ax.set_yticklabels(ticks, rotation=0)
 
-    for ax, emb_name in zip(axes, embeddings):
-        mat = importance_matrices[emb_name][method]   # (n_dims, n_tasks)
-        top_idx = np.argsort(mat.mean(axis=1))[::-1][:top_k]
-        df_plot = pd.DataFrame(mat[top_idx], index=[f"dim {i}" for i in top_idx], columns=task_names)
-        sns.heatmap(df_plot, ax=ax, cmap="magma", linewidths=0, cbar_kws={"label": f"|{method.upper()} coef|"})
-        ax.set_title(f"{emb_name} — {method.upper()} Importance\n(top {top_k} dims)", fontsize=12)
-        ax.set_xlabel("Task")
-        ax.set_ylabel("Embedding Dimension")
+
+def plot_importance_heatmap(
+    importance_matrices: dict,
+    task_names: list,
+    method: str = "lasso",
+    out_path: Path = None,
+):
+    """One heatmap PNG per embedding, height proportional to dimensionality."""
+    import matplotlib as mpl
+    mpl.rcParams.update({
+        "font.size": 14,
+        "axes.titlesize": 16,
+        "axes.labelsize": 14,
+        "xtick.labelsize": 13,
+        "ytick.labelsize": 11,
+        "axes.titlepad": 10,
+    })
+    sns.set_style("white")
+
+    n_tasks = len(task_names)
+    fig_width = max(6, 1.6 * n_tasks)   # ~1.6 in per task column
+
+    for emb_name in importance_matrices:
+        mat = importance_matrices[emb_name][method]  # (n_dims, n_tasks)
+        n_dims = mat.shape[0]
+
+        height_per_dim = 0.025
+        fig_height = max(6, n_dims * height_per_dim)
+
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height), constrained_layout=True)
+
+        df_plot = pd.DataFrame(
+            mat,
+            index=np.arange(n_dims),
+            columns=task_names,
+        )
+        sns.heatmap(
+            df_plot,
+            ax=ax,
+            cmap="magma",
+            vmin=0, vmax=1,
+            linewidths=0,
+            cbar_kws={"label": f"|{method.upper()}| (max-norm)", "shrink": 0.6},
+        )
+
+        ax.set_title(emb_name, fontweight="bold")
+        ax.set_xlabel("Dataset", labelpad=8)
+        ax.set_ylabel("Embedding Dimension", labelpad=8)
         ax.tick_params(axis="x", rotation=45)
 
-    plt.tight_layout()
-    if out_path:
-        plt.savefig(out_path, dpi=150, bbox_inches="tight")
-        print(f"Saved {out_path}")
-    plt.show()
+        # ~20 evenly-spaced y-tick labels at cell centres (i + 0.5)
+        stride = max(1, n_dims // 20)
+        tick_rows = np.arange(0, n_dims, stride)
+        ax.set_yticks(tick_rows + 0.5)
+        ax.set_yticklabels(tick_rows, rotation=0)
+
+        # seaborn sets ylim correctly; do not override
+
+        if out_path:
+            out_path = Path(out_path)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            stem = out_path.stem
+            save_path = out_path.with_name(f"{stem}_{emb_name}.png")
+            plt.savefig(save_path, dpi=200, bbox_inches="tight")
+            print(f"Saved {save_path}")
+
+        plt.show()
+        plt.close(fig)
 
 
 def plot_sparsity_barchart(importance_matrices: dict, task_names: list,
@@ -76,91 +121,147 @@ def plot_sparsity_barchart(importance_matrices: dict, task_names: list,
 
 
 def plot_stability_heatmap(stability_freqs: dict, task_names: list,
-                            top_k: int = 64, out_path: Path = None):
-    """Heatmap of bootstrap selection frequencies (rows=top dims, cols=tasks)."""
-    fig, axes = plt.subplots(1, len(stability_freqs), figsize=(7 * len(stability_freqs), 14))
-    if len(stability_freqs) == 1:
-        axes = [axes]
+                          out_path: Path = None):
 
-    for ax, (emb_name, mat) in zip(axes, stability_freqs.items()):
-        top_idx = np.argsort(mat.max(axis=1))[::-1][:top_k]
-        df_plot = pd.DataFrame(mat[top_idx], index=[f"dim {i}" for i in top_idx], columns=task_names)
-        sns.heatmap(df_plot, ax=ax, annot=True, fmt=".2f", vmin=0, vmax=1,
-                    cmap="Blues", linewidths=0.3, cbar_kws={"label": "Selection Probability"})
-        ax.set_title(f"{emb_name} — Stability Selection\n(top {top_k} dims by max freq)", fontsize=12)
-        ax.set_xlabel("Task")
-        ax.set_ylabel("Embedding Dimension")
+    for emb_name, mat in stability_freqs.items():
+        n_dims = mat.shape[0]
 
-    plt.tight_layout()
-    if out_path:
-        plt.savefig(out_path, dpi=150, bbox_inches="tight")
-        print(f"Saved {out_path}")
-    plt.show()
+        fig_height = _adaptive_fig_height(n_dims)
+        fig_width = max(6, 1.6 * len(task_names))
 
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height), constrained_layout=True)
 
-def plot_mi_heatmap(mi_matrices: dict, task_names: list,
-                    top_k: int = 64, out_path: Path = None):
-    """Heatmap of normalized mutual information per dim (rows=top dims, cols=tasks)."""
-    fig, axes = plt.subplots(1, len(mi_matrices), figsize=(8 * len(mi_matrices), 14))
-    if len(mi_matrices) == 1:
-        axes = [axes]
+        df_plot = pd.DataFrame(
+            mat,
+            index=np.arange(n_dims),
+            columns=task_names
+        )
 
-    for ax, (emb_name, mat) in zip(axes, mi_matrices.items()):
-        col_max = mat.max(axis=0, keepdims=True)
-        col_max[col_max == 0] = 1.0
-        mat_norm = mat / col_max
-        top_idx = np.argsort(mat_norm.mean(axis=1))[::-1][:top_k]
-        df_plot = pd.DataFrame(mat_norm[top_idx], index=[f"dim {i}" for i in top_idx], columns=task_names)
-        sns.heatmap(df_plot, ax=ax, cmap="viridis", vmin=0, vmax=1, linewidths=0,
-                    cbar_kws={"label": "Normalized MI (per task)"})
-        ax.set_title(f"{emb_name} — Mutual Information\n(top {top_k} dims)", fontsize=12)
+        sns.heatmap(
+            df_plot,
+            ax=ax,
+            cmap="Blues",
+            vmin=0,
+            vmax=1,
+            linewidths=0,
+            cbar_kws={"label": "Selection Probability", "shrink": 0.6},
+        )
+
+        ax.set_title(f"{emb_name} — Stability Selection", fontsize=14)
         ax.set_xlabel("Task")
         ax.set_ylabel("Embedding Dimension")
         ax.tick_params(axis="x", rotation=45)
 
-    plt.tight_layout()
-    if out_path:
-        plt.savefig(out_path, dpi=150, bbox_inches="tight")
-        print(f"Saved {out_path}")
-    plt.show()
+        _sparse_yticks(ax, n_dims)
+
+        if out_path:
+            save_path = Path(out_path).with_name(f"{Path(out_path).stem}_{emb_name}.png")
+            plt.savefig(save_path, dpi=200, bbox_inches="tight")
+            print(f"Saved {save_path}")
+
+        plt.show()
+        plt.close()
+
+def plot_mi_heatmap(mi_matrices: dict, task_names: list,
+                    out_path: Path = None):
+
+    for emb_name, mat in mi_matrices.items():
+        n_dims = mat.shape[0]
+
+        col_max = mat.max(axis=0, keepdims=True)  # (1, n_tasks)
+        safe_max = np.where(col_max > 0, col_max, 1)
+        mat_norm = np.where(col_max > 0, mat / safe_max, np.nan)
+
+        fig_height = _adaptive_fig_height(n_dims)
+        fig_width = max(6, 1.6 * len(task_names))
+
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height), constrained_layout=True)
+
+        df_plot = pd.DataFrame(
+            mat_norm,
+            index=np.arange(n_dims),
+            columns=task_names
+        )
+
+        sns.heatmap(
+            df_plot,
+            ax=ax,
+            cmap="viridis",
+            vmin=0,
+            vmax=1,
+            linewidths=0,
+            cbar_kws={"label": "Normalized MI", "shrink": 0.6},
+        )
+
+        ax.set_title(f"{emb_name} — Mutual Information", fontsize=14)
+        ax.set_xlabel("Task")
+        ax.set_ylabel("Embedding Dimension")
+        ax.tick_params(axis="x", rotation=45)
+
+        _sparse_yticks(ax, n_dims)
+
+        if out_path:
+            save_path = Path(out_path).with_name(f"{Path(out_path).stem}_{emb_name}.png")
+            plt.savefig(save_path, dpi=200, bbox_inches="tight")
+            print(f"Saved {save_path}")
+
+        plt.show()
+        plt.close()
 
 
-def plot_mrmr_heatmap(mrmr_results: dict, embeddings: dict, task_names: list,
-                       n_mrmr: int = 32, out_path: Path = None):
-    """Heatmap of mRMR selection rank per dim (low rank = selected early = more informative)."""
-    fig, axes = plt.subplots(1, len(embeddings), figsize=(8 * len(embeddings), 12))
-    if len(embeddings) == 1:
-        axes = [axes]
-
+def plot_mrmr_heatmap(mrmr_results: dict, task_names: list,
+                     n_mrmr: int = 32, out_path: Path = None):
     cmap = plt.cm.get_cmap("RdYlGn").reversed()
 
-    for ax, emb_name in zip(axes, embeddings):
-        n_dims = embeddings[emb_name].shape[1]
+    for emb_name in mrmr_results:
+        flat = [i for ds in task_names for i in mrmr_results[emb_name].get(ds, [])]
+        n_dims = max(flat) + 1 if flat else 1
         rank_mat = np.full((n_dims, len(task_names)), np.nan)
+
         for t_idx, ds_name in enumerate(task_names):
             for rank, dim_idx in enumerate(mrmr_results[emb_name][ds_name], start=1):
                 rank_mat[dim_idx, t_idx] = rank
 
-        selected_rows = np.where(~np.all(np.isnan(rank_mat), axis=1))[0]
-        df_plot = pd.DataFrame(rank_mat[selected_rows],
-                               index=[f"dim {i}" for i in selected_rows],
-                               columns=task_names)
-        sns.heatmap(df_plot, ax=ax, cmap=cmap, vmin=1, vmax=n_mrmr,
-                    linewidths=0.2, cbar_kws={"label": "Selection Rank (1=first)"})
-        ax.set_title(f"{emb_name} — mRMR Selection Rank\n(dims selected in ≥1 task)", fontsize=12)
+        fig_height = _adaptive_fig_height(n_dims)
+        fig_width = max(6, 1.6 * len(task_names))
+
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height), constrained_layout=True)
+
+        df_plot = pd.DataFrame(
+            rank_mat,
+            index=np.arange(n_dims),
+            columns=task_names
+        )
+
+        sns.heatmap(
+            df_plot,
+            ax=ax,
+            cmap=cmap,
+            vmin=1,
+            vmax=n_mrmr,
+            linewidths=0,
+            mask=np.isnan(df_plot),
+            cbar_kws={"label": "Selection Rank (1=first)", "shrink": 0.6},
+        )
+
+        ax.set_title(f"{emb_name} — mRMR Rank", fontsize=14)
         ax.set_xlabel("Task")
         ax.set_ylabel("Embedding Dimension")
         ax.tick_params(axis="x", rotation=45)
 
-    plt.tight_layout()
-    if out_path:
-        plt.savefig(out_path, dpi=150, bbox_inches="tight")
-        print(f"Saved {out_path}")
-    plt.show()
+        _sparse_yticks(ax, n_dims)
+
+        if out_path:
+            save_path = Path(out_path).with_name(f"{Path(out_path).stem}_{emb_name}.png")
+            plt.savefig(save_path, dpi=200, bbox_inches="tight")
+            print(f"Saved {save_path}")
+
+        plt.show()
+        plt.close()
 
 
 def plot_ablation_curves(ablation_curves: dict, ablation_task_types: dict,
-                          embeddings: dict, out_path: Path = None):
+                          embedding_names: list, out_path: Path = None):
     """Line plots of performance vs. fraction of top dims removed."""
     task_names = list(ablation_curves.keys())
     n_tasks = len(task_names)
@@ -173,7 +274,7 @@ def plot_ablation_curves(ablation_curves: dict, ablation_task_types: dict,
     for ax, ds_name in zip(axes, task_names):
         task_type = ablation_task_types[ds_name]
         metric_label = "R²" if task_type == "regression" else "Accuracy"
-        for i, emb_name in enumerate(embeddings):
+        for i, emb_name in enumerate(embedding_names):
             fracs, scores = ablation_curves[ds_name][emb_name]
             ax.plot(fracs * 100, scores, marker="o", label=emb_name, color=colors[i])
         ax.set_title(ds_name, fontsize=12)

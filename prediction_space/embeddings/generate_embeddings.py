@@ -48,9 +48,11 @@ def generate_geoclip_embeddings(latlons, device="cuda"):
     return emb
 
 
-def generate_aef_embeddings(latlons, batch_size=5000):
+def generate_aef_embeddings(latlons, batch_size=1000, max_workers=8):
     assert isinstance(latlons, torch.Tensor), "Expected latlons to be a torch.Tensor"
     assert latlons.shape[1] == 2, "Expected latlons shape (N, 2)"
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     ae_collection = ee.ImageCollection("GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL") \
         .filterDate('2022-01-01', '2022-12-31') \
@@ -61,35 +63,34 @@ def generate_aef_embeddings(latlons, batch_size=5000):
 
     coords = latlons.cpu().numpy()
     embs = [None] * len(coords)
+    nan_row = [float('nan')] * len(band_names)
 
-    for batch_start in tqdm(range(0, len(coords), batch_size), desc="Generating AEF embeddings"):
+    def fetch_batch(batch_start):
         batch_coords = coords[batch_start:batch_start + batch_size]
-
-        # Build a FeatureCollection of points, tagging each with its index
         features = [
             ee.Feature(ee.Geometry.Point(float(lon), float(lat)), {"idx": batch_start + i})
             for i, (lat, lon) in enumerate(batch_coords)
         ]
         fc = ee.FeatureCollection(features)
-
         samples = ae_collection.sampleRegions(
             collection=fc,
             scale=10,
             geometries=False,
         ).getInfo()
+        return batch_start, len(batch_coords), samples
 
-        for feature in samples["features"]:
-            props = feature["properties"]
-            idx = props["idx"]
-            row = [props.get(b) for b in band_names]
-            if any(v is None for v in row):
-                embs[idx] = [float('nan')] * len(band_names)
-            else:
-                embs[idx] = row
-
-        # Fill any points that returned no feature (e.g. ocean / nodata) with NaN
-        for i in range(batch_start, batch_start + len(batch_coords)):
-            if embs[i] is None:
-                embs[i] = [float('nan')] * len(band_names)
+    batch_starts = list(range(0, len(coords), batch_size))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(fetch_batch, bs): bs for bs in batch_starts}
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Generating AEF embeddings"):
+            batch_start, batch_len, samples = future.result()
+            for feature in samples["features"]:
+                props = feature["properties"]
+                idx = props["idx"]
+                row = [props.get(b) for b in band_names]
+                embs[idx] = nan_row if any(v is None for v in row) else row
+            for i in range(batch_start, batch_start + batch_len):
+                if embs[i] is None:
+                    embs[i] = nan_row
 
     return torch.tensor(embs, dtype=torch.float32)

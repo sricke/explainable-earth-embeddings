@@ -1,39 +1,69 @@
-"""Nighttime lights from VIIRS DNB Annual Composite (EOG, Colorado School of Mines)."""
+"""Nighttime lights (luminosity) outcomes at point locations."""
+
+from __future__ import annotations
+
 from pathlib import Path
 
-from .utils import RasterDataset, get_data_dir
+import numpy as np
+import torch
 
-# EOG VIIRS annual composites require free registration at:
-# https://eogdata.mines.edu/products/vnl/
-# After downloading, point file_path to the average_masked .tif file.
-_DOWNLOAD_PAGE = "https://eogdata.mines.edu/products/vnl/"
+from .utils import (
+    DEFAULT_PREDICTION_TASKS_DIR,
+    get_task_embeddings,
+    load_outcomes_sampled_csv,
+    load_task_embeddings_and_values,
+)
+
+TEST_SIZE = 0.2
+SPLIT_RANDOM_STATE = 42
 
 
-class NightlightsDataset(RasterDataset):
+def load_lat_lon_value(
+    *,
+    data_dir: Path | str | None = None,
+    log_transform: bool = True,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Global nighttime lights (nW/cm²/sr) from VIIRS DNB Annual Composite.
+    Load ``lat``, ``lon``, ``luminosity`` from ``~/data/prediction_tasks/nightlights`` (or ``data_dir``).
 
-    Download the annual average_masked GeoTIFF from EOG (free registration):
-      https://eogdata.mines.edu/products/vnl/
-    Then instantiate with file_path pointing to the downloaded .tif.
-
-    __getitem__ returns ((lat, lon), radiance).
+    If ``log_transform`` is True, values are replaced with ``log1p(max(value, 0))`` (natural log).
     """
+    path = Path(data_dir).expanduser() if data_dir is not None else DEFAULT_PREDICTION_TASKS_DIR / "nightlights"
+    lat, lon, value = load_outcomes_sampled_csv(path, value_col="luminosity")
+    if log_transform:
+        value = np.log1p(np.maximum(value, 0.0))
+    return lat, lon, value
 
-    DEFAULT_FILENAME = "VNL_2024_annual_average_masked.tif"
-    TASK_NAME = "nightlights"
 
-    def __init__(self, file_path=None, data_dir=None, download=False):
-        super().__init__(self.TASK_NAME, file_path=file_path, data_dir=data_dir, download=download)
+def get_embeddings(
+    backend: str = "satclip",
+    *,
+    device: str = "cuda",
+    force: bool = False,
+    **kwargs,
+) -> torch.Tensor:
+    return get_task_embeddings(
+        "nightlights",
+        load_lat_lon_value,
+        backend=backend,
+        device=device,
+        force=force,
+        **kwargs,
+    )
 
-    def download(self, data_dir=None):
-        self._file_path = data_dir / self.DEFAULT_FILENAME
-        if self._file_path.exists():
-            print(f"{self.DEFAULT_FILENAME} already exists, skipping.")
-            return self._file_path 
-        else:
-            raise RuntimeError(
-                "VIIRS nighttime lights requires free registration.\n"
-                f"Download the annual average_masked GeoTIFF from:\n  {_DOWNLOAD_PAGE}\n"
-                "Then pass file_path= to NightlightsDataset()."
-            )
+
+def load_embeddings_and_values(
+    backend: str = "satclip",
+    *,
+    device: str = "cuda",
+    force: bool = False,
+    **kwargs,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, torch.Tensor]:
+    return load_task_embeddings_and_values(
+        "nightlights",
+        load_lat_lon_value,
+        backend=backend,
+        device=device,
+        force=force,
+        **kwargs,
+    )

@@ -16,19 +16,21 @@ K_VALUES = [1, 3, 5, 10]
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def probe_knn_regression_gpu(X: np.ndarray, y: np.ndarray, k_values: list = K_VALUES,
-                         cv: int = 5, seed: int = 42) -> dict[int, tuple[float, float]]:
+                         cv: int = 5, seed: int = 42,
+                         device: torch.device | None = None) -> dict[int, tuple[float, float]]:
     """kNN regression probe on GPU.
 
     Returns:
         dict mapping k -> (mean_r2, std_r2)
     """
+    dev = device if device is not None else DEVICE
     torch.manual_seed(seed)
 
     mask = np.isfinite(X).all(axis=1) & np.isfinite(y)
     X, y = X[mask], y[mask]
 
-    X_t = torch.tensor(X, dtype=torch.float32, device=DEVICE)
-    y_t = torch.tensor(y, dtype=torch.float32, device=DEVICE)
+    X_t = torch.tensor(X, dtype=torch.float32, device=dev)
+    y_t = torch.tensor(y, dtype=torch.float32, device=dev)
 
     kf = KFold(n_splits=cv, shuffle=True, random_state=seed)
 
@@ -73,12 +75,14 @@ def probe_knn_regression_gpu(X: np.ndarray, y: np.ndarray, k_values: list = K_VA
 
 
 def probe_knn_classification_gpu(X: np.ndarray, y: np.ndarray, k_values: list = K_VALUES,
-                              cv: int = 5, seed: int = 42) -> dict[int, tuple[float, float]]:
+                              cv: int = 5, seed: int = 42,
+                              device: torch.device | None = None) -> dict[int, tuple[float, float]]:
     """kNN classification probe.
 
     Returns:
         dict mapping k -> (mean_accuracy, std_accuracy)
     """
+    dev = device if device is not None else DEVICE
     torch.manual_seed(seed)
 
     mask = np.isfinite(X).all(axis=1) & np.isfinite(y)
@@ -86,8 +90,8 @@ def probe_knn_classification_gpu(X: np.ndarray, y: np.ndarray, k_values: list = 
 
     y = LabelEncoder().fit_transform(y)
 
-    X_t = torch.tensor(X, dtype=torch.float32, device=DEVICE)
-    y_t = torch.tensor(y, dtype=torch.long, device=DEVICE)
+    X_t = torch.tensor(X, dtype=torch.float32, device=dev)
+    y_t = torch.tensor(y, dtype=torch.long, device=dev)
 
     kf = KFold(n_splits=cv, shuffle=True, random_state=seed)
 
