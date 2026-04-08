@@ -19,8 +19,8 @@ from .utils import (
 
 _FIGSHARE_URL = "https://springernature.figshare.com/ndownloader/files/12609182"
 
-PROBE_TEST_SIZE = 0.2
-PROBE_SPLIT_RANDOM_STATE = 10_005
+TEST_SIZE = 0.2
+SPLIT_RANDOM_STATE = 42
 
 
 def get_air_temp_data(pred="temp", norm_y=True, norm_x=True):
@@ -75,11 +75,11 @@ def load_lat_lon_value(
     """
     root = Path(data_dir).expanduser() if data_dir is not None else DEFAULT_PREDICTION_TASKS_DIR / "air_temp"
     if root.is_file():
-        return load_outcomes_sampled_csv(root, value_col="meanT", lat_col="Lat", lon_col="Lon", glob_pattern="*.csv")
+        return load_outcomes_sampled_csv(root, lat_col="Lat", lon_col="Lon", glob_pattern="*.csv")
     if root.is_dir():
         csvs = sorted(root.glob("*.csv"))
         if len(csvs) == 1:
-            return load_outcomes_sampled_csv(csvs[0], value_col="meanT", lat_col="Lat", lon_col="Lon", glob_pattern="*.csv")
+            return load_outcomes_sampled_csv(csvs[0], lat_col="Lat", lon_col="Lon", glob_pattern="*.csv")
         if len(csvs) > 1:
             raise ValueError(f"Multiple CSVs in {root}; specify one file path.")
 

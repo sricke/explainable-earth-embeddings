@@ -9,8 +9,8 @@ top_k: 10
 dataset_csv: "../../data/s2-100k/ee-dataset/dataset.csv"
 
 models:
-  - label: "satclip-geoyfcc"
-    ckpt_dir: "~/outputs/explainable-earth-embeddings/satclip/geoyfcc-text/checkpoints"
+  - label: "geoclip-geoyfcc"
+    ckpt_dir: "~/outputs/explainable-earth-embeddings/geoclip-geoyfcc/checkpoints"
     ckpt_name: "Text2Location-epoch=46-val_loss=1.3700.ckpt"
 
 # Either specify vocab_files explicitly, or leave this commented and keep vocab_dirs

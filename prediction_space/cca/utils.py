@@ -1,5 +1,5 @@
 """
-Plotting utilities for CCA interpretability analysis.
+Plotting utilities for embedding–target linear association (CCA or scalar-Y linear scores).
 """
 
 import numpy as np
@@ -29,13 +29,16 @@ def plot_cca_weight_heatmap(
     task_names: list,
     component: int = 0,
     out_path: Path = None,
+    *,
+    method_label: str = "CCA",
+    loading_bar_label: str | None = None,
 ):
     """
-    Heatmap of the nth canonical loading vector for each embedding.
-    Masked cells (gray) = component unavailable (e.g. regression caps at 1).
+    Heatmap of the nth loading vector for each embedding (CCA or scalar-Y linear score).
 
     cca_weights[emb_name][ds_name] = loading array (n_dims, n_components)
     """
+    bar_lbl = loading_bar_label or f"{method_label} loading"
     sns.set_style("white")
 
     for emb_name, task_dict in cca_weights.items():
@@ -64,13 +67,13 @@ def plot_cca_weight_heatmap(
             cmap="RdBu_r", center=0, vmin=-1, vmax=1,
             linewidths=0,
             mask=unavailable_mask,
-            cbar_kws={"label": f"CCA Loading (comp {component + 1}, abs-norm)", "shrink": 0.6},
+            cbar_kws={"label": f"{bar_lbl} (comp {component + 1}, abs-norm)", "shrink": 0.6},
         )
 
         unavail_cols = [task_names[j] for j in range(len(task_names))
                         if unavailable_mask.values[:, j].all()]
         note = f"\n(gray = unavailable: {', '.join(unavail_cols)})" if unavail_cols else ""
-        ax.set_title(f"{emb_name} — CCA Loadings (component {component + 1}){note}",
+        ax.set_title(f"{emb_name} — {method_label} loadings (component {component + 1}){note}",
                      fontweight="bold", fontsize=14)
         ax.set_xlabel("Dataset", labelpad=8)
         ax.set_ylabel("Embedding Dimension", labelpad=8)
@@ -99,15 +102,17 @@ def plot_variable_loadings(
     top_k: int = 30,
     component: int = 0,
     out_path: Path = None,
+    *,
+    method_label: str = "CCA",
+    projection_xlabel: str | None = None,
 ):
     """
     For each environmental variable, plot a horizontal bar chart of the top-k
-    embedding dimensions by absolute CCA projection weight on the first component.
-
-    Answers: "For elevation — which combination (weights) of embedding dims aligns with it?"
+    embedding dimensions by absolute projection weight on the first component.
 
     cca_weights[emb_name][ds_name] = weights array (n_dims, n_components)
     """
+    px_label = projection_xlabel or f"{method_label} projection weight"
     emb_names = list(cca_weights.keys())
     n_embs = len(emb_names)
 
@@ -134,12 +139,12 @@ def plot_variable_loadings(
             ax.set_yticks(np.arange(len(vals))[::-1])
             ax.set_yticklabels(labels, fontsize=8)
             ax.axvline(0, color="black", linewidth=0.8)
-            ax.set_xlabel("CCA Projection Weight")
+            ax.set_xlabel(px_label)
             ax.set_title(f"{emb_name}", fontsize=12)
 
         fig.suptitle(
             f"Variable-centric: {ds_name}  (component {component + 1})\n"
-            f"Top-{top_k} embedding dims by |CCA weight|",
+            f"Top-{top_k} embedding dims by |{method_label} weight|",
             fontsize=13, fontweight="bold",
         )
         plt.tight_layout()
@@ -329,6 +334,119 @@ def plot_vars_to_dim_weights(
 
 
 # ---------------------------------------------------------------------------
+# Clustered heatmap: hierarchical clustering on embedding dims × tasks
+# ---------------------------------------------------------------------------
+
+def plot_cca_weight_heatmap_clustered(
+    cca_weights: dict,
+    task_names: list,
+    component: int = 0,
+    out_path: Path = None,
+    *,
+    method_label: str = "CCA",
+    abs: bool = True,
+    loading_bar_label: str | None = None,
+    top_k: int = 512,
+    row_cluster: bool = True,
+    col_cluster: bool = True,
+    linkage_method: str = "ward",
+    metric: str = "euclidean",
+):
+    """
+    Clustered heatmap of the nth loading vector for each embedding.
+
+    Uses sns.clustermap to apply hierarchical clustering on rows (embedding
+    dimensions) and/or columns (tasks), revealing groups of dims that respond
+    similarly across tasks.
+
+    top_k: keep only the top-k rows by row L2 norm. Plotting all 512+ dims
+    produces rows too thin to see — top_k makes the dendrogram readable.
+
+    cca_weights[emb_name][ds_name] = loading array (n_dims, n_components)
+    """
+    bar_lbl = loading_bar_label or f"{method_label} loading"
+    sns.set_style("white")
+
+    for emb_name, task_dict in cca_weights.items():
+        n_dims = next(iter(task_dict.values())).shape[0]
+        mat = np.full((n_dims, len(task_names)), np.nan)
+        for t_idx, ds_name in enumerate(task_names):
+            w = task_dict.get(ds_name)
+            if w is not None and w.shape[1] > component:
+                mat[:, t_idx] = np.abs(w[:, component])
+
+        # Normalise each column to [-1, 1] by max absolute value
+        col_absmax = np.nanmax(np.abs(mat), axis=0, keepdims=True)
+        safe_absmax = np.where(col_absmax > 0, col_absmax, 1)
+        mat_norm = np.where(col_absmax > 0, mat / safe_absmax, 0.0)
+
+        # Keep top-k rows by L2 norm so dendrograms are visible
+        row_norms = np.linalg.norm(mat_norm, axis=1)
+        k = min(top_k, n_dims)
+        top_idx = np.argsort(row_norms)[-k:]
+        mat_sub = mat_norm[top_idx]
+        row_labels = [f"dim {i}" for i in top_idx]
+
+        df_plot = pd.DataFrame(mat_sub, index=row_labels, columns=task_names)
+
+        fig_h = max(8, k * 0.28)
+        fig_w = max(6, 1.6 * len(task_names))
+
+        vmin = 0 if abs else np.nanmin(mat_sub)
+        vmax = 1
+        cmap = "Reds" if abs else "RdBu_r"
+        center = None if abs else 0
+
+        g = sns.clustermap(
+            df_plot,
+            cmap=cmap, #only one color if abs
+            center=center, vmin=vmin, vmax=vmax,
+            linewidths=0.3,
+            row_cluster=row_cluster,
+            col_cluster=col_cluster,
+            method=linkage_method,
+            metric=metric,
+            yticklabels=True,
+            xticklabels=True,
+            figsize=(fig_w, fig_h),
+            cbar_kws={"label": f"{bar_lbl} (comp {component + 1}, abs-norm)", "shrink": 0.6},
+            dendrogram_ratio=(0.2, 0.1),
+        )
+
+        # Reposition colorbar to the right of the heatmap (clustermap defaults
+        # to top-left, which overlaps the column dendrogram).
+        g.figure.canvas.draw()
+        hm_pos = g.ax_heatmap.get_position()
+        g.cax.set_position([
+            hm_pos.x1 + 0.09,                  # just right of heatmap
+            hm_pos.y0 + hm_pos.height * 0.2,   # vertically centred
+            0.02,
+            hm_pos.height * 0.6,
+        ])
+
+        g.ax_heatmap.set_xlabel("Dataset", labelpad=8)
+        g.ax_heatmap.set_ylabel("Embedding Dimension", labelpad=8)
+        g.ax_heatmap.tick_params(axis="x", rotation=45)
+        g.ax_heatmap.tick_params(axis="y", rotation=0, labelsize=7)
+        g.figure.suptitle(
+            f"{emb_name} — {method_label} loadings (component {component + 1})\n"
+            f"Top-{k} dims by L2 norm · clustering: method={linkage_method}, metric={metric}",
+            fontweight="bold", fontsize=13, y=1.04,
+        )
+
+        if out_path:
+            out_path = Path(out_path)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            stem = out_path.stem
+            save_path = out_path.with_name(f"{stem}_{emb_name}_comp{component + 1}_clustered.png")
+            g.figure.savefig(save_path, dpi=200, bbox_inches="tight")
+            print(f"Saved {save_path}")
+
+        plt.show()
+        plt.close(g.figure)
+
+
+# ---------------------------------------------------------------------------
 # Canonical correlations bar chart
 # ---------------------------------------------------------------------------
 
@@ -337,9 +455,14 @@ def plot_canonical_correlations(
     task_names: list,
     n_components: int = 1,
     out_path: Path = None,
+    *,
+    method_label: str = "CCA",
+    score_label: str = "Canonical correlation (r)",
 ):
     """
-    Grouped bar chart of canonical correlations per component.
+    Grouped bar chart of correlation scores per component.
+    With scalar Y and one component, values are the multiple correlation R.
+
     cca_corrs[emb_name][ds_name] = corrs array (n_components,)
     """
     records = []
@@ -365,9 +488,9 @@ def plot_canonical_correlations(
     for ax, comp_label in zip(axes, sorted(df["component"].unique())):
         sub = df[df["component"] == comp_label]
         sns.barplot(data=sub, x="dataset", y="r", hue="embedding", ax=ax, palette="tab10")
-        ax.set_title(f"Canonical Correlation — {comp_label}", fontsize=12)
+        ax.set_title(f"{method_label} — {comp_label}", fontsize=12)
         ax.set_xlabel("Dataset")
-        ax.set_ylabel("Canonical Correlation (r)")
+        ax.set_ylabel(score_label)
         ax.tick_params(axis="x", rotation=45)
         ax.legend(title="Embedding")
         ax.set_ylim(0, 1)

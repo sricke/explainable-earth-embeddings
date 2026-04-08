@@ -1,43 +1,29 @@
-"""Prediction tasks: load ``(lat, lon, value)`` arrays from ``~/data/prediction_tasks/<name>`` or built-in sources."""
+"""Prediction tasks: load ``(lat, lon, value, embeddings)`` from ``~/data/prediction_tasks/<name>``."""
 
-from . import air_temp
-from . import biome
-from . import countries
-from . import ecoregion
-from . import elevation
-from . import nightlights
-from . import pop_density
-from . import treecover
+from .datasets import ALL_TASKS, load_lat_lon_value, load_dataset
 from .generate_all_embeddings import generate_all_embeddings
 from .utils import (
     DEFAULT_LAT_LON_GRID_CSV,
     DEFAULT_PREDICTION_TASKS_DIR,
-    get_task_embeddings,
+    load_csv,
     load_embeddings,
-    load_or_generate_embeddings,
-    load_outcomes_sampled_csv,
-    load_shapefile_value_at_lat_lon_csv,
-    load_task_embeddings_and_values,
+    load_shapefile,
     train_test_row_indices,
 )
 
 __all__ = [
+    "ALL_TASKS",
     "DEFAULT_LAT_LON_GRID_CSV",
     "DEFAULT_PREDICTION_TASKS_DIR",
     "generate_all_embeddings",
-    "get_task_embeddings",
+    "load_csv",
+    "load_dataset",
     "load_embeddings",
+    "load_dataset",
+    "load_lat_lon_value",
     "load_or_generate_embeddings",
     "load_outcomes_sampled_csv",
+    "load_shapefile",
     "load_shapefile_value_at_lat_lon_csv",
-    "load_task_embeddings_and_values",
     "train_test_row_indices",
-    "air_temp",
-    "biome",
-    "countries",
-    "ecoregion",
-    "elevation",
-    "nightlights",
-    "pop_density",
-    "treecover",
 ]

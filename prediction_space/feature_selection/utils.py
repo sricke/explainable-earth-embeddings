@@ -103,8 +103,12 @@ def plot_sparsity_barchart(importance_matrices: dict, task_names: list,
                 })
     df = pd.DataFrame(records)
 
-    fig, axes = plt.subplots(1, 2, figsize=(16, 5), sharey=False)
-    for ax, method in zip(axes, ["LASSO", "ENET"]):
+    methods = sorted(df["method"].unique())
+    n_methods = len(methods)
+    fig, axes = plt.subplots(1, n_methods, figsize=(8 * n_methods, 5), sharey=False)
+    if n_methods == 1:
+        axes = [axes]
+    for ax, method in zip(axes, methods):
         sns.barplot(data=df[df["method"] == method], x="dataset", y="n_nonzero",
                     hue="embedding", ax=ax, palette="tab10")
         ax.set_title(f"{method} — Non-zero Dims per Dataset", fontsize=12)
@@ -118,6 +122,7 @@ def plot_sparsity_barchart(importance_matrices: dict, task_names: list,
         plt.savefig(out_path, dpi=150, bbox_inches="tight")
         print(f"Saved {out_path}")
     plt.show()
+    plt.close()
 
 
 def plot_stability_heatmap(stability_freqs: dict, task_names: list,

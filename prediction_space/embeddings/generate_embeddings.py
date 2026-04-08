@@ -25,7 +25,9 @@ def generate_satclip_embeddings(latlons, device="cuda"):
     with torch.no_grad():
         for i in tqdm(range(0, len(latlons), 1024), desc="Generating SatCLIP embeddings"):
             batch = latlons[i:i+1024].double().to(device)
-            emb[i:i+1024] = model(batch).detach().cpu()
+            #reverse order
+            batch_lonlat = batch[:, [1, 0]]
+            emb[i:i+1024] = model(batch_lonlat).detach().cpu()
 
     return emb
 
