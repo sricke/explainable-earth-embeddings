@@ -72,13 +72,29 @@ class TextEncoder(nn.Module):
         text_model: str = None,
         embed_project: EmbeddingProjection = None,
         finetune_mode: str = None,
+        precomputed: bool = True,
     ):
         super().__init__()
         assert text_model is not None, "Need to specify text model"
         self.text_model = text_model
-        self.text_encoder, self.tokenizer, self.output_dim = self._build_model(text_model)
+        self.precomputed = precomputed
         self.embed_project = embed_project
-        self._set_finetune_mode(finetune_mode)
+
+        if precomputed:
+            assert finetune_mode != "all", "Cannot finetune all with finetune_mode with precomputed=True"
+        else:
+            self.text_encoder, self.tokenizer, self.output_dim = self._build_model(text_model)
+            self._set_finetune_mode(finetune_mode)
+
+        if embed_project is not None:
+            embed_project.requires_grad_(True)
+
+    def _target_device(self):
+        if self.embed_project is not None:
+            return next(self.embed_project.parameters()).device
+        if hasattr(self, "text_encoder"):
+            return next(self.text_encoder.parameters()).device
+        return None
 
     def _build_model(self, text_model: str):
         if text_model == "open_clip":
@@ -97,24 +113,26 @@ class TextEncoder(nn.Module):
             self.text_encoder.requires_grad_(False)
             self.text_encoder.eval()
 
-        if self.embed_project is not None:
-            self.embed_project.requires_grad_(True)
-
     def encode_texts(self, texts) -> torch.Tensor:
+        assert not self.precomputed, "Cannot call encode_texts in precomputed mode"
         tokens = self.tokenizer(texts, padding=True, truncation=False, return_tensors="pt")
-        input_ids = tokens.input_ids  # [B, L]
+        device = next(self.text_encoder.parameters()).device
+        input_ids = tokens.input_ids.to(device)
         text_embeddings = self.text_encoder(input_ids)
-
         if isinstance(text_embeddings, dict):
             text_embeddings = text_embeddings["text_embeds"]
-
         return F.normalize(text_embeddings, dim=-1)
 
-    def project_embeddings(self, embeddings: torch.Tensor) -> torch.Tensor:
-        """Apply projection head. Use this when embeddings are precomputed."""
-        if self.embed_project is not None:
-            embeddings = F.normalize(self.embed_project(embeddings), dim=-1)
-        return embeddings
+    def forward(self, x) -> torch.Tensor:
+        if self.precomputed:
+            assert isinstance(x, torch.Tensor), "Precomputed mode expects tensor input"
+            target_device = self._target_device()
+            if target_device is not None and x.device != target_device:
+                x = x.to(target_device, non_blocking=True)
+            embedding = F.normalize(x.to(dtype=torch.float32), dim=-1)
+        else:
+            embedding = self.encode_texts(x)
 
-    def forward(self, texts) -> torch.Tensor:
-        return self.project_embeddings(self.encode_texts(texts))
+        if self.embed_project is not None:
+            embedding = F.normalize(self.embed_project(embedding), dim=-1)
+        return embedding

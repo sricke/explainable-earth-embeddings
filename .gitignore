@@ -232,4 +232,5 @@ post-hoc-cbm/
 *.pkl
 *.csv
 *.jsonl
-text-descriptions-wildsat/wildsat-dataset-api/
+slurm_agent.sh
+submit_sweep.sh

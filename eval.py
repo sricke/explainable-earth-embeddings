@@ -4,18 +4,29 @@ from tqdm import tqdm
 
 
 @torch.no_grad()
-def val_epoch(val_dataloader, model, criterion, epoch, device) -> float:
+def val_epoch(val_dataloader, model, criterion, epoch, device, logger) -> float:
     model.eval()
     total_loss = 0.0
     global_step = epoch * len(val_dataloader)
 
-    for i, (locs, texts) in enumerate(tqdm(val_dataloader, desc=f"Val epoch {epoch}")):
+    bar = tqdm(enumerate(val_dataloader), total=len(val_dataloader))
+
+    for i, (locs, texts) in bar:
+        assert isinstance(locs, torch.Tensor), f"Expected `locs` to be a torch.Tensor, got {type(locs)}"
+        assert isinstance(texts, torch.Tensor), f"Expected `texts` to be a torch.Tensor, got {type(texts)}"
         locs = locs.to(device)
+        texts = texts.to(device)
+        
         text_features, location_features = model(texts, locs)
-        loss = criterion(text_features, location_features).item()
-        total_loss += loss
-        wandb.log({"val/loss_step": loss, "val_step": global_step + i})
+        loss = criterion(text_features, location_features)
+        loss_value = loss.item()
+        total_loss += loss_value
+        bar.set_description("Epoch {} Val loss: {:.5f}".format(epoch, loss_value))
+        if wandb.run is not None:
+            wandb.log({"val/loss_step": loss_value, "val_step": global_step + i})
 
     epoch_loss = total_loss / len(val_dataloader)
-    wandb.log({"val/loss_epoch": epoch_loss, "epoch": epoch})
+    logger.info(f"[Epoch {epoch}] val_loss={epoch_loss:.4f}")
+    if wandb.run is not None:
+        wandb.log({"val/loss_epoch": epoch_loss, "epoch": epoch})
     return epoch_loss

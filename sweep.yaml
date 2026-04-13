@@ -1,4 +1,11 @@
 program: main.py
+entity: boulder-rolf-lab
+project: explainable-earth-embeddings
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
 method: grid
 metric:
   name: val_loss
@@ -7,30 +14,26 @@ metric:
 parameters:
   dataset_path:
     values:
-      - /path/to/laion_rs
-      - /path/to/bigearth
-      - /path/to/skyscript
-      - /path/to/rs5m
-      - /path/to/lhrs_align
+      - /home/libe2152/data/skyscript/satclip/open_clip/
 
   # --- Loss ---
   train_loss:
-    values: [clip, mse, concept]
+    values: [clip, mse]
   lambda_alignment:
-    value: 0.1    # used only when train_loss=concept
+    value: 1.0    # unused for clip/mse; see sweep_concept.yaml for concept loss
   sigma:
-    value: 1.0    # used only when train_loss=concept
+    value: 1.0    # used only when train_loss=concept, might not want to hard code
   logit_scale_temp:
-    value: 0.07
+    value: 0.07 # same as geoclip
 
   # --- Location encoder projection ---
   location_encoder:
     value: satclip
   location_projection:
-    values: [none, linear, mlp]
-  loc_proj_hidden_layers:
+    values: [none, linear]
+  loc_proj_hidden_layers: # only used for mlp projection
     value: 1
-  loc_proj_hidden_features:
+  loc_proj_hidden_features: # only used for mlp projection
     value: 512
 
   # --- Text encoder projection ---
@@ -38,9 +41,11 @@ parameters:
     value: open_clip
   text_projection:
     values: [linear, mlp]
-  text_proj_hidden_layers:
+  text_nonlinearity:
+    value: relu
+  text_proj_hidden_layers: # only used for mlp projection
     value: 1
-  text_proj_hidden_features:
+  text_proj_hidden_features: # only used for mlp projection
     value: 512
 
   # --- Shared ---
@@ -51,9 +56,9 @@ parameters:
 
   # --- Training ---
   num_epochs:
-    value: 10
+    value: 100
   batch_size:
-    value: 256
+    value: 2048
   lr:
     value: 0.0001
   weight_decay:
@@ -65,5 +70,7 @@ parameters:
   device:
     value: cuda
 
+  wandb_entity:
+    value: boulder-rolf-lab
   wandb_project:
     value: explainable-earth-embeddings

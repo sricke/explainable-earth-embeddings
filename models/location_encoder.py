@@ -24,12 +24,12 @@ LOCATION_MODEL_CHECKPOINTS = {
 }
 
 
-def load_model(location_model: str):
+def load_model(location_model: str, device: str = "cuda:0"):
     """Load a pretrained location encoder."""
     if location_model == "satclip":
         return get_satclip(
             hf_hub_download(LOCATION_MODEL_IDS["satclip"], LOCATION_MODEL_CHECKPOINTS["satclip"]),
-            device="cpu",
+            device=device,
         )
     elif location_model == "geoclip":
         from geoclip import GeoCLIP
@@ -44,30 +44,40 @@ class LocationEncoder(nn.Module):
         self,
         location_model: str = None,
         embed_project: EmbeddingProjection = None,
+        precomputed: bool = True,
     ):
         super().__init__()
         assert location_model is not None, "Must specify location model"
         self.location_model = location_model
-
-        self.location_encoder = load_model(location_model)
-        self.location_encoder.requires_grad_(False)
-        self.location_encoder.eval()
+        self.precomputed = precomputed
         self.location_embedding_dim = LOCATION_EMBEDDING_DIMENSIONS[location_model]
-
         self.embed_project = embed_project
-        if self.embed_project is not None:
-            self.embed_project.requires_grad_(True)
+
+        if not precomputed:
+            self.location_encoder = load_model(location_model)
+            self.location_encoder.requires_grad_(False)
+            self.location_encoder.eval()
+
+        if embed_project is not None:
+            embed_project.requires_grad_(True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        assert x.shape[1] == 2, "Forward expects (lat, lon) pairs"
-
-        if self.location_model == "satclip":
-            x = x[:, [1, 0]]  # SatCLIP expects (lon, lat)
-
-        location_embedding = self.location_encoder(x)
-        location_embedding = F.normalize(location_embedding, dim=-1)
+        if self.precomputed:
+            target_device = None
+            if self.embed_project is not None:
+                target_device = next(self.embed_project.parameters()).device
+            if target_device is not None and x.device != target_device:
+                x = x.to(target_device, non_blocking=True)
+            embedding = F.normalize(x.to(dtype=torch.float32), dim=-1)
+        else:
+            assert x.shape[1] == 2, "Forward expects (lat, lon) pairs"
+            x = x[:, [1, 0]].double() if self.location_model == "satclip" else x.float()
+            # Ensure coords live on the same device as the encoder.
+            enc_device = next(self.location_encoder.parameters()).device
+            if x.device != enc_device:
+                x = x.to(enc_device, non_blocking=True)
+            embedding = F.normalize(self.location_encoder(x).float(), dim=-1)
 
         if self.embed_project is not None:
-            location_embedding = F.normalize(self.embed_project(location_embedding), dim=-1)
-
-        return location_embedding
+            embedding = F.normalize(self.embed_project(embedding), dim=-1)
+        return embedding

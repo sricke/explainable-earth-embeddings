@@ -1,6 +1,9 @@
 import argparse
+import logging
+import random
 from pathlib import Path
 
+import numpy as np
 import torch
 import wandb
 import yaml
@@ -12,6 +15,41 @@ from models.utils import make_text_encoder, make_location_encoder
 from loss import make_loss
 from train import train_epoch
 from eval import val_epoch
+from utils import EarlyStopping
+
+
+logger = logging.getLogger(__name__)
+
+
+def set_seed(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+def setup_logging(run_name: str, log_dir: Path):
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / f"{run_name}.log"
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler(),
+        ],
+    )
+
+    logging.info(f"Logging to {log_file}")
+
+
+def build_run_name(args, dataset_name: str) -> tuple[str, str]:
+    p = [f"txt-{args.text_encoder}", f"loc-{args.location_encoder}", f"tproj-{args.text_projection}", f"lproj-{args.location_projection}", f"loss-{args.train_loss}"]
+    run_tag = "__".join(str(x).strip().replace(" ", "-").replace("/", "_").replace("\\", "_") for x in p if x)
+    return f"{dataset_name}__{run_tag}".strip().replace(" ", "-").replace("/", "_").replace("\\", "_"), run_tag
 
 
 def get_args():
@@ -46,18 +84,26 @@ def get_args():
     parser.add_argument('--sigma', type=float)
     parser.add_argument('--logit_scale_temp', type=float, default=0.07)
     # Training
-    parser.add_argument('--num_epochs', type=int, default=10)
+    parser.add_argument('--num_epochs', type=int, default=100)
+    parser.add_argument('--patience', type=int, default=5)
     parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--weight_decay', type=float, default=1e-2)
+    parser.add_argument('--text_nonlinearity', type=str, default=None, help="'relu' | 'sine'")
+    parser.add_argument('--loc_nonlinearity', type=str, default=None, help="'relu' | 'sine'")
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--device', type=str, default='cuda')
     # Checkpointing
-    parser.add_argument('--model_save_path', type=str, default=None,
-                        help='Checkpoint path. Auto-derived from run config if not set.')
+    parser.add_argument(
+        '--model_save_path', type=str, default=None,
+        help='Base directory for checkpoints (default: ~/outputs/explainable-earth-embeddings/<dataset_name>); '
+             'checkpoints go in <base>/<run-subdir>/best.pt. File logs use ./logs in the cwd.',
+    )
     parser.add_argument('--resume_from', type=str)
     # Logging
+    parser.add_argument('--wandb_entity', type=str, default=None,
+                        help='W&B team or username (optional; defaults to logged-in default).')
     parser.add_argument('--wandb_project', type=str, default='explainable-earth-embeddings')
     parser.add_argument('--wandb_run_name', type=str)
     parser.add_argument('--no_wandb', action='store_true')
@@ -67,8 +113,13 @@ def get_args():
 def build_dataloaders(args):
     train_dataset = GeoTextDataset(root=args.dataset_path, split='train')
     val_dataset = GeoTextDataset(root=args.dataset_path, split='val')
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
-    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    g = torch.Generator()
+    g.manual_seed(args.seed)
+    worker_init = lambda wid: set_seed(args.seed + wid)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, worker_init_fn=worker_init, generator=g)
+    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, worker_init_fn=worker_init)
+    logger.info(f"Loaded dataset from {args.dataset_path}")
+    logger.info(f"Train size={len(train_dataset)}, Val size={len(val_dataset)}")
     return train_dataloader, val_dataloader
 
 
@@ -76,11 +127,14 @@ def build_model(args, device):
     text_encoder = make_text_encoder(
         args.text_encoder, args.text_projection, args.shared_dim, args.finetune_mode,
         num_hidden_layers=args.text_proj_hidden_layers, num_hidden_features=args.text_proj_hidden_features,
+        nonlinearity=args.text_nonlinearity,
     )
     location_encoder = make_location_encoder(
         args.location_encoder, args.location_projection, args.shared_dim,
         num_hidden_layers=args.loc_proj_hidden_layers, num_hidden_features=args.loc_proj_hidden_features,
+        nonlinearity=args.loc_nonlinearity,
     )
+    logger.info(f"Using text encoder={args.text_encoder}, location encoder={args.location_encoder}")
     return TextLocationModel(text_encoder=text_encoder, location_encoder=location_encoder).to(device)
 
 
@@ -106,50 +160,81 @@ def load_checkpoint(path, model, optimizer, logit_scale, device):
     ckpt = torch.load(path, map_location=device)
     model.load_state_dict(ckpt['model'])
     optimizer.load_state_dict(ckpt['optimizer'])
-    logit_scale.data = ckpt['logit_scale']
-    print(f"Resumed from epoch {ckpt['epoch']}")
+    logit_scale.data = ckpt['logit_scale'].to(device)
+    model.to(device)
+    for state in optimizer.state.values():
+        for k, v in list(state.items()):
+            if torch.is_tensor(v):
+                state[k] = v.to(device)
+    logger.info(f"Resumed from epoch {ckpt['epoch']}")
     return ckpt['epoch'] + 1, ckpt.get('best_val_loss', float('inf'))
 
 
 def main():
     args = get_args()
-    torch.manual_seed(args.seed)
+    set_seed(args.seed)
     device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
 
+    dataset_name = Path(args.dataset_path).expanduser().resolve().name
+    default_wandb_name, default_run_tag = build_run_name(args, dataset_name)
+    desired_wandb_name = str(args.wandb_run_name).strip().replace(" ", "-").replace("/", "_").replace("\\", "_") if getattr(args, "wandb_run_name", None) else default_wandb_name
+
     if not args.no_wandb:
-        wandb.init(project=args.wandb_project, name=args.wandb_run_name, config=vars(args))
+        wandb.init(
+            entity=args.wandb_entity,
+            project=args.wandb_project,
+            name=desired_wandb_name,
+            config=vars(args),
+        )
+        # W&B may alter the final name; keep filesystem tags safe.
+        wandb_name = wandb.run.name if wandb.run is not None else desired_wandb_name
+        run_tag = wandb_name.replace(f"{dataset_name}__", "", 1).strip().replace(" ", "-").replace("/", "_").replace("\\", "_")
+    else:
+        run_tag = default_run_tag
+
+    run_tag = str(run_tag).strip().replace(" ", "-").replace("/", "_").replace("\\", "_")
+    setup_logging(f"{dataset_name}__{run_tag}".strip().replace(" ", "-").replace("/", "_").replace("\\", "_"), Path("logs"))
+
+    if getattr(args, "model_save_path", None):
+        checkpoint_base = Path(args.model_save_path).expanduser().resolve()
+    else:
+        checkpoint_base = (Path.home() / "outputs" / "explainable-earth-embeddings" / dataset_name).resolve()
+    checkpoint_dir = checkpoint_base / run_tag
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    save_path = checkpoint_dir / "best.pt"
+    logger.info(f"Checkpoints directory: {checkpoint_dir}")
 
     train_dataloader, val_dataloader = build_dataloaders(args)
     model = build_model(args, device)
 
-    logit_scale = torch.nn.Parameter(torch.tensor(1.0 / args.logit_scale_temp).log())
+    logit_scale = torch.nn.Parameter(torch.tensor(1.0 / args.logit_scale_temp, device=device).log())
     criterion = make_loss(args.train_loss, logit_scale, args.lambda_alignment, args.sigma)
     optimizer = build_optimizer(args, model, logit_scale)
+    early_stopping = EarlyStopping(patience=args.patience, mode="min")
+    logger.info(f"Loss: {args.train_loss}")
+    logger.info(f"LR={args.lr}, weight_decay={args.weight_decay}")
 
     start_epoch = 0
     best_val_loss = float('inf')
-    if args.model_save_path:
-        save_path = Path(args.model_save_path)
-    elif not args.no_wandb:
-        save_path = Path(f"checkpoints/{wandb.run.name}/best.pt")
-    else:
-        ds = Path(args.dataset_path).name
-        save_path = Path(f"checkpoints/{ds}__{args.train_loss}__loc-{args.location_projection}__text-{args.text_projection}/best.pt")
-    save_path.parent.mkdir(parents=True, exist_ok=True)
 
     if args.resume_from:
         start_epoch, best_val_loss = load_checkpoint(args.resume_from, model, optimizer, logit_scale, device)
+        early_stopping.load_best(best_val_loss)
 
     for epoch in range(start_epoch, args.num_epochs):
-        train_loss = train_epoch(train_dataloader, model, criterion, optimizer, epoch, device)
-        val_loss = val_epoch(val_dataloader, model, criterion, epoch, device)
+        train_loss = train_epoch(train_dataloader, model, criterion, optimizer, epoch, device, logger)
+        val_loss = val_epoch(val_dataloader, model, criterion, epoch, device, logger)
 
-        print(f"Epoch {epoch} | train={train_loss:.4f} | val={val_loss:.4f}")
+        logger.info(f"Epoch {epoch} | train={train_loss:.4f} | val={val_loss:.4f}")
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             save_checkpoint(save_path, epoch, model, optimizer, logit_scale, best_val_loss, args)
-            print(f"  Saved checkpoint (val={val_loss:.4f})")
+            logger.info(f"Saved checkpoint (val={val_loss:.4f})")
+
+        if early_stopping(val_loss):
+            print("Early Stopping")
+            break
 
     if not args.no_wandb:
         wandb.finish()

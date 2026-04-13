@@ -18,7 +18,8 @@ class GeoTextDataset(Dataset):
         self,
         root: Path = 'data',
         split: str = 'train', # train, val, test
-        precomputed_embeddings: bool = False
+        precomputed_text_embeddings: bool = True,
+        precomputed_location_embeddings: bool = True
     ) -> None:
         
         super().__init__()
@@ -32,16 +33,25 @@ class GeoTextDataset(Dataset):
             all_data = pd.read_csv(all_data_csv_path, index_col=False)
             self._save_train_test_split(all_data)
 
-        self.df = pd.read_csv(split_csv_path, index_col=False)
+        split_parquet_path = Path(root) / f"{split}.parquet"
 
-        assert all(col in self.df.columns for col in ['lat', 'lon']), f"Data csv does not contain lat lon columns"
+        if os.path.exists(split_parquet_path):
+            self.df = pd.read_parquet(split_parquet_path)
+            precomputed_text_embeddings = precomputed_location_embeddings = True
+        else:
+            self.df = pd.read_csv(split_csv_path, index_col=False)
 
-        self.precomputed_embeddings = precomputed_embeddings
-        if precomputed_embeddings:
-            assert 'embedding' in self.df.columns, "Data should have embedding column"
+        self.precomputed_text_embeddings = precomputed_text_embeddings
+        self.precomputed_location_embeddings = precomputed_location_embeddings
 
+        if precomputed_text_embeddings:
+            assert 'text_embedding' in self.df.columns, "Data should have text_embedding column"
         else:
             assert 'text' in self.df.columns, "Data should have text column"
+        if precomputed_location_embeddings:
+            assert 'location_embedding' in self.df.columns, "Data should have location_embedding column"
+        else:
+            assert all(col in self.df.columns for col in ['lat', 'lon']), f"Data csv does not contain lat lon columns"
 
     def __len__(self) -> int:
         """The length of the dataset"""
@@ -49,28 +59,35 @@ class GeoTextDataset(Dataset):
 
     def __getitem__(self, index: int, return_dict=False):
         row = self.df.iloc[index]
-        latlon = torch.tensor([row['lat'], row['lon']], dtype=torch.float32)
-        
-        if self.precomputed_embeddings:
-            embedding = row['embedding']
-            if not return_dict:
-                return latlon, embedding
-            else:
-                return {
-                    'latlon': latlon,
-                    'embedding': embedding
-                }
-        
+
+        if self.precomputed_location_embeddings:
+            loc = row["location_embedding"]
+            loc_key = "location_embedding"
         else:
-            text = row['text']
-            if not return_dict:
-                return latlon, text
-            else:
-                return {
-                    'latlon': latlon,
-                    'text': text
-                }
-        
+            loc = torch.tensor([row["lat"], row["lon"]], dtype=torch.float32)
+            loc_key = "latlon"
+
+        if self.precomputed_text_embeddings:
+            txt = row["text_embedding"]
+            txt_key = "text_embedding"
+        else:
+            txt = row["text"]
+            txt_key = "text"
+
+        # Ensure precomputed embeddings collate into proper tensors 
+        if self.precomputed_location_embeddings:
+            loc = torch.tensor(loc, dtype=torch.float32)
+        if self.precomputed_text_embeddings:
+            txt = torch.tensor(txt, dtype=torch.float32)
+
+        if return_dict:
+            return {
+                loc_key: loc,
+                txt_key: txt,
+            }
+
+        return loc, txt
+    
     def _save_train_test_split(self, all_data: pd.DataFrame = None, val_size=0.1, test_size=0.1, random_state=42):
         from sklearn.model_selection import train_test_split
 

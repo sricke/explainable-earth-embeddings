@@ -66,4 +66,8 @@ class EmbeddingProjection(nn.Module):
                 nn.init.zeros_(m.bias)
 
     def forward(self, x):
+        w = self.net[0].weight
+        assert x.dtype == w.dtype and x.device == w.device, (
+            f"embedding projection expects {w.dtype} on {w.device}, got {x.dtype} on {x.device}"
+        )
         return self.net(x)
