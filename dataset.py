@@ -47,23 +47,29 @@ class GeoTextDataset(Dataset):
         """The length of the dataset"""
         return len(self.df)
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int, return_dict=False):
         row = self.df.iloc[index]
         latlon = torch.tensor([row['lat'], row['lon']], dtype=torch.float32)
         
         if self.precomputed_embeddings:
             embedding = row['embedding']
-            return {
-                'latlon': latlon,
-                'embedding': embedding
-            }
+            if not return_dict:
+                return latlon, embedding
+            else:
+                return {
+                    'latlon': latlon,
+                    'embedding': embedding
+                }
         
         else:
             text = row['text']
-            return {
-                'latlon': latlon,
-                'text': text
-            }
+            if not return_dict:
+                return latlon, text
+            else:
+                return {
+                    'latlon': latlon,
+                    'text': text
+                }
         
     def _save_train_test_split(self, all_data: pd.DataFrame = None, val_size=0.1, test_size=0.1, random_state=42):
         from sklearn.model_selection import train_test_split

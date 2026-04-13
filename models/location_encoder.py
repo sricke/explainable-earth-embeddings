@@ -23,12 +23,6 @@ LOCATION_MODEL_CHECKPOINTS = {
     "satclip": "satclip-vit16-l40.ckpt",
 }
 
-def make_location_encoder(location_encoder_type: str = None, embed_projection_type: str = None):
-    assert location_encoder_type is not None, "Must specify text encoder type"
-    assert embed_projection_type is not None, "Must specify linear layer or MLP or None at end of text encoder"
-
-    return LocationEncoder(text_model=location_encoder_type, embed_project=TODO)
-
 
 def load_model(location_model: str):
     """Load a pretrained location encoder."""
@@ -58,6 +52,7 @@ class LocationEncoder(nn.Module):
         self.location_encoder = load_model(location_model)
         self.location_encoder.requires_grad_(False)
         self.location_encoder.eval()
+        self.location_embedding_dim = LOCATION_EMBEDDING_DIMENSIONS[location_model]
 
         self.embed_project = embed_project
         if self.embed_project is not None:

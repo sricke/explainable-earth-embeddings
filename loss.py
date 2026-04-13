@@ -3,6 +3,17 @@ import numpy as np
 import torch.nn.functional as F
 import torch.nn as nn
 
+def make_loss(loss_type: str, logit_scale: torch.nn.Parameter, lambda_alignment: float = None, sigma: float = None) -> nn.Module:
+    if loss_type == "clip":
+        return CLIPLoss(logit_scale=logit_scale)
+    if loss_type == "concept":
+        assert lambda_alignment is not None, "lambda_alignment required for concept loss"
+        assert sigma is not None, "sigma required for concept loss"
+        return ConceptLoss(lambda_alignment=lambda_alignment, sigma=sigma, logit_scale=logit_scale)
+    if loss_type == "mse":
+        return nn.MSELoss()
+    raise ValueError(f"Unknown loss type: {loss_type}")
+
 class CLIPLoss(nn.Module):
     """
     Forward pass uses text features and image features

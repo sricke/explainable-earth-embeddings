@@ -10,24 +10,32 @@ TEXT_MODEL_IDS = {
     "open_clip": ("ViT-L-14", "openai"),
 }
 
-def make_text_encoder(text_encoder_type: str = None, embed_projection_type: str = None, finetune_mode: str = None):
-    # TODO somehow need to encoder the hyperparams for the embed projection
-    assert text_encoder_type is not None, "Must specify text encoder type"
-    assert embed_projection_type is not None, "Must specify linear layer or MLP or None at end of text encoder"
-    assert finetune_mode is not None, "Must specify finetune mode None, all, or only_proj"
-
-    return TextEncoder(text_model=text_encoder_type, embed_project=TODO, finetune_mode=finetune_mode)
-
+TEXT_EMBEDDING_DIMENSIONS = {
+    "open_clip": 768, # Double check this
+    "geoclip": 512,
+}
 
 
 def _build_openclip():
     import open_clip
+    import types
+
     model_id, pretrained = TEXT_MODEL_IDS["open_clip"]
-    model = open_clip.create_model(model_id, pretrained=pretrained)
-    del model.visual
-    tokenizer = open_clip.get_tokenizer(model_id)
-    output_dim = model.text_projection.shape[1]
-    return model, tokenizer, output_dim
+    clip = open_clip.create_model(model_id, pretrained=pretrained)
+    del clip.visual
+    output_dim = clip.text_projection.shape[1]
+
+    # Wrap model so forward() calls encode_text
+    class _OpenCLIPText(nn.Module):
+        def __init__(self, m): super().__init__(); self.m = m
+        def forward(self, input_ids): return self.m.encode_text(input_ids)
+
+    # Wrap tokenizer so it returns an object with .input_ids 
+    raw_tok = open_clip.get_tokenizer(model_id)
+    def tokenizer(texts, **_):
+        return types.SimpleNamespace(input_ids=raw_tok(texts))
+
+    return _OpenCLIPText(clip), tokenizer, output_dim
 
 
 def _build_geoclip():
@@ -81,6 +89,7 @@ class TextEncoder(nn.Module):
             raise NotImplementedError(f"Text model '{text_model}' is not implemented")
 
     def _set_finetune_mode(self, finetune_mode: str):
+        assert finetune_mode in ['all', 'only_proj']
         if finetune_mode == "all":
             self.text_encoder.requires_grad_(True)
             self.text_encoder.train()
