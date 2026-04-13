@@ -4,11 +4,21 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from modeling.layers import EmbeddingProjection
+from models.layers import EmbeddingProjection
 
 TEXT_MODEL_IDS = {
     "open_clip": ("ViT-L-14", "openai"),
 }
+
+def make_text_encoder(text_encoder_type: str = None, embed_projection_type: str = None, finetune_mode: str = None):
+    # TODO somehow need to encoder the hyperparams for the embed projection
+    assert text_encoder_type is not None, "Must specify text encoder type"
+    assert embed_projection_type is not None, "Must specify linear layer or MLP or None at end of text encoder"
+    assert finetune_mode is not None, "Must specify finetune mode None, all, or only_proj"
+
+    return TextEncoder(text_model=text_encoder_type, embed_project=TODO, finetune_mode=finetune_mode)
+
+
 
 def _build_openclip():
     import open_clip

@@ -6,7 +6,7 @@ from huggingface_hub import hf_hub_download
 
 from external.satclip.satclip.load import get_satclip
 
-from modeling.layers import EmbeddingProjection
+from models.layers import EmbeddingProjection
 
 LOCATION_EMBEDDING_DIMENSIONS = {
     "geoclip": 512,
@@ -22,6 +22,12 @@ LOCATION_MODEL_IDS = {
 LOCATION_MODEL_CHECKPOINTS = {
     "satclip": "satclip-vit16-l40.ckpt",
 }
+
+def make_location_encoder(location_encoder_type: str = None, embed_projection_type: str = None):
+    assert location_encoder_type is not None, "Must specify text encoder type"
+    assert embed_projection_type is not None, "Must specify linear layer or MLP or None at end of text encoder"
+
+    return LocationEncoder(text_model=location_encoder_type, embed_project=TODO)
 
 
 def load_model(location_model: str):
