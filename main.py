@@ -47,7 +47,7 @@ def setup_logging(run_name: str, log_dir: Path):
 
 
 def build_run_name(args, dataset_name: str) -> tuple[str, str]:
-    p = [f"txt-{args.text_encoder}", f"loc-{args.location_encoder}", f"tproj-{args.text_projection}", f"lproj-{args.location_projection}", f"loss-{args.train_loss}"]
+    p = [f"txt-{args.text_encoder}", f"loc-{args.location_encoder}", f"tproj-{args.text_projection}", f"lproj-{args.location_projection}", f"loss-{args.train_loss}", f"lr-{args.lr}"]
     run_tag = "__".join(str(x).strip().replace(" ", "-").replace("/", "_").replace("\\", "_") for x in p if x)
     return f"{dataset_name}__{run_tag}".strip().replace(" ", "-").replace("/", "_").replace("\\", "_"), run_tag
 
@@ -66,10 +66,13 @@ def get_args():
     parser = argparse.ArgumentParser()
     # Data
     parser.add_argument('--dataset_path', type=str, required=True)
+    parser.add_argument('--precomputed_text_embeddings', type=bool, default=True)
+    parser.add_argument('--precomputed_location_embeddings', type=bool, default=True)
     # Encoders
     parser.add_argument('--text_encoder', type=str, required=True, help="'open_clip' | 'geoclip'")
     parser.add_argument('--location_encoder', type=str, required=True, help="'satclip' | 'geoclip'")
-    parser.add_argument('--finetune_mode', type=str, default='only_proj', help="'all' | 'only_proj' | 'none'")
+    parser.add_argument('--text_finetune_mode', type=str, default='only_proj', help="'all' | 'only_proj'")
+    parser.add_argument('--loc_finetune_mode', type=str, default='only_proj', help="'only_proj'")
     # Projections
     parser.add_argument('--text_projection', type=str, default='linear', help="'linear' | 'mlp'")
     parser.add_argument('--text_proj_hidden_layers', type=int, default=1)
@@ -85,7 +88,7 @@ def get_args():
     parser.add_argument('--logit_scale_temp', type=float, default=0.07)
     # Training
     parser.add_argument('--num_epochs', type=int, default=100)
-    parser.add_argument('--patience', type=int, default=5)
+    parser.add_argument('--patience', type=int, default=10)
     parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--weight_decay', type=float, default=1e-2)
@@ -111,8 +114,18 @@ def get_args():
 
 
 def build_dataloaders(args):
-    train_dataset = GeoTextDataset(root=args.dataset_path, split='train')
-    val_dataset = GeoTextDataset(root=args.dataset_path, split='val')
+    train_dataset = GeoTextDataset(
+        root=args.dataset_path,
+        split='train',
+        precomputed_text_embeddings=args.precomputed_text_embeddings,
+        precomputed_location_embeddings=args.precomputed_location_embeddings,
+    )
+    val_dataset = GeoTextDataset(
+        root=args.dataset_path,
+        split='val',
+        precomputed_text_embeddings=args.precomputed_text_embeddings,
+        precomputed_location_embeddings=args.precomputed_location_embeddings,
+    )
     g = torch.Generator()
     g.manual_seed(args.seed)
     worker_init = lambda wid: set_seed(args.seed + wid)
@@ -125,14 +138,16 @@ def build_dataloaders(args):
 
 def build_model(args, device):
     text_encoder = make_text_encoder(
-        args.text_encoder, args.text_projection, args.shared_dim, args.finetune_mode,
+        args.text_encoder, args.text_projection, args.shared_dim, args.text_finetune_mode,
         num_hidden_layers=args.text_proj_hidden_layers, num_hidden_features=args.text_proj_hidden_features,
         nonlinearity=args.text_nonlinearity,
+        precomputed=args.precomputed_text_embeddings,
     )
     location_encoder = make_location_encoder(
-        args.location_encoder, args.location_projection, args.shared_dim,
+        args.location_encoder, args.location_projection, args.shared_dim, args.loc_finetune_mode,
         num_hidden_layers=args.loc_proj_hidden_layers, num_hidden_features=args.loc_proj_hidden_features,
         nonlinearity=args.loc_nonlinearity,
+        precomputed=args.precomputed_location_embeddings,
     )
     logger.info(f"Using text encoder={args.text_encoder}, location encoder={args.location_encoder}")
     return TextLocationModel(text_encoder=text_encoder, location_encoder=location_encoder).to(device)
@@ -179,6 +194,12 @@ def main():
     default_wandb_name, default_run_tag = build_run_name(args, dataset_name)
     desired_wandb_name = str(args.wandb_run_name).strip().replace(" ", "-").replace("/", "_").replace("\\", "_") if getattr(args, "wandb_run_name", None) else default_wandb_name
 
+    # Skip if this run already completed all epochs.
+    _early_checkpoint_base = (Path(args.model_save_path).expanduser().resolve() if getattr(args, "model_save_path", None) else (Path.home() / "outputs" / "explainable-earth-embeddings" / dataset_name).resolve())
+    if (_early_checkpoint_base / default_run_tag / "done").exists():
+        logger.info(f"Run {default_run_tag} already completed. Skipping.")
+        return
+
     if not args.no_wandb:
         wandb.init(
             entity=args.wandb_entity,
@@ -202,7 +223,13 @@ def main():
     checkpoint_dir = checkpoint_base / run_tag
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     save_path = checkpoint_dir / "best.pt"
+    config_save_path = checkpoint_dir / "config.yaml"
+    with open(config_save_path, "w") as f:
+        yaml.dump(vars(args), f, default_flow_style=False)
     logger.info(f"Checkpoints directory: {checkpoint_dir}")
+
+    args.precomputed_text_embeddings = args.precomputed_text_embeddings and args.text_finetune_mode != "all"
+    args.precomputed_location_embeddings = args.precomputed_location_embeddings and args.loc_finetune_mode != "all"
 
     train_dataloader, val_dataloader = build_dataloaders(args)
     model = build_model(args, device)
@@ -234,7 +261,13 @@ def main():
 
         if early_stopping(val_loss):
             print("Early Stopping")
+            (checkpoint_dir / "done").touch()
+            logger.info("Training stopped early. Wrote 'done' marker.")
             break
+    else:
+        # Loop exited without break → all epochs completed.
+        (checkpoint_dir / "done").touch()
+        logger.info("Training completed all epochs. Wrote 'done' marker.")
 
     if not args.no_wandb:
         wandb.finish()

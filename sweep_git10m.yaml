@@ -14,7 +14,7 @@ metric:
 parameters:
   dataset_path:
     values:
-      - /home/libe2152/data/skyscript/satclip/open_clip/
+      - /home/libe2152/data/git-10M/satclip/open_clip/
   precomputed_text_embeddings:
     value: true
   precomputed_location_embeddings:
@@ -22,7 +22,7 @@ parameters:
 
   # --- Loss ---
   train_loss:
-    values: [clip, mse, concept]
+    values: [clip, mse]
   lambda_alignment:
     value: 1.0  
   sigma:
@@ -56,7 +56,7 @@ parameters:
   shared_dim:
     value: 256
   text_finetune_mode:
-    values: [all]
+    value: only_proj
   loc_finetune_mode:
     value: only_proj
 

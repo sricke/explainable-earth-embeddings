@@ -1,5 +1,5 @@
 {
     "python-envs.defaultPackageManager": "ms-python.python:conda",
     "python-envs.pythonProjects": [],
-    "liveServer.settings.port": 5503
+    "liveServer.settings.port": 5504
 }

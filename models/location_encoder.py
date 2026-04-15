@@ -44,6 +44,7 @@ class LocationEncoder(nn.Module):
         self,
         location_model: str = None,
         embed_project: EmbeddingProjection = None,
+        finetune_mode: str = None,
         precomputed: bool = True,
     ):
         super().__init__()
@@ -55,11 +56,20 @@ class LocationEncoder(nn.Module):
 
         if not precomputed:
             self.location_encoder = load_model(location_model)
-            self.location_encoder.requires_grad_(False)
-            self.location_encoder.eval()
+            self._set_finetune_mode(finetune_mode)
+        elif finetune_mode == "all":
+            raise ValueError("Cannot use finetune_mode='all' with precomputed=True")
 
         if embed_project is not None:
             embed_project.requires_grad_(True)
+
+    def _set_finetune_mode(self, finetune_mode: str):
+        assert finetune_mode in ['only_proj'], f"Unknown finetune_mode: {finetune_mode}"
+        if finetune_mode == "only_proj":
+            self.location_encoder.requires_grad_(False)
+            self.location_encoder.eval()
+        else:
+            raise ValueError
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.precomputed:

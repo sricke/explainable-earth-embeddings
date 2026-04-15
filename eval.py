@@ -13,12 +13,14 @@ def val_epoch(val_dataloader, model, criterion, epoch, device, logger) -> float:
 
     for i, (locs, texts) in bar:
         assert isinstance(locs, torch.Tensor), f"Expected `locs` to be a torch.Tensor, got {type(locs)}"
-        assert isinstance(texts, torch.Tensor), f"Expected `texts` to be a torch.Tensor, got {type(texts)}"
+        assert isinstance(texts, (torch.Tensor, list, tuple)), f"Expected `texts` to be a torch.Tensor, list, or tuple, got {type(texts)}"
         locs = locs.to(device)
-        texts = texts.to(device)
+        if isinstance(texts, torch.Tensor):
+            texts = texts.to(device)
         
         text_features, location_features = model(texts, locs)
         loss = criterion(text_features, location_features)
+
         loss_value = loss.item()
         total_loss += loss_value
         bar.set_description("Epoch {} Val loss: {:.5f}".format(epoch, loss_value))

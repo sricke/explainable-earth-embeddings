@@ -24,33 +24,41 @@ class GeoTextDataset(Dataset):
         
         super().__init__()
 
-        self.root = root
+        self.root = Path(root).expanduser()
 
-        all_data_csv_path = Path(root) / "data.csv"
-        split_csv_path = Path(root) / f"{split}.csv"
+        parquet_path = self.root / f"{split}.parquet"
+        csv_path = self.root / f"{split}.csv"
 
-        if os.path.exists(all_data_csv_path) and not os.path.exists(split_csv_path):
-            all_data = pd.read_csv(all_data_csv_path, index_col=False)
-            self._save_train_test_split(all_data)
+        data_parquet = self.root / "data.parquet"
+        data_csv = self.root / "data.csv"
 
-        split_parquet_path = Path(root) / f"{split}.parquet"
+        if parquet_path.exists() or csv_path.exists():
+            if parquet_path.exists():
+                self.df = pd.read_parquet(parquet_path)
+            else:
+                self.df = pd.read_csv(csv_path, index_col=False)
 
-        if os.path.exists(split_parquet_path):
-            self.df = pd.read_parquet(split_parquet_path)
-            precomputed_text_embeddings = precomputed_location_embeddings = True
         else:
-            self.df = pd.read_csv(split_csv_path, index_col=False)
+            if data_parquet.exists():
+                df = pd.read_parquet(data_parquet)
+                fmt = "parquet"
+            elif data_csv.exists():
+                df = pd.read_csv(data_csv, index_col=False)
+                fmt = "csv"
+            else:
+                raise FileNotFoundError(f"Neither split nor data.parquet/csv exists in {data_parquet} or {data_csv}")
 
-        self.precomputed_text_embeddings = precomputed_text_embeddings
-        self.precomputed_location_embeddings = precomputed_location_embeddings
+            self._save_train_test_split(df, fmt=fmt)
 
-        if precomputed_text_embeddings:
-            assert 'text_embedding' in self.df.columns, "Data should have text_embedding column"
-        else:
+            split_path = self.root / f"{split}.{fmt}"
+            self.df = pd.read_parquet(split_path) if fmt == "parquet" else pd.read_csv(split_path, index_col=False)
+
+        self.precomputed_text_embeddings = precomputed_text_embeddings and 'text_embedding' in self.df.columns
+        self.precomputed_location_embeddings = precomputed_location_embeddings and 'location_embedding' in self.df.columns
+
+        if not self.precomputed_text_embeddings:
             assert 'text' in self.df.columns, "Data should have text column"
-        if precomputed_location_embeddings:
-            assert 'location_embedding' in self.df.columns, "Data should have location_embedding column"
-        else:
+        if not self.precomputed_location_embeddings:
             assert all(col in self.df.columns for col in ['lat', 'lon']), f"Data csv does not contain lat lon columns"
 
     def __len__(self) -> int:
@@ -88,20 +96,18 @@ class GeoTextDataset(Dataset):
 
         return loc, txt
     
-    def _save_train_test_split(self, all_data: pd.DataFrame = None, val_size=0.1, test_size=0.1, random_state=42):
+    def _save_train_test_split(self, all_data: pd.DataFrame = None, val_size=0.1, test_size=0.1, random_state=42, fmt="csv"):
         from sklearn.model_selection import train_test_split
 
         assert all_data is not None, "Need data df"
 
         train_data, test_data = train_test_split(all_data, test_size=test_size, random_state=random_state)
-        train_data, val_data = train_test_split(train_data, val_size=val_size, random_state=42)
+        train_data, val_data = train_test_split(train_data, test_size=val_size, random_state=42)
 
-        splits = {'train': train_data, 'val': val_data, 'test': test_data}
-
-        for split_name, df in splits.items():
-            split_csv_path = Path(self.root) / f"{split_name}.csv"
-            df.to_csv(split_csv_path, index=False)
-            print(f"Saved {split_name} split: {split_csv_path} ({len(df)} rows)")
+        for split_name, df in {'train': train_data, 'val': val_data, 'test': test_data}.items():
+            path = Path(self.root) / f"{split_name}.{fmt}"
+            df.to_parquet(path, index=False) if fmt == "parquet" else df.to_csv(path, index=False)
+            print(f"Saved {split_name} split: {path} ({len(df)} rows)")
 
         return train_data, val_data, test_data
 

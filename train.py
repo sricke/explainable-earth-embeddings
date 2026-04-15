@@ -1,6 +1,7 @@
 import wandb
 import torch
 from tqdm import tqdm
+from typing import Tuple
 
 def train_epoch(train_dataloader, model, criterion, optimizer, epoch, device, logger, scheduler=None) -> float:
     print("Starting Epoch", epoch)
@@ -12,9 +13,10 @@ def train_epoch(train_dataloader, model, criterion, optimizer, epoch, device, lo
     bar = tqdm(enumerate(train_dataloader), total=len(train_dataloader))
     for i, (locs, texts) in bar:
         assert isinstance(locs, torch.Tensor), f"Expected `locs` to be a torch.Tensor, got {type(locs)}"
-        assert isinstance(texts, torch.Tensor), f"Expected `texts` to be a torch.Tensor, got {type(texts)}"
+        assert isinstance(texts, (torch.Tensor, list, tuple)), f"Expected `texts` to be a torch.Tensor, list, or tuple, got {type(texts)}"
         locs = locs.to(device)
-        texts = texts.to(device)
+        if isinstance(texts, torch.Tensor):
+            texts = texts.to(device)
         text_features, location_features = model(texts, locs)
 
         loss = criterion(text_features, location_features)
@@ -22,10 +24,11 @@ def train_epoch(train_dataloader, model, criterion, optimizer, epoch, device, lo
         loss.backward()
         optimizer.step()
 
-        total_loss += loss.item()
-        bar.set_description("Epoch {} Train loss: {:.5f}".format(epoch, loss.item()))
+        loss_value = loss.item()
+        total_loss += loss_value
+        bar.set_description("Epoch {} Train loss: {:.5f}".format(epoch, loss_value))
         if wandb.run is not None:
-            wandb.log({"train/loss_step": loss.item(), "step": global_step + i})
+            wandb.log({"train/loss_step": loss_value, "step": global_step + i})
 
     if scheduler is not None:
         scheduler.step()

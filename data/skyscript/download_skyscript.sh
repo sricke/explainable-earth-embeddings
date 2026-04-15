@@ -20,5 +20,6 @@ curl -o "$DEST/SkyScript_val_5K_filtered_by_CLIP_laion_RS.csv" \
 curl -o "$DEST/SkyScript_test_30K_filtered_by_CLIP_laion_RS.csv" \
     "$BASE_URL/dataframe/SkyScript_test_30K_filtered_by_CLIP_laion_RS.csv"
 
-# Unzip meta2
-unzip "$DEST/meta2.zip"
+# Download new file
+curl -o "$DEST/SkyScript_train_top30pct_filtered_by_CLIP_laion_RS_language_polished.csv" \
+    "$BASE_URL/SkyScript_train_top30pct_filtered_by_CLIP_laion_RS_language_polished.csv"

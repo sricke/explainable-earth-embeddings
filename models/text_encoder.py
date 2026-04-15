@@ -115,6 +115,9 @@ class TextEncoder(nn.Module):
 
     def encode_texts(self, texts) -> torch.Tensor:
         assert not self.precomputed, "Cannot call encode_texts in precomputed mode"
+        assert isinstance(texts, (str, list, tuple)), f"Expected `texts` to be a string, list, or tuple, got {type(texts)}"
+        if isinstance(texts, tuple):
+            texts = list(texts)
         tokens = self.tokenizer(texts, padding=True, truncation=False, return_tensors="pt")
         device = next(self.text_encoder.parameters()).device
         input_ids = tokens.input_ids.to(device)
