@@ -14,7 +14,11 @@ metric:
 parameters:
   dataset_path:
     values:
-      - /home/libe2152/data/git-10M/satclip/open_clip/
+      - /home/libe2152/data/modified-git-10M/satclip/open_clip/
+  train_subsample_size:
+    value: 1000000
+  val_subsample_size:
+    value: 250000
   precomputed_text_embeddings:
     value: true
   precomputed_location_embeddings:
@@ -22,7 +26,7 @@ parameters:
 
   # --- Loss ---
   train_loss:
-    values: [clip, mse]
+    values: [clip]
   lambda_alignment:
     value: 1.0  
   sigma:
@@ -34,7 +38,9 @@ parameters:
   location_encoder:
     value: satclip
   location_projection:
-    values: [none, linear]
+    values: [none]
+  loc_nonlinearity:
+    value: sine
   loc_proj_hidden_layers: # only used for mlp projection
     value: 1
   loc_proj_hidden_features: # only used for mlp projection
@@ -44,7 +50,7 @@ parameters:
   text_encoder:
     value: open_clip
   text_projection:
-    values: [linear, mlp]
+    values: [linear]
   text_nonlinearity:
     value: relu
   text_proj_hidden_layers: # only used for mlp projection
@@ -56,17 +62,21 @@ parameters:
   shared_dim:
     value: 256
   text_finetune_mode:
-    value: only_proj
+    values: [lora]
   loc_finetune_mode:
     value: only_proj
+  lora_rank:
+    values: [4, 8, 16]
 
   # --- Training ---
   num_epochs:
     value: 500
   patience:
-    value: -1 # no patience
+    value: 20
   batch_size:
-    value: 512
+    value: 4096
+  accumulation_steps:
+    value: 4
   lr:
     value: 0.0001
   weight_decay:

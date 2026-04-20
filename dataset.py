@@ -1,11 +1,15 @@
+import logging
 import os
 from pathlib import Path
 
 import torch
 import pandas as pd
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 from matplotlib.pyplot import Figure
+from utils import set_seed
+
+logger = logging.getLogger(__name__)
 
 class GeoTextDataset(Dataset):
     """
@@ -18,6 +22,7 @@ class GeoTextDataset(Dataset):
         self,
         root: Path = 'data',
         split: str = 'train', # train, val, test
+        subset_size: int = None, 
         precomputed_text_embeddings: bool = True,
         precomputed_location_embeddings: bool = True
     ) -> None:
@@ -52,6 +57,9 @@ class GeoTextDataset(Dataset):
 
             split_path = self.root / f"{split}.{fmt}"
             self.df = pd.read_parquet(split_path) if fmt == "parquet" else pd.read_csv(split_path, index_col=False)
+
+        if subset_size is not None:
+            self.subsample(subset_size)
 
         self.precomputed_text_embeddings = precomputed_text_embeddings and 'text_embedding' in self.df.columns
         self.precomputed_location_embeddings = precomputed_location_embeddings and 'location_embedding' in self.df.columns
@@ -96,6 +104,10 @@ class GeoTextDataset(Dataset):
 
         return loc, txt
     
+    def subsample(self, n: int, seed: int = 42):
+        self.df = self.df.sample(n=n, random_state=seed).reset_index(drop=True)
+
+    
     def _save_train_test_split(self, all_data: pd.DataFrame = None, val_size=0.1, test_size=0.1, random_state=42, fmt="csv"):
         from sklearn.model_selection import train_test_split
 
@@ -131,3 +143,37 @@ class GeoTextDataset(Dataset):
         ax.set_title(title)
 
         return fig
+
+
+def build_dataloaders(
+    dataset_path,
+    batch_size,
+    num_workers,
+    seed,
+    precomputed_text_embeddings=True,
+    precomputed_location_embeddings=True,
+    train_subsample_size=None,
+    val_subsample_size=None,
+):
+    train_dataset = GeoTextDataset(
+        root=dataset_path,
+        split='train',
+        subset_size=train_subsample_size,
+        precomputed_text_embeddings=precomputed_text_embeddings,
+        precomputed_location_embeddings=precomputed_location_embeddings,
+    )
+    val_dataset = GeoTextDataset(
+        root=dataset_path,
+        split='val',
+        subset_size=val_subsample_size,
+        precomputed_text_embeddings=precomputed_text_embeddings,
+        precomputed_location_embeddings=precomputed_location_embeddings,
+    )
+    g = torch.Generator()
+    g.manual_seed(seed)
+    worker_init = lambda wid: set_seed(seed + wid)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=worker_init, generator=g)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, worker_init_fn=worker_init)
+    logger.info(f"Loaded dataset from {dataset_path}")
+    logger.info(f"Train size={len(train_dataset)}, Val size={len(val_dataset)}")
+    return train_dataloader, val_dataloader

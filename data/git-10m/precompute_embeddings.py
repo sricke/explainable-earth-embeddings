@@ -24,7 +24,7 @@ from dataset import GeoTextDataset
 from models.location_encoder import LocationEncoder
 from models.text_encoder import TextEncoder
 
-GIT10M_DIR = Path.home() / "data" / "git-10M"
+GIT10M_DIR = Path.home() / "data" / "modified-git-10M"
 SPLITS = ["train", "val", "test"]
 DEVICE = "cuda"
 

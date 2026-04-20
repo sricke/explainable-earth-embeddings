@@ -1,59 +1,26 @@
 import argparse
 import logging
-import random
 from pathlib import Path
 
-import numpy as np
 import torch
 import wandb
 import yaml
-from torch.utils.data import DataLoader
 
-from dataset import GeoTextDataset
-from models.model import TextLocationModel
-from models.utils import make_text_encoder, make_location_encoder
+from dataset import build_dataloaders
+from models.model import build_model
+from models.finetune import apply_lora
 from loss import make_loss
 from train import train_epoch
 from eval import val_epoch
-from utils import EarlyStopping
+from utils import EarlyStopping, set_seed
+from log_utils import setup_logging, build_run_name
 
 
 logger = logging.getLogger(__name__)
 
 
-def set_seed(seed: int):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-
-def setup_logging(run_name: str, log_dir: Path):
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / f"{run_name}.log"
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[
-            logging.FileHandler(log_file),
-            logging.StreamHandler(),
-        ],
-    )
-
-    logging.info(f"Logging to {log_file}")
-
-
-def build_run_name(args, dataset_name: str) -> tuple[str, str]:
-    p = [f"txt-{args.text_encoder}", f"loc-{args.location_encoder}", f"tproj-{args.text_projection}", f"lproj-{args.location_projection}", f"loss-{args.train_loss}", f"lr-{args.lr}"]
-    run_tag = "__".join(str(x).strip().replace(" ", "-").replace("/", "_").replace("\\", "_") for x in p if x)
-    return f"{dataset_name}__{run_tag}".strip().replace(" ", "-").replace("/", "_").replace("\\", "_"), run_tag
-
-
 def get_args():
-    # Check for --config before building the full parser
+    # Check for --config file before building the full parser
     pre = argparse.ArgumentParser(add_help=False)
     pre.add_argument('--config', type=str, default=None)
     pre_args, _ = pre.parse_known_args()
@@ -66,13 +33,16 @@ def get_args():
     parser = argparse.ArgumentParser()
     # Data
     parser.add_argument('--dataset_path', type=str, required=True)
+    parser.add_argument('--train_subsample_size', type=int, default=None)
+    parser.add_argument('--val_subsample_size', type=int, default=None)
     parser.add_argument('--precomputed_text_embeddings', type=bool, default=True)
     parser.add_argument('--precomputed_location_embeddings', type=bool, default=True)
     # Encoders
     parser.add_argument('--text_encoder', type=str, required=True, help="'open_clip' | 'geoclip'")
     parser.add_argument('--location_encoder', type=str, required=True, help="'satclip' | 'geoclip'")
-    parser.add_argument('--text_finetune_mode', type=str, default='only_proj', help="'all' | 'only_proj'")
-    parser.add_argument('--loc_finetune_mode', type=str, default='only_proj', help="'only_proj'")
+    parser.add_argument('--text_finetune_mode', type=str, default='only_proj', help="'all' | 'lora' | 'only_proj'")
+    parser.add_argument('--loc_finetune_mode', type=str, default='only_proj', help="'all' | 'lora' | 'only_proj'")
+    parser.add_argument('--lora_rank', type=int, default=4, help='LoRA rank (used when finetune_mode=lora)')
     # Projections
     parser.add_argument('--text_projection', type=str, default='linear', help="'linear' | 'mlp'")
     parser.add_argument('--text_proj_hidden_layers', type=int, default=1)
@@ -94,6 +64,7 @@ def get_args():
     parser.add_argument('--weight_decay', type=float, default=1e-2)
     parser.add_argument('--text_nonlinearity', type=str, default=None, help="'relu' | 'sine'")
     parser.add_argument('--loc_nonlinearity', type=str, default=None, help="'relu' | 'sine'")
+    parser.add_argument('--accumulation_steps', type=int, default=1, help="1 disables accumulation")
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--device', type=str, default='cuda')
@@ -112,45 +83,6 @@ def get_args():
     parser.add_argument('--no_wandb', action='store_true')
     return parser.parse_args()
 
-
-def build_dataloaders(args):
-    train_dataset = GeoTextDataset(
-        root=args.dataset_path,
-        split='train',
-        precomputed_text_embeddings=args.precomputed_text_embeddings,
-        precomputed_location_embeddings=args.precomputed_location_embeddings,
-    )
-    val_dataset = GeoTextDataset(
-        root=args.dataset_path,
-        split='val',
-        precomputed_text_embeddings=args.precomputed_text_embeddings,
-        precomputed_location_embeddings=args.precomputed_location_embeddings,
-    )
-    g = torch.Generator()
-    g.manual_seed(args.seed)
-    worker_init = lambda wid: set_seed(args.seed + wid)
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, worker_init_fn=worker_init, generator=g)
-    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, worker_init_fn=worker_init)
-    logger.info(f"Loaded dataset from {args.dataset_path}")
-    logger.info(f"Train size={len(train_dataset)}, Val size={len(val_dataset)}")
-    return train_dataloader, val_dataloader
-
-
-def build_model(args, device):
-    text_encoder = make_text_encoder(
-        args.text_encoder, args.text_projection, args.shared_dim, args.text_finetune_mode,
-        num_hidden_layers=args.text_proj_hidden_layers, num_hidden_features=args.text_proj_hidden_features,
-        nonlinearity=args.text_nonlinearity,
-        precomputed=args.precomputed_text_embeddings,
-    )
-    location_encoder = make_location_encoder(
-        args.location_encoder, args.location_projection, args.shared_dim, args.loc_finetune_mode,
-        num_hidden_layers=args.loc_proj_hidden_layers, num_hidden_features=args.loc_proj_hidden_features,
-        nonlinearity=args.loc_nonlinearity,
-        precomputed=args.precomputed_location_embeddings,
-    )
-    logger.info(f"Using text encoder={args.text_encoder}, location encoder={args.location_encoder}")
-    return TextLocationModel(text_encoder=text_encoder, location_encoder=location_encoder).to(device)
 
 
 def build_optimizer(args, model, logit_scale):
@@ -190,11 +122,11 @@ def main():
     set_seed(args.seed)
     device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
 
-    dataset_name = Path(args.dataset_path).expanduser().resolve().name
+    dataset_name = Path(args.dataset_path).expanduser().resolve().parent.parent.name
     default_wandb_name, default_run_tag = build_run_name(args, dataset_name)
     desired_wandb_name = str(args.wandb_run_name).strip().replace(" ", "-").replace("/", "_").replace("\\", "_") if getattr(args, "wandb_run_name", None) else default_wandb_name
 
-    # Skip if this run already completed all epochs.
+    # skip run if all epochs are completed
     _early_checkpoint_base = (Path(args.model_save_path).expanduser().resolve() if getattr(args, "model_save_path", None) else (Path.home() / "outputs" / "explainable-earth-embeddings" / dataset_name).resolve())
     if (_early_checkpoint_base / default_run_tag / "done").exists():
         logger.info(f"Run {default_run_tag} already completed. Skipping.")
@@ -207,7 +139,6 @@ def main():
             name=desired_wandb_name,
             config=vars(args),
         )
-        # W&B may alter the final name; keep filesystem tags safe.
         wandb_name = wandb.run.name if wandb.run is not None else desired_wandb_name
         run_tag = wandb_name.replace(f"{dataset_name}__", "", 1).strip().replace(" ", "-").replace("/", "_").replace("\\", "_")
     else:
@@ -228,11 +159,44 @@ def main():
         yaml.dump(vars(args), f, default_flow_style=False)
     logger.info(f"Checkpoints directory: {checkpoint_dir}")
 
-    args.precomputed_text_embeddings = args.precomputed_text_embeddings and args.text_finetune_mode != "all"
-    args.precomputed_location_embeddings = args.precomputed_location_embeddings and args.loc_finetune_mode != "all"
+    args.precomputed_text_embeddings = args.precomputed_text_embeddings and args.text_finetune_mode not in ("all", "lora")
+    args.precomputed_location_embeddings = args.precomputed_location_embeddings and args.loc_finetune_mode not in ("all", "lora")
 
-    train_dataloader, val_dataloader = build_dataloaders(args)
-    model = build_model(args, device)
+    train_dataloader, val_dataloader = build_dataloaders(
+        dataset_path=args.dataset_path,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        seed=args.seed,
+        precomputed_text_embeddings=args.precomputed_text_embeddings,
+        precomputed_location_embeddings=args.precomputed_location_embeddings,
+        train_subsample_size=args.train_subsample_size,
+        val_subsample_size=args.val_subsample_size,
+    )
+    model = build_model(
+        text_encoder=args.text_encoder,
+        location_encoder=args.location_encoder,
+        text_projection=args.text_projection,
+        location_projection=args.location_projection,
+        shared_dim=args.shared_dim,
+        text_finetune_mode=args.text_finetune_mode,
+        loc_finetune_mode=args.loc_finetune_mode,
+        text_proj_hidden_layers=args.text_proj_hidden_layers,
+        text_proj_hidden_features=args.text_proj_hidden_features,
+        loc_proj_hidden_layers=args.loc_proj_hidden_layers,
+        loc_proj_hidden_features=args.loc_proj_hidden_features,
+        text_nonlinearity=args.text_nonlinearity,
+        loc_nonlinearity=args.loc_nonlinearity,
+        precomputed_text_embeddings=args.precomputed_text_embeddings,
+        precomputed_location_embeddings=args.precomputed_location_embeddings,
+        device=device,
+    )
+    if args.text_finetune_mode == 'lora':
+        apply_lora(model.text_encoder.text_encoder.m, args.lora_rank, open_clip=args.text_encoder == 'open_clip')
+    if args.loc_finetune_mode == 'lora':
+        apply_lora(model.location_encoder.location_encoder, args.lora_rank)
+    if not args.precomputed_text_embeddings:
+        assert hasattr(model.text_encoder.text_encoder.m, 'transformer')
+        model.text_encoder.text_encoder.m.transformer.grad_checkpointing = True
 
     logit_scale = torch.nn.Parameter(torch.tensor(1.0 / args.logit_scale_temp, device=device).log())
     criterion = make_loss(args.train_loss, logit_scale, args.lambda_alignment, args.sigma)
@@ -247,9 +211,13 @@ def main():
     if args.resume_from:
         start_epoch, best_val_loss = load_checkpoint(args.resume_from, model, optimizer, logit_scale, device)
         early_stopping.load_best(best_val_loss)
+    elif save_path.exists() and not (checkpoint_dir / "done").exists():
+        logger.info(f"Found existing checkpoint without 'done' marker. Auto-resuming from {save_path}")
+        start_epoch, best_val_loss = load_checkpoint(save_path, model, optimizer, logit_scale, device)
+        early_stopping.load_best(best_val_loss)
 
     for epoch in range(start_epoch, args.num_epochs):
-        train_loss = train_epoch(train_dataloader, model, criterion, optimizer, epoch, device, logger)
+        train_loss = train_epoch(train_dataloader, model, criterion, optimizer, epoch, device, logger, accumulation_steps=args.accumulation_steps)
         val_loss = val_epoch(val_dataloader, model, criterion, epoch, device, logger)
 
         logger.info(f"Epoch {epoch} | train={train_loss:.4f} | val={val_loss:.4f}")
@@ -265,7 +233,7 @@ def main():
             logger.info("Training stopped early. Wrote 'done' marker.")
             break
     else:
-        # Loop exited without break → all epochs completed.
+
         (checkpoint_dir / "done").touch()
         logger.info("Training completed all epochs. Wrote 'done' marker.")
 

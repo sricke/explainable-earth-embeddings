@@ -59,6 +59,8 @@ parameters:
     values: [all]
   loc_finetune_mode:
     value: only_proj
+  lora_rank:
+    value: 0  # set to e.g. 4 to enable LoRA (requires text_finetune_mode=all)
 
   # --- Training ---
   num_epochs:
@@ -66,7 +68,7 @@ parameters:
   patience:
     value: -1 # no patience
   batch_size:
-    value: 512
+    value: 256
   lr:
     value: 0.0001
   weight_decay:

@@ -105,11 +105,11 @@ class TextEncoder(nn.Module):
             raise NotImplementedError(f"Text model '{text_model}' is not implemented")
 
     def _set_finetune_mode(self, finetune_mode: str):
-        assert finetune_mode in ['all', 'only_proj']
+        assert finetune_mode in ['all', 'lora', 'only_proj'], f"Finetune mode {finetune_mode} not accepted"
         if finetune_mode == "all":
             self.text_encoder.requires_grad_(True)
             self.text_encoder.train()
-        elif finetune_mode == "only_proj":
+        elif finetune_mode in ("lora", "only_proj"):
             self.text_encoder.requires_grad_(False)
             self.text_encoder.eval()
 
