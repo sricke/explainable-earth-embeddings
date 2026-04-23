@@ -19,11 +19,11 @@ _satclip_ext = _REPO_ROOT / "external" / "satclip"
 if _satclip_ext.is_dir() and str(_satclip_ext) not in sys.path:
     sys.path.insert(0, str(_satclip_ext))
 
-# from embeddings.generate_embeddings import (
-#     generate_aef_embeddings,
-#     generate_geoclip_embeddings,
-#     generate_satclip_embeddings,
-# )
+from embeddings.generate_embeddings import (
+    generate_aef_embeddings,
+    generate_geoclip_embeddings,
+    generate_satclip_embeddings,
+)
 
 DEFAULT_PREDICTION_TASKS_DIR = Path.home() / "data" / "prediction_tasks"
 DEFAULT_LAT_LON_GRID_CSV = DEFAULT_PREDICTION_TASKS_DIR / "all_WORLD_100000_lat_lon.csv"

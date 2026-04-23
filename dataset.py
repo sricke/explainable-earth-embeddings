@@ -65,7 +65,7 @@ class GeoTextDataset(Dataset):
         self.precomputed_location_embeddings = precomputed_location_embeddings and 'location_embedding' in self.df.columns
 
         if not self.precomputed_text_embeddings:
-            assert 'text' in self.df.columns, "Data should have text column"
+            assert 'text' in self.df.columns or 'caption' in self.df.columns, "Data should have text or caption column"
         if not self.precomputed_location_embeddings:
             assert all(col in self.df.columns for col in ['lat', 'lon']), f"Data csv does not contain lat lon columns"
 
@@ -87,7 +87,8 @@ class GeoTextDataset(Dataset):
             txt = row["text_embedding"]
             txt_key = "text_embedding"
         else:
-            txt = row["text"]
+            txt_col = "text" if "text" in self.df.columns else "caption"
+            txt = row[txt_col]
             txt_key = "text"
 
         # Ensure precomputed embeddings collate into proper tensors 

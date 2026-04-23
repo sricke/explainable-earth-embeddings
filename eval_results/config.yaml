@@ -1,8 +1,8 @@
-checkpoints: /home/libe2152/outputs/explainable-earth-embeddings/skyscript/  # dir of best.pt files (searched recursively) or single .pt file
-concepts:    /home/libe2152/projects/eda/0_vocabs/geoyfcc_concept_set.json      # dir of .json files or single .json file
+checkpoints: /home/libe2152/outputs/explainable-earth-embeddings/modified-git-10M/txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-4__loss-clip__lr-0.0001__sub-100000/best.pt  # dir of best.pt files (searched recursively) or single .pt file
+concepts:    /home/libe2152/projects/explainable-earth-embeddings/data/git-10m/concept_dictionaries/augmented_concepts.json   # dir of .json files or single .json file
 locations:   /home/libe2152/data/s2-100k/index.csv      # parquet/CSV file or directory
 
-num_samples:           20000
+num_samples:           10000
 stratify_by_continent: true
 lat_col: lat
 lon_col: lon

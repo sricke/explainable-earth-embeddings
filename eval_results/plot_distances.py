@@ -12,24 +12,33 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 
 sys.path.append("..")
-from models.model import TextLocationModel
-from models.utils import make_text_encoder, make_location_encoder
+from models.model import build_model
+from models.finetune import apply_lora
 
 
 def load_model(ckpt_path, device, loc_precomputed=True):
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     a = argparse.Namespace(**ckpt["args"])
-    text_enc = make_text_encoder(
-        a.text_encoder, a.text_projection, a.shared_dim, a.text_finetune_mode,
-        num_hidden_layers=a.text_proj_hidden_layers, num_hidden_features=a.text_proj_hidden_features,
-        nonlinearity=a.text_nonlinearity, precomputed=False,
+    model = build_model(
+        text_encoder=a.text_encoder,
+        location_encoder=a.location_encoder,
+        text_projection=a.text_projection,
+        location_projection=a.location_projection,
+        shared_dim=a.shared_dim,
+        text_finetune_mode=a.text_finetune_mode,
+        loc_finetune_mode=a.loc_finetune_mode,
+        text_proj_hidden_layers=a.text_proj_hidden_layers,
+        text_proj_hidden_features=a.text_proj_hidden_features,
+        loc_proj_hidden_layers=a.loc_proj_hidden_layers,
+        loc_proj_hidden_features=a.loc_proj_hidden_features,
+        text_nonlinearity=a.text_nonlinearity,
+        loc_nonlinearity=a.loc_nonlinearity,
+        precomputed_text_embeddings=False,
+        precomputed_location_embeddings=loc_precomputed,
+        device=device,
     )
-    loc_enc = make_location_encoder(
-        a.location_encoder, a.location_projection, a.shared_dim, a.loc_finetune_mode,
-        num_hidden_layers=a.loc_proj_hidden_layers, num_hidden_features=a.loc_proj_hidden_features,
-        nonlinearity=a.loc_nonlinearity, precomputed=loc_precomputed,
-    )
-    model = TextLocationModel(text_enc, loc_enc).to(device)
+    if a.text_finetune_mode == 'lora':
+        model.text_encoder.text_encoder.m = apply_lora(model.text_encoder.text_encoder.m, a.lora_rank)
     model.load_state_dict(ckpt["model"], strict=False)
     return model.eval(), a
 

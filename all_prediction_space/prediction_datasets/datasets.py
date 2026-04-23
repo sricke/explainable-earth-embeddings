@@ -9,12 +9,9 @@ air_temp falls back to a Figshare download when no local CSV is found.
 
 from __future__ import annotations
 
-import io
 from pathlib import Path
-from urllib import request
 
 import numpy as np
-import pandas as pd
 import torch
 
 from .utils import (

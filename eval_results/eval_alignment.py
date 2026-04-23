@@ -7,7 +7,8 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from dataset import GeoTextDataset
-from main import build_model
+from models.model import build_model
+from models.finetune import apply_lora
 
 
 def _recall_at_k(
@@ -82,7 +83,26 @@ def evaluate(checkpoint_path: str, dataset_path: str | None, split: str, device:
     print(f"Checkpoint : {checkpoint_path}  (epoch {ckpt['epoch']}, best_val_loss={ckpt['best_val_loss']:.4f})")
 
     # Reconstruct model from saved args
-    model = build_model(saved_args, device)
+    model = build_model(
+        text_encoder=saved_args.text_encoder,
+        location_encoder=saved_args.location_encoder,
+        text_projection=saved_args.text_projection,
+        location_projection=saved_args.location_projection,
+        shared_dim=saved_args.shared_dim,
+        text_finetune_mode=saved_args.text_finetune_mode,
+        loc_finetune_mode=saved_args.loc_finetune_mode,
+        text_proj_hidden_layers=saved_args.text_proj_hidden_layers,
+        text_proj_hidden_features=saved_args.text_proj_hidden_features,
+        loc_proj_hidden_layers=saved_args.loc_proj_hidden_layers,
+        loc_proj_hidden_features=saved_args.loc_proj_hidden_features,
+        text_nonlinearity=saved_args.text_nonlinearity,
+        loc_nonlinearity=saved_args.loc_nonlinearity,
+        precomputed_text_embeddings=getattr(saved_args, "precomputed_text_embeddings", True),
+        precomputed_location_embeddings=getattr(saved_args, "precomputed_location_embeddings", True),
+        device=device,
+    )
+    if saved_args.text_finetune_mode == 'lora':
+        model.text_encoder.text_encoder.m = apply_lora(model.text_encoder.text_encoder.m, saved_args.lora_rank)
     model.load_state_dict(ckpt["model"])
     model.eval()
 

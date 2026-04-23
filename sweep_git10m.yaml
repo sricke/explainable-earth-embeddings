@@ -16,9 +16,9 @@ parameters:
     values:
       - /home/libe2152/data/modified-git-10M/satclip/open_clip/
   train_subsample_size:
-    value: 1000000
+    value: None
   val_subsample_size:
-    value: 250000
+    value: None
   precomputed_text_embeddings:
     value: true
   precomputed_location_embeddings:
@@ -50,11 +50,11 @@ parameters:
   text_encoder:
     value: open_clip
   text_projection:
-    values: [linear]
+    values: [mlp]
   text_nonlinearity:
     value: relu
   text_proj_hidden_layers: # only used for mlp projection
-    value: 1
+    value: 4
   text_proj_hidden_features: # only used for mlp projection
     value: 512
 
@@ -62,17 +62,17 @@ parameters:
   shared_dim:
     value: 256
   text_finetune_mode:
-    values: [lora]
+    values: only_proj
   loc_finetune_mode:
     value: only_proj
   lora_rank:
-    values: [4, 8, 16]
+    values: None
 
   # --- Training ---
   num_epochs:
     value: 500
   patience:
-    value: 20
+    value: 5
   batch_size:
     value: 4096
   accumulation_steps:

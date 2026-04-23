@@ -191,12 +191,9 @@ def main():
         device=device,
     )
     if args.text_finetune_mode == 'lora':
-        apply_lora(model.text_encoder.text_encoder.m, args.lora_rank, open_clip=args.text_encoder == 'open_clip')
-    if args.loc_finetune_mode == 'lora':
-        apply_lora(model.location_encoder.location_encoder, args.lora_rank)
+        model.text_encoder.text_encoder.m = apply_lora(model.text_encoder.text_encoder.m, args.lora_rank)
     if not args.precomputed_text_embeddings:
-        assert hasattr(model.text_encoder.text_encoder.m, 'transformer')
-        model.text_encoder.text_encoder.m.transformer.grad_checkpointing = True
+        model.text_encoder.text_encoder.m.gradient_checkpointing_enable()
 
     logit_scale = torch.nn.Parameter(torch.tensor(1.0 / args.logit_scale_temp, device=device).log())
     criterion = make_loss(args.train_loss, logit_scale, args.lambda_alignment, args.sigma)

@@ -7,35 +7,34 @@ import torch.nn.functional as F
 from models.layers import EmbeddingProjection
 
 TEXT_MODEL_IDS = {
-    "open_clip": ("ViT-L-14", "openai"),
+    "open_clip_vit_l": "openai/clip-vit-large-patch14",
+    "open_clip_vit_h": "laion/CLIP-ViT-H-14-laion2B-s32B-b79K",
 }
 
 TEXT_EMBEDDING_DIMENSIONS = {
-    "open_clip": 768, # Double check this
+    "open_clip_vit_l": 768,
+    "open_clip_vit_h": 1024,
     "geoclip": 512,
 }
 
 
-def _build_openclip():
-    import open_clip
-    import types
+def _build_openclip(variant: str = "open_clip_vit_l"):
+    from transformers import CLIPTextModelWithProjection, CLIPTokenizer
 
-    model_id, pretrained = TEXT_MODEL_IDS["open_clip"]
-    clip = open_clip.create_model(model_id, pretrained=pretrained)
-    del clip.visual
-    output_dim = clip.text_projection.shape[1]
+    model_id = TEXT_MODEL_IDS[variant]
+    clip = CLIPTextModelWithProjection.from_pretrained(model_id)
+    output_dim = clip.config.projection_dim
 
-    # Wrap model so forward() calls encode_text
-    class _OpenCLIPText(nn.Module):
-        def __init__(self, m): super().__init__(); self.m = m
-        def forward(self, input_ids): return self.m.encode_text(input_ids)
+    class CLIPText(nn.Module):
+        def __init__(self, m):
+            super().__init__()
+            self.m = m
 
-    # Wrap tokenizer so it returns an object with .input_ids 
-    raw_tok = open_clip.get_tokenizer(model_id)
-    def tokenizer(texts, **_):
-        return types.SimpleNamespace(input_ids=raw_tok(texts))
+        def forward(self, input_ids, attention_mask=None):
+            return self.m(input_ids=input_ids, attention_mask=attention_mask).text_embeds
 
-    return _OpenCLIPText(clip), tokenizer, output_dim
+    tokenizer = CLIPTokenizer.from_pretrained(model_id)
+    return CLIPText(clip), tokenizer, output_dim
 
 
 def _build_geoclip():
@@ -97,8 +96,8 @@ class TextEncoder(nn.Module):
         return None
 
     def _build_model(self, text_model: str):
-        if text_model == "open_clip":
-            return _build_openclip()
+        if text_model in ("open_clip_vit_l", "open_clip_vit_h"):
+            return _build_openclip(text_model)
         elif text_model == "geoclip":
             return _build_geoclip()
         else:
@@ -118,10 +117,11 @@ class TextEncoder(nn.Module):
         assert isinstance(texts, (str, list, tuple)), f"Expected `texts` to be a string, list, or tuple, got {type(texts)}"
         if isinstance(texts, tuple):
             texts = list(texts)
-        tokens = self.tokenizer(texts, padding=True, truncation=False, return_tensors="pt")
+        tokens = self.tokenizer(texts, padding=True, truncation=True, max_length=77, return_tensors="pt")
         device = next(self.text_encoder.parameters()).device
         input_ids = tokens.input_ids.to(device)
-        text_embeddings = self.text_encoder(input_ids)
+        attention_mask = tokens.attention_mask.to(device) if hasattr(tokens, "attention_mask") else None
+        text_embeddings = self.text_encoder(input_ids, attention_mask)
         if isinstance(text_embeddings, dict):
             text_embeddings = text_embeddings["text_embeds"]
         return F.normalize(text_embeddings, dim=-1)

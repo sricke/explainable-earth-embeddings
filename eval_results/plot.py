@@ -20,8 +20,8 @@ import plotly.graph_objects as go
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.append("..")
 sys.path.append("../..")
-from models.model import TextLocationModel
-from models.utils import make_text_encoder, make_location_encoder
+from models.model import build_model
+from models.finetune import apply_lora
 
 SHAPEFILE = Path.home() / "data/shapefiles/ne_110m_admin_0_countries.shp"
 CONTINENT_PALETTE = {
@@ -34,17 +34,26 @@ CONTINENT_PALETTE = {
 def load_model(ckpt_path, device, loc_precomputed=True):
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     a = argparse.Namespace(**ckpt["args"])
-    text_enc = make_text_encoder(
-        a.text_encoder, a.text_projection, a.shared_dim, a.text_finetune_mode,
-        num_hidden_layers=a.text_proj_hidden_layers, num_hidden_features=a.text_proj_hidden_features,
-        nonlinearity=a.text_nonlinearity, precomputed=False,
+    model = build_model(
+        text_encoder=a.text_encoder,
+        location_encoder=a.location_encoder,
+        text_projection=a.text_projection,
+        location_projection=a.location_projection,
+        shared_dim=a.shared_dim,
+        text_finetune_mode=a.text_finetune_mode,
+        loc_finetune_mode=a.loc_finetune_mode,
+        text_proj_hidden_layers=a.text_proj_hidden_layers,
+        text_proj_hidden_features=a.text_proj_hidden_features,
+        loc_proj_hidden_layers=a.loc_proj_hidden_layers,
+        loc_proj_hidden_features=a.loc_proj_hidden_features,
+        text_nonlinearity=a.text_nonlinearity,
+        loc_nonlinearity=a.loc_nonlinearity,
+        precomputed_text_embeddings=False,
+        precomputed_location_embeddings=loc_precomputed,
+        device=device,
     )
-    loc_enc = make_location_encoder(
-        a.location_encoder, a.location_projection, a.shared_dim, a.loc_finetune_mode,
-        num_hidden_layers=a.loc_proj_hidden_layers, num_hidden_features=a.loc_proj_hidden_features,
-        nonlinearity=a.loc_nonlinearity, precomputed=loc_precomputed,
-    )
-    model = TextLocationModel(text_enc, loc_enc).to(device)
+    if a.text_finetune_mode == 'lora':
+        model.text_encoder.text_encoder.m = apply_lora(model.text_encoder.text_encoder.m, a.lora_rank)
     model.load_state_dict(ckpt["model"], strict=False)
     return model.eval(), a
 
@@ -236,13 +245,13 @@ def main():
     loc_labels = [f"{row[args.lat_col]:.4f}, {row[args.lon_col]:.4f}" for _, row in df[[args.lat_col, args.lon_col]].iterrows()]
 
     n = len(loc_raw)
-    for method, reducer in [("UMAP", umap_reduce)]: #, ("t-SNE", tsne_reduce)]:
+    for method, reducer in [("UMAP", umap_reduce), ("t-SNE", tsne_reduce)]:
         name = method.lower().replace("-", "")
         # 2-D is enough for both the PNG and the interactive HTML
         Y_raw = reducer(torch.cat([loc_raw, con_raw]).numpy(), n_components=2)
         Y_mc  = reducer(torch.cat([loc_mc,  con_mc ]).numpy(), n_components=2)
         plot_png( Y_raw[:n], Y_mc[:n], Y_raw[n:], Y_mc[n:], cont_labels, cont_colors, method, out_dir / f"{name}.png")
-        #plot_html(Y_raw[:n], Y_mc[:n], Y_raw[n:], Y_mc[n:], cont_labels, loc_labels, concepts, method, out_dir / f"{name}.html")
+        plot_html(Y_raw[:n], Y_mc[:n], Y_raw[n:], Y_mc[n:], cont_labels, loc_labels, concepts, method, out_dir / f"{name}.html")
 
 
 if __name__ == "__main__":
