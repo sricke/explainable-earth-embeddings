@@ -7,18 +7,20 @@ import torch.nn.functional as F
 from models.layers import EmbeddingProjection
 
 TEXT_MODEL_IDS = {
+    "open_clip": "openai/clip-vit-large-patch14",
     "open_clip_vit_l": "openai/clip-vit-large-patch14",
     "open_clip_vit_h": "laion/CLIP-ViT-H-14-laion2B-s32B-b79K",
 }
 
 TEXT_EMBEDDING_DIMENSIONS = {
+    "open_clip": 768,
     "open_clip_vit_l": 768,
     "open_clip_vit_h": 1024,
     "geoclip": 512,
 }
 
 
-def _build_openclip(variant: str = "open_clip_vit_l"):
+def _build_openclip(variant: str = "open_clip"):
     from transformers import CLIPTextModelWithProjection, CLIPTokenizer
 
     model_id = TEXT_MODEL_IDS[variant]
@@ -96,7 +98,7 @@ class TextEncoder(nn.Module):
         return None
 
     def _build_model(self, text_model: str):
-        if text_model in ("open_clip_vit_l", "open_clip_vit_h"):
+        if text_model in ("open_clip", "open_clip_vit_l", "open_clip_vit_h"):
             return _build_openclip(text_model)
         elif text_model == "geoclip":
             return _build_geoclip()
