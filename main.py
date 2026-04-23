@@ -12,7 +12,7 @@ from models.finetune import apply_lora
 from loss import make_loss
 from train import train_epoch
 from eval import val_epoch
-from utils import EarlyStopping, set_seed
+from utils import EarlyStopping, set_seed, build_scheduler
 from log_utils import setup_logging, build_run_name
 
 
@@ -61,6 +61,8 @@ def get_args():
     parser.add_argument('--patience', type=int, default=10)
     parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--scheduler', type=str, default=None, help="'cosine' | None")
+    parser.add_argument('--warmup_epochs', type=int, default=0)
     parser.add_argument('--weight_decay', type=float, default=1e-2)
     parser.add_argument('--text_nonlinearity', type=str, default=None, help="'relu' | 'sine'")
     parser.add_argument('--loc_nonlinearity', type=str, default=None, help="'relu' | 'sine'")
@@ -92,21 +94,24 @@ def build_optimizer(args, model, logit_scale):
     )
 
 
-def save_checkpoint(path, epoch, model, optimizer, logit_scale, best_val_loss, args):
+def save_checkpoint(path, epoch, model, optimizer, scheduler, logit_scale, best_val_loss, args):
     torch.save({
         'epoch': epoch,
         'model': model.state_dict(),
         'optimizer': optimizer.state_dict(),
+        'scheduler': scheduler.state_dict() if scheduler is not None else None,
         'logit_scale': logit_scale.data,
         'best_val_loss': best_val_loss,
         'args': vars(args),
     }, path)
 
 
-def load_checkpoint(path, model, optimizer, logit_scale, device):
+def load_checkpoint(path, model, optimizer, scheduler, logit_scale, device):
     ckpt = torch.load(path, map_location=device)
     model.load_state_dict(ckpt['model'])
     optimizer.load_state_dict(ckpt['optimizer'])
+    if scheduler is not None and ckpt.get('scheduler') is not None:
+        scheduler.load_state_dict(ckpt['scheduler'])
     logit_scale.data = ckpt['logit_scale'].to(device)
     model.to(device)
     for state in optimizer.state.values():
@@ -198,30 +203,34 @@ def main():
     logit_scale = torch.nn.Parameter(torch.tensor(1.0 / args.logit_scale_temp, device=device).log())
     criterion = make_loss(args.train_loss, logit_scale, args.lambda_alignment, args.sigma)
     optimizer = build_optimizer(args, model, logit_scale)
+    scheduler = build_scheduler(args, optimizer)
     early_stopping = EarlyStopping(patience=args.patience, mode="min")
     logger.info(f"Loss: {args.train_loss}")
-    logger.info(f"LR={args.lr}, weight_decay={args.weight_decay}")
+    logger.info(f"LR={args.lr}, scheduler={getattr(args, 'scheduler', None)}, warmup_epochs={getattr(args, 'warmup_epochs', 0)}, weight_decay={args.weight_decay}")
 
     start_epoch = 0
     best_val_loss = float('inf')
 
     if args.resume_from:
-        start_epoch, best_val_loss = load_checkpoint(args.resume_from, model, optimizer, logit_scale, device)
+        start_epoch, best_val_loss = load_checkpoint(args.resume_from, model, optimizer, scheduler, logit_scale, device)
         early_stopping.load_best(best_val_loss)
     elif save_path.exists() and not (checkpoint_dir / "done").exists():
         logger.info(f"Found existing checkpoint without 'done' marker. Auto-resuming from {save_path}")
-        start_epoch, best_val_loss = load_checkpoint(save_path, model, optimizer, logit_scale, device)
+        start_epoch, best_val_loss = load_checkpoint(save_path, model, optimizer, scheduler, logit_scale, device)
         early_stopping.load_best(best_val_loss)
 
     for epoch in range(start_epoch, args.num_epochs):
-        train_loss = train_epoch(train_dataloader, model, criterion, optimizer, epoch, device, logger, accumulation_steps=args.accumulation_steps)
+        train_loss = train_epoch(train_dataloader, model, criterion, optimizer, epoch, device, logger, scheduler=scheduler, accumulation_steps=args.accumulation_steps)
         val_loss = val_epoch(val_dataloader, model, criterion, epoch, device, logger)
 
-        logger.info(f"Epoch {epoch} | train={train_loss:.4f} | val={val_loss:.4f}")
+        current_lr = optimizer.param_groups[0]['lr']
+        logger.info(f"Epoch {epoch} | train={train_loss:.4f} | val={val_loss:.4f} | lr={current_lr:.2e}")
+        if wandb.run is not None:
+            wandb.log({"train/lr": current_lr, "epoch": epoch})
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            save_checkpoint(save_path, epoch, model, optimizer, logit_scale, best_val_loss, args)
+            save_checkpoint(save_path, epoch, model, optimizer, scheduler, logit_scale, best_val_loss, args)
             logger.info(f"Saved checkpoint (val={val_loss:.4f})")
 
         if early_stopping(val_loss):

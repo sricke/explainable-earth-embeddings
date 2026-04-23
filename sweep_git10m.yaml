@@ -14,15 +14,15 @@ metric:
 parameters:
   dataset_path:
     values:
-      - /home/libe2152/data/modified-git-10M/satclip/open_clip/
+      - /home/libe2152/data/expanded-git-10M/
   train_subsample_size:
     value: None
   val_subsample_size:
     value: None
   precomputed_text_embeddings:
-    value: true
+    value: false
   precomputed_location_embeddings:
-    value: true
+    value: false
 
   # --- Loss ---
   train_loss:
@@ -52,11 +52,11 @@ parameters:
   text_projection:
     values: [mlp]
   text_nonlinearity:
-    value: relu
+    value: gelu
   text_proj_hidden_layers: # only used for mlp projection
-    value: 4
+    value: 1
   text_proj_hidden_features: # only used for mlp projection
-    value: 512
+    value: 2048
 
   # --- Shared ---
   shared_dim:
@@ -78,7 +78,11 @@ parameters:
   accumulation_steps:
     value: 4
   lr:
-    value: 0.0001
+    value: 0.001
+  scheduler:
+    value: cosine
+  warmup_epochs:
+    value: 5
   weight_decay:
     value: 0.01
   num_workers:

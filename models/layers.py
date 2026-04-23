@@ -15,6 +15,7 @@ class Sine(nn.Module):
 
 _ACTIVATIONS = {
     "relu": nn.ReLU,
+    "gelu": nn.GELU,
     "sine": Sine,
 }
 
@@ -55,7 +56,8 @@ class EmbeddingProjection(nn.Module):
         for m in self.modules():
             if not isinstance(m, nn.Linear):
                 continue
-            if nonlinearity == "relu":
+            if nonlinearity in ("relu", "gelu"):
+                # kaiming with relu is the standard approximation for gelu
                 nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
             elif nonlinearity == "sine":
                 with torch.no_grad():

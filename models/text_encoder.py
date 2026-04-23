@@ -114,13 +114,17 @@ class TextEncoder(nn.Module):
 
     def encode_texts(self, texts) -> torch.Tensor:
         assert not self.precomputed, "Cannot call encode_texts in precomputed mode"
-        assert isinstance(texts, (str, list, tuple)), f"Expected `texts` to be a string, list, or tuple, got {type(texts)}"
-        if isinstance(texts, tuple):
-            texts = list(texts)
-        tokens = self.tokenizer(texts, padding=True, truncation=True, max_length=77, return_tensors="pt")
         device = next(self.text_encoder.parameters()).device
-        input_ids = tokens.input_ids.to(device)
-        attention_mask = tokens.attention_mask.to(device) if hasattr(tokens, "attention_mask") else None
+        if isinstance(texts, (str, list, tuple)):
+            if isinstance(texts, tuple):
+                texts = list(texts)
+            tokens = self.tokenizer(texts, padding=True, truncation=True, max_length=77, return_tensors="pt")
+            input_ids = tokens.input_ids.to(device)
+            attention_mask = tokens.attention_mask.to(device) if hasattr(tokens, "attention_mask") else None
+        else:
+            # pre-tokenized dict/BatchEncoding from collate_fn
+            input_ids = texts["input_ids"].to(device)
+            attention_mask = texts["attention_mask"].to(device) if "attention_mask" in texts else None
         text_embeddings = self.text_encoder(input_ids, attention_mask)
         if isinstance(text_embeddings, dict):
             text_embeddings = text_embeddings["text_embeds"]
