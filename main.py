@@ -88,9 +88,14 @@ def get_args():
 
 
 def build_optimizer(args, model, logit_scale):
+    no_decay = lambda n, p: p.ndim < 2 or any(k in n for k in ("bn", "ln", "bias", "logit_scale"))
+    named = list(model.named_parameters())
     return torch.optim.AdamW(
-        list(model.parameters()) + [logit_scale],
-        lr=args.lr, weight_decay=args.weight_decay,
+        [
+            {"params": [p for n, p in named if no_decay(n, p) and p.requires_grad] + [logit_scale], "weight_decay": 0.0},
+            {"params": [p for n, p in named if not no_decay(n, p) and p.requires_grad], "weight_decay": args.weight_decay},
+        ],
+        lr=args.lr,
     )
 
 

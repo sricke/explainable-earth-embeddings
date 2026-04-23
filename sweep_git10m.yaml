@@ -20,9 +20,9 @@ parameters:
   val_subsample_size:
     value: None
   precomputed_text_embeddings:
-    value: false
+    value: true
   precomputed_location_embeddings:
-    value: false
+    value: true
 
   # --- Loss ---
   train_loss:
@@ -74,9 +74,9 @@ parameters:
   patience:
     value: 5
   batch_size:
-    value: 4096
+    value: 4096 
   accumulation_steps:
-    value: 4
+    value: 8
   lr:
     value: 0.001
   scheduler:
