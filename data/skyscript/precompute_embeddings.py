@@ -49,10 +49,9 @@ def precompute(location_model: str, text_model: str, batch_size: int):
         loc_embs = np.concatenate(loc_embs)
         text_embs = np.concatenate(text_embs)
 
-        out_df = dataset.df[["lat", "lon", "text"]].copy()
-        out_df["location_embedding"] = list(loc_embs)
-        out_df["text_embedding"] = list(text_embs)
-        out_df.to_parquet(out_dir / f"{split}.parquet", index=False)
+        dataset.df[["lat", "lon", "text"]].to_parquet(out_dir / f"{split}.parquet", index=False)
+        np.save(out_dir / f"{split}_location_embeddings.npy", loc_embs)
+        np.save(out_dir / f"{split}_text_embeddings.npy", text_embs)
         print(f"  -> {out_dir / f'{split}.parquet'}  loc_dim={loc_embs.shape[1]}  text_dim={text_embs.shape[1]}")
 
 

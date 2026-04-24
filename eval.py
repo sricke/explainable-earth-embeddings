@@ -12,8 +12,10 @@ def val_epoch(val_dataloader, model, criterion, epoch, device, logger) -> float:
     bar = tqdm(enumerate(val_dataloader), total=len(val_dataloader))
 
     for i, (locs, texts) in bar:
-        assert isinstance(locs, torch.Tensor), f"Expected `locs` to be a torch.Tensor, got {type(locs)}"
-        assert isinstance(texts, (torch.Tensor, list, tuple)), f"Expected `texts` to be a torch.Tensor, list, or tuple, got {type(texts)}"
+        if not isinstance(locs, torch.Tensor):
+            raise TypeError(f"Expected locs to be a torch.Tensor, got {type(locs)}")
+        if not isinstance(texts, (torch.Tensor, list, tuple)):
+            raise TypeError(f"Expected texts to be a torch.Tensor, list, or tuple, got {type(texts)}")
         locs = locs.to(device)
         if isinstance(texts, torch.Tensor):
             texts = texts.to(device)

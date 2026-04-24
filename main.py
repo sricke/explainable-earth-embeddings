@@ -19,6 +19,10 @@ from log_utils import setup_logging, build_run_name
 logger = logging.getLogger(__name__)
 
 
+def sanitize(s: str) -> str:
+    return str(s).strip().replace(" ", "-").replace("/", "_").replace("\\", "_")
+
+
 def get_args():
     # Check for --config file before building the full parser
     pre = argparse.ArgumentParser(add_help=False)
@@ -30,11 +34,15 @@ def get_args():
             cfg = yaml.safe_load(f)
         return argparse.Namespace(**cfg)
 
+    _int = lambda x: None if x == 'None' else int(x)
+    _float = lambda x: None if x == 'None' else float(x)
+
     parser = argparse.ArgumentParser()
     # Data
     parser.add_argument('--dataset_path', type=str, required=True)
-    parser.add_argument('--train_subsample_size', type=int, default=None)
-    parser.add_argument('--val_subsample_size', type=int, default=None)
+    parser.add_argument('--precomputed_dir', type=str, default=None)
+    parser.add_argument('--train_subsample_size', type=_int, default=None)
+    parser.add_argument('--val_subsample_size', type=_int, default=None)
     parser.add_argument('--precomputed_text_embeddings', type=bool, default=True)
     parser.add_argument('--precomputed_location_embeddings', type=bool, default=True)
     # Encoders
@@ -42,7 +50,7 @@ def get_args():
     parser.add_argument('--location_encoder', type=str, required=True, help="'satclip' | 'geoclip'")
     parser.add_argument('--text_finetune_mode', type=str, default='only_proj', help="'all' | 'lora' | 'only_proj'")
     parser.add_argument('--loc_finetune_mode', type=str, default='only_proj', help="'all' | 'lora' | 'only_proj'")
-    parser.add_argument('--lora_rank', type=int, default=4, help='LoRA rank (used when finetune_mode=lora)')
+    parser.add_argument('--lora_rank', default=None, help='LoRA rank (used when finetune_mode=lora)')
     # Projections
     parser.add_argument('--text_projection', type=str, default='linear', help="'linear' | 'mlp'")
     parser.add_argument('--text_proj_hidden_layers', type=int, default=1)
@@ -53,8 +61,8 @@ def get_args():
     parser.add_argument('--shared_dim', type=int, default=256)
     # Loss
     parser.add_argument('--train_loss', type=str, required=True, help="'clip' | 'mse'")
-    parser.add_argument('--lambda_alignment', type=float)
-    parser.add_argument('--sigma', type=float)
+    parser.add_argument('--lambda_alignment', type=_float)
+    parser.add_argument('--sigma', type=_float)
     parser.add_argument('--logit_scale_temp', type=float, default=0.07)
     # Training
     parser.add_argument('--num_epochs', type=int, default=100)
@@ -86,38 +94,47 @@ def get_args():
     return parser.parse_args()
 
 
+def build_checkpoint_base(args, dataset_name: str) -> Path:
+    if getattr(args, "model_save_path", None):
+        return Path(args.model_save_path).expanduser().resolve()
+    return (Path(__file__).parent / "../../outputs" / "explainable-earth-embeddings" / dataset_name).resolve()
 
-def build_optimizer(args, model, logit_scale):
+
+def build_optimizer(args, model, criterion):
     no_decay = lambda n, p: p.ndim < 2 or any(k in n for k in ("bn", "ln", "bias", "logit_scale"))
-    named = list(model.named_parameters())
+    named = list(model.named_parameters()) + list(criterion.named_parameters())
     return torch.optim.AdamW(
         [
-            {"params": [p for n, p in named if no_decay(n, p) and p.requires_grad] + [logit_scale], "weight_decay": 0.0},
+            {"params": [p for n, p in named if no_decay(n, p) and p.requires_grad], "weight_decay": 0.0},
             {"params": [p for n, p in named if not no_decay(n, p) and p.requires_grad], "weight_decay": args.weight_decay},
         ],
         lr=args.lr,
     )
 
 
-def save_checkpoint(path, epoch, model, optimizer, scheduler, logit_scale, best_val_loss, args):
+def save_checkpoint(path, epoch, model, criterion, optimizer, scheduler, best_val_loss, args):
     torch.save({
         'epoch': epoch,
         'model': model.state_dict(),
+        'criterion': criterion.state_dict(),
         'optimizer': optimizer.state_dict(),
         'scheduler': scheduler.state_dict() if scheduler is not None else None,
-        'logit_scale': logit_scale.data,
         'best_val_loss': best_val_loss,
         'args': vars(args),
     }, path)
 
 
-def load_checkpoint(path, model, optimizer, scheduler, logit_scale, device):
+def load_checkpoint(path, model, criterion, optimizer, scheduler, device):
     ckpt = torch.load(path, map_location=device)
     model.load_state_dict(ckpt['model'])
+    if 'criterion' in ckpt:
+        criterion.load_state_dict(ckpt['criterion'])
+    elif 'logit_scale' in ckpt and hasattr(criterion, 'logit_scale'):
+        # backward compat: old checkpoints saved logit_scale separately
+        criterion.logit_scale.data = ckpt['logit_scale'].to(device)
     optimizer.load_state_dict(ckpt['optimizer'])
     if scheduler is not None and ckpt.get('scheduler') is not None:
         scheduler.load_state_dict(ckpt['scheduler'])
-    logit_scale.data = ckpt['logit_scale'].to(device)
     model.to(device)
     for state in optimizer.state.values():
         for k, v in list(state.items()):
@@ -134,11 +151,10 @@ def main():
 
     dataset_name = Path(args.dataset_path).expanduser().resolve().parent.parent.name
     default_wandb_name, default_run_tag = build_run_name(args, dataset_name)
-    desired_wandb_name = str(args.wandb_run_name).strip().replace(" ", "-").replace("/", "_").replace("\\", "_") if getattr(args, "wandb_run_name", None) else default_wandb_name
+    desired_wandb_name = sanitize(args.wandb_run_name) if getattr(args, "wandb_run_name", None) else default_wandb_name
 
-    # skip run if all epochs are completed
-    _early_checkpoint_base = (Path(args.model_save_path).expanduser().resolve() if getattr(args, "model_save_path", None) else (Path.home() / "outputs" / "explainable-earth-embeddings" / dataset_name).resolve())
-    if (_early_checkpoint_base / default_run_tag / "done").exists():
+    checkpoint_base = build_checkpoint_base(args, dataset_name)
+    if (checkpoint_base / default_run_tag / "done").exists():
         logger.info(f"Run {default_run_tag} already completed. Skipping.")
         return
 
@@ -150,22 +166,17 @@ def main():
             config=vars(args),
         )
         wandb_name = wandb.run.name if wandb.run is not None else desired_wandb_name
-        run_tag = wandb_name.replace(f"{dataset_name}__", "", 1).strip().replace(" ", "-").replace("/", "_").replace("\\", "_")
+        run_tag = sanitize(wandb_name.replace(f"{dataset_name}__", "", 1))
     else:
         run_tag = default_run_tag
 
-    run_tag = str(run_tag).strip().replace(" ", "-").replace("/", "_").replace("\\", "_")
-    setup_logging(f"{dataset_name}__{run_tag}".strip().replace(" ", "-").replace("/", "_").replace("\\", "_"), Path("logs"))
+    run_tag = sanitize(run_tag)
+    setup_logging(sanitize(f"{dataset_name}__{run_tag}"), Path("logs"))
 
-    if getattr(args, "model_save_path", None):
-        checkpoint_base = Path(args.model_save_path).expanduser().resolve()
-    else:
-        checkpoint_base = (Path.home() / "outputs" / "explainable-earth-embeddings" / dataset_name).resolve()
     checkpoint_dir = checkpoint_base / run_tag
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     save_path = checkpoint_dir / "best.pt"
-    config_save_path = checkpoint_dir / "config.yaml"
-    with open(config_save_path, "w") as f:
+    with open(checkpoint_dir / "config.yaml", "w") as f:
         yaml.dump(vars(args), f, default_flow_style=False)
     logger.info(f"Checkpoints directory: {checkpoint_dir}")
 
@@ -181,6 +192,7 @@ def main():
         precomputed_location_embeddings=args.precomputed_location_embeddings,
         train_subsample_size=args.train_subsample_size,
         val_subsample_size=args.val_subsample_size,
+        precomputed_dir=args.precomputed_dir,
     )
     model = build_model(
         text_encoder=args.text_encoder,
@@ -201,13 +213,12 @@ def main():
         device=device,
     )
     if args.text_finetune_mode == 'lora':
-        model.text_encoder.text_encoder.m = apply_lora(model.text_encoder.text_encoder.m, args.lora_rank)
+        model.text_encoder.text_encoder.m = apply_lora(model.text_encoder.text_encoder.m, int(args.lora_rank))
     if not args.precomputed_text_embeddings:
         model.text_encoder.text_encoder.m.gradient_checkpointing_enable()
 
-    logit_scale = torch.nn.Parameter(torch.tensor(1.0 / args.logit_scale_temp, device=device).log())
-    criterion = make_loss(args.train_loss, logit_scale, args.lambda_alignment, args.sigma)
-    optimizer = build_optimizer(args, model, logit_scale)
+    criterion = make_loss(args.train_loss, args.logit_scale_temp, args.lambda_alignment, args.sigma).to(device)
+    optimizer = build_optimizer(args, model, criterion)
     scheduler = build_scheduler(args, optimizer)
     early_stopping = EarlyStopping(patience=args.patience, mode="min")
     logger.info(f"Loss: {args.train_loss}")
@@ -217,14 +228,15 @@ def main():
     best_val_loss = float('inf')
 
     if args.resume_from:
-        start_epoch, best_val_loss = load_checkpoint(args.resume_from, model, optimizer, scheduler, logit_scale, device)
+        start_epoch, best_val_loss = load_checkpoint(args.resume_from, model, criterion, optimizer, scheduler, device)
         early_stopping.load_best(best_val_loss)
     elif save_path.exists() and not (checkpoint_dir / "done").exists():
         logger.info(f"Found existing checkpoint without 'done' marker. Auto-resuming from {save_path}")
-        start_epoch, best_val_loss = load_checkpoint(save_path, model, optimizer, scheduler, logit_scale, device)
+        start_epoch, best_val_loss = load_checkpoint(save_path, model, criterion, optimizer, scheduler, device)
         early_stopping.load_best(best_val_loss)
 
     for epoch in range(start_epoch, args.num_epochs):
+        train_dataloader.dataset.reshuffle(args.seed + epoch)
         train_loss = train_epoch(train_dataloader, model, criterion, optimizer, epoch, device, logger, scheduler=scheduler, accumulation_steps=args.accumulation_steps)
         val_loss = val_epoch(val_dataloader, model, criterion, epoch, device, logger)
 
@@ -235,16 +247,15 @@ def main():
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            save_checkpoint(save_path, epoch, model, optimizer, scheduler, logit_scale, best_val_loss, args)
+            save_checkpoint(save_path, epoch, model, criterion, optimizer, scheduler, best_val_loss, args)
             logger.info(f"Saved checkpoint (val={val_loss:.4f})")
 
         if early_stopping(val_loss):
-            print("Early Stopping")
+            logger.info("Early stopping triggered.")
             (checkpoint_dir / "done").touch()
             logger.info("Training stopped early. Wrote 'done' marker.")
             break
     else:
-
         (checkpoint_dir / "done").touch()
         logger.info("Training completed all epochs. Wrote 'done' marker.")
 

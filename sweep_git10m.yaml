@@ -14,13 +14,15 @@ metric:
 parameters:
   dataset_path:
     values:
-      - /home/libe2152/data/expanded-git-10M/
+      - /media/volume/xemb-data/data/expanded-git-10M/
+  precomputed_dir:
+    value: /media/volume/xemb-data/data/expanded-git-10M/satclip/open_clip_vit_h/
   train_subsample_size:
-    value: None
+    value: 10000000
   val_subsample_size:
-    value: None
+    value: 2500000
   precomputed_text_embeddings:
-    value: true
+    value: false
   precomputed_location_embeddings:
     value: true
 
@@ -48,13 +50,13 @@ parameters:
 
   # --- Text encoder projection ---
   text_encoder:
-    value: open_clip
+    value: open_clip_vit_h
   text_projection:
     values: [mlp]
   text_nonlinearity:
     value: gelu
   text_proj_hidden_layers: # only used for mlp projection
-    value: 1
+    values: [1,2]
   text_proj_hidden_features: # only used for mlp projection
     value: 2048
 
@@ -62,17 +64,17 @@ parameters:
   shared_dim:
     value: 256
   text_finetune_mode:
-    values: only_proj
+    value: only_proj
   loc_finetune_mode:
     value: only_proj
   lora_rank:
-    values: None
+    value: None
 
   # --- Training ---
   num_epochs:
     value: 500
   patience:
-    value: 5
+    value: 20
   batch_size:
     value: 4096 
   accumulation_steps:
@@ -82,7 +84,7 @@ parameters:
   scheduler:
     value: cosine
   warmup_epochs:
-    value: 5
+    value: 10
   weight_decay:
     value: 0.01
   num_workers:

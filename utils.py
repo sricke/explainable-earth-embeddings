@@ -2,7 +2,6 @@ import random
 import numpy as np
 import torch
 import torch.optim.lr_scheduler as lr_sched
-import torch.optim.lr_scheduler as lr_sched
 
 
 def set_seed(seed: int):

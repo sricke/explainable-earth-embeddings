@@ -4,7 +4,7 @@ from tqdm import tqdm
 from typing import Tuple
 
 def train_epoch(train_dataloader, model, criterion, optimizer, epoch, device, logger, scheduler=None, accumulation_steps=1) -> float:
-    print("Starting Epoch", epoch)
+    logger.info(f"Starting epoch {epoch}")
 
     model.train()
     total_loss = 0.0
@@ -13,8 +13,10 @@ def train_epoch(train_dataloader, model, criterion, optimizer, epoch, device, lo
 
     bar = tqdm(enumerate(train_dataloader), total=len(train_dataloader))
     for i, (locs, texts) in bar:
-        assert isinstance(locs, torch.Tensor), f"Expected `locs` to be a torch.Tensor, got {type(locs)}"
-        assert isinstance(texts, (torch.Tensor, list, tuple)), f"Expected `texts` to be a torch.Tensor, list, or tuple, got {type(texts)}"
+        if not isinstance(locs, torch.Tensor):
+            raise TypeError(f"Expected locs to be a torch.Tensor, got {type(locs)}")
+        if not isinstance(texts, (torch.Tensor, list, tuple)):
+            raise TypeError(f"Expected texts to be a torch.Tensor, list, or tuple, got {type(texts)}")
         locs = locs.to(device)
         if isinstance(texts, torch.Tensor):
             texts = texts.to(device)
