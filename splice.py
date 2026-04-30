@@ -17,6 +17,7 @@ def get_args():
     p.add_argument("--model_path",    required=True, help="Model path to location-text aligned model")
     p.add_argument("--lat_lon_csv",   required=True, help="CSV with 'lat','lon' columns (used to compute mean embedding)")
     p.add_argument("--concepts_json", required=True, help="JSON list of concept strings")
+    p.add_argument("--out",         default="splice_results", help="Output directory for SpLiCE results")
     p.add_argument("--l1_penalty",    type=float, default=0.1)
     p.add_argument("--prompt",        default=None, help='Prompt template with {concept} placeholder, e.g. "A satellite image of a {concept}"')
     p.add_argument("--device",        default="cuda")
@@ -43,8 +44,8 @@ def main():
         loc_proj_hidden_features=model_args.loc_proj_hidden_features,
         text_nonlinearity=model_args.text_nonlinearity,
         loc_nonlinearity=model_args.loc_nonlinearity,
-        precomputed_text_embeddings=model_args.precomputed_text_embeddings,
-        precomputed_location_embeddings=model_args.precomputed_location_embeddings,
+        precomputed_text_embeddings=False,
+        precomputed_location_embeddings=False,
         device=device,
     )
     model.load_state_dict(ckpt['model'], strict=False)  # SatCLIP weights not in ckpt, just projection
@@ -70,7 +71,10 @@ def main():
                           solver='admm', device=device, return_weights=True, return_cosine=True,
                           l1_penalty=args.l1_penalty)
 
-    out = Path("splice_results"); out.mkdir(exist_ok=True)
+    model_id = Path(args.model_path).parent.name
+    concept_id = Path(args.concepts_json).stem
+    out = Path("splice_results") / model_id / concept_id
+    out.mkdir(parents=True, exist_ok=True)
     torch.save(splice_model, out / "splice_model.pt")
     torch.save(concepts, out / "concepts.pt")
 

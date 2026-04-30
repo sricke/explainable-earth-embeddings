@@ -1,5 +1,14 @@
+import hashlib
+import json
 import logging
 from pathlib import Path
+
+_HASH_EXCLUDE = frozenset(("resume_from", "device", "no_wandb", "wandb_run_name", "model_save_path"))
+
+
+def config_hash(args) -> str:
+    d = {k: v for k, v in sorted(vars(args).items()) if k not in _HASH_EXCLUDE}
+    return hashlib.md5(json.dumps(d, default=str).encode()).hexdigest()[:8]
 
 
 def setup_logging(run_name: str, log_dir: Path):
@@ -29,6 +38,7 @@ def build_run_name(args, dataset_name: str) -> tuple[str, str]:
         f"loss-{args.train_loss}",
         f"lr-{args.lr}",
         *([ f"sub-{subsample}"] if subsample is not None else []),
+        f"h-{config_hash(args)}",
     ]
     run_tag = "__".join(str(x).strip().replace(" ", "-").replace("/", "_").replace("\\", "_") for x in p if x)
     return f"{dataset_name}__{run_tag}".strip().replace(" ", "-").replace("/", "_").replace("\\", "_"), run_tag

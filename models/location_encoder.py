@@ -16,7 +16,7 @@ LOCATION_EMBEDDING_DIMENSIONS = {
 
 LOCATION_MODEL_IDS = {
     "satclip": "microsoft/SatCLIP-ViT16-L40",
-    # might need to include L10 as well
+    # might need to include L10 as well, or can also look at ResNet-based models
 }
 
 LOCATION_MODEL_CHECKPOINTS = {

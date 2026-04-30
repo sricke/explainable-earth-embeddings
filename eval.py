@@ -2,9 +2,11 @@ import torch
 import wandb
 from tqdm import tqdm
 
+from train import _get_loc_queue_embeddings, _get_text_queue_embeddings
+
 
 @torch.no_grad()
-def val_epoch(val_dataloader, model, criterion, epoch, device, logger) -> float:
+def val_epoch(val_dataloader, model, criterion, epoch, device, logger, loc_queue=None, text_queue=None) -> float:
     model.eval()
     total_loss = 0.0
     global_step = epoch * len(val_dataloader)
@@ -19,9 +21,11 @@ def val_epoch(val_dataloader, model, criterion, epoch, device, logger) -> float:
         locs = locs.to(device)
         if isinstance(texts, torch.Tensor):
             texts = texts.to(device)
-        
+
         text_features, location_features = model(texts, locs)
-        loss = criterion(text_features, location_features)
+        loc_queue_embeddings = _get_loc_queue_embeddings(loc_queue, model, device) if loc_queue is not None else None
+        text_queue_embeddings = _get_text_queue_embeddings(text_queue, model, device) if text_queue is not None else None
+        loss = criterion(text_features, location_features, loc_queue=loc_queue_embeddings, text_queue=text_queue_embeddings)
 
         loss_value = loss.item()
         total_loss += loss_value

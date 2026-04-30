@@ -13,26 +13,26 @@ def set_seed(seed: int):
     torch.backends.cudnn.benchmark = False
 
 
-def build_scheduler(args, optimizer):
+def build_scheduler(args, optimizer, total_steps: int):
     scheduler_type = getattr(args, 'scheduler', None)
-    warmup_epochs = getattr(args, 'warmup_epochs', 0)
+    warmup_steps = getattr(args, 'warmup_steps', 0)
 
     if scheduler_type is None:
         return None
 
-    T_after_warmup = args.num_epochs - warmup_epochs
+    T_after_warmup = total_steps - warmup_steps
 
     if scheduler_type == 'cosine':
         main_sched = lr_sched.CosineAnnealingLR(optimizer, T_max=T_after_warmup, eta_min=0)
     else:
         raise ValueError(f"Unknown scheduler type: '{scheduler_type}'")
 
-    if warmup_epochs > 0:
+    if warmup_steps > 0:
         warmup = lr_sched.LinearLR(
-            optimizer, start_factor=1e-6, end_factor=1.0, total_iters=warmup_epochs
+            optimizer, start_factor=1e-6, end_factor=1.0, total_iters=warmup_steps
         )
         return lr_sched.SequentialLR(
-            optimizer, schedulers=[warmup, main_sched], milestones=[warmup_epochs]
+            optimizer, schedulers=[warmup, main_sched], milestones=[warmup_steps]
         )
     return main_sched
 

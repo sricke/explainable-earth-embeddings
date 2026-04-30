@@ -1,10 +1,28 @@
 import numpy as np
-from sklearn.metrics import r2_score, accuracy_score
+from sklearn.linear_model import Ridge, RidgeCV
+import shap
+from lime.lime_tabular import LimeTabularExplainer
 
-from .dataset import REGRESSION_TASKS
 
-def eval_ridge(task: str, model, x: np.ndarray, y: np.ndarray) -> float:
-    y_pred = model.predict(x)
-    if task in REGRESSION_TASKS:
-        return r2_score(y, y_pred)
-    return accuracy_score(y.astype(int), y_pred)
+def top_concepts(model: Ridge | RidgeCV, k: int = 10, class_labels=None):
+    weights = np.asarray(model.coef_)
+    topk = lambda w: np.argsort(np.abs(w))[::-1][:k]
+    if weights.ndim == 1:
+        return topk(weights)
+    labels = class_labels if class_labels is not None else range(len(weights))
+    return {cls: topk(row) for cls, row in zip(labels, weights)}
+
+
+def shap_explanations(model, X):
+    """Returns SHAP values array (n_samples, n_features)."""
+    explainer = shap.LinearExplainer(model, X)
+    return explainer.shap_values(X)
+
+
+def lime_explanations(model, X_train, X_explain, n_samples: int = 1000):
+    """Returns list of LIME explanation objects, one per row of X_explain."""
+    explainer = LimeTabularExplainer(X_train, mode="regression")
+    return [
+        explainer.explain_instance(row, model.predict, num_samples=n_samples)
+        for row in X_explain
+    ]

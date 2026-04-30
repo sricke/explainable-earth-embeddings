@@ -55,9 +55,12 @@ def _build_geoclip():
             self.clip_model = clip_model
             self.mlp = mlp
 
-        def forward(self, input_ids):
+        def forward(self, input_ids, attention_mask=None):
             """input_ids: already tokenized, shape [B, L]"""
-            text_features = self.clip_model.encode_text(input_ids)
+            text_features = self.clip_model.get_text_features(
+                input_ids=input_ids,
+                attention_mask=attention_mask
+            ).pooler_output
             text_proj = self.mlp(text_features)
             return F.normalize(text_proj, dim=-1)
 
@@ -133,13 +136,14 @@ class TextEncoder(nn.Module):
         return F.normalize(text_embeddings, dim=-1)
 
     def forward(self, x) -> torch.Tensor:
-        if self.precomputed:
-            assert isinstance(x, torch.Tensor), "Precomputed mode expects tensor input"
+        embed_dim = TEXT_EMBEDDING_DIMENSIONS[self.text_model]
+        if isinstance(x, torch.Tensor) and x.shape[-1] == embed_dim:
             target_device = self._target_device()
             if target_device is not None and x.device != target_device:
                 x = x.to(target_device, non_blocking=True)
             embedding = F.normalize(x.to(dtype=torch.float32), dim=-1)
         else:
+            assert not self.precomputed, "Precomputed mode expects a float tensor with the correct embedding dimension"
             embedding = self.encode_texts(x)
 
         if self.embed_project is not None:
