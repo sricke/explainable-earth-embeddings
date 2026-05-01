@@ -1,0 +1,52 @@
+2026-04-14 07:24:14,822 [INFO] Logging to logs/open_clip__txt-open_clip__loc-satclip__tproj-linear__lproj-none__loss-concept__lr-0.0001.log
+2026-04-14 07:24:14,824 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/open_clip/txt-open_clip__loc-satclip__tproj-linear__lproj-none__loss-concept__lr-0.0001
+2026-04-14 07:24:20,104 [INFO] Loaded dataset from /home/libe2152/data/skyscript/satclip/open_clip/
+2026-04-14 07:24:20,104 [INFO] Train size=341661, Val size=715
+2026-04-14 07:24:20,110 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-14 07:24:20,603 [INFO] Loss: concept
+2026-04-14 07:24:20,603 [INFO] LR=0.0001, weight_decay=0.01
+2026-04-14 09:24:48,084 [INFO] Logging to logs/open_clip__txt-open_clip__loc-satclip__tproj-linear__lproj-none__loss-concept__lr-0.0001.log
+2026-04-14 09:24:48,087 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/open_clip/txt-open_clip__loc-satclip__tproj-linear__lproj-none__loss-concept__lr-0.0001
+2026-04-14 09:24:53,343 [INFO] Loaded dataset from /home/libe2152/data/skyscript/satclip/open_clip/
+2026-04-14 09:24:53,343 [INFO] Train size=341661, Val size=715
+2026-04-14 16:54:48,179 [INFO] Logging to logs/open_clip__txt-open_clip__loc-satclip__tproj-linear__lproj-none__loss-concept__lr-0.0001.log
+2026-04-14 16:54:48,183 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/open_clip/txt-open_clip__loc-satclip__tproj-linear__lproj-none__loss-concept__lr-0.0001
+2026-04-14 16:54:54,882 [INFO] Loaded dataset from /home/libe2152/data/skyscript/satclip/open_clip/
+2026-04-14 16:54:54,883 [INFO] Train size=341661, Val size=715
+2026-04-14 16:54:54,891 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-14 16:54:55,172 [INFO] Loss: concept
+2026-04-14 16:54:55,173 [INFO] LR=0.0001, weight_decay=0.01
+2026-04-14 19:08:49,971 [INFO] Logging to logs/open_clip__txt-open_clip__loc-satclip__tproj-linear__lproj-none__loss-concept__lr-0.0001.log
+2026-04-14 19:08:49,974 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/open_clip/txt-open_clip__loc-satclip__tproj-linear__lproj-none__loss-concept__lr-0.0001
+2026-04-14 19:08:55,377 [INFO] Loaded dataset from /home/libe2152/data/skyscript/satclip/open_clip/
+2026-04-14 19:08:55,378 [INFO] Train size=341661, Val size=715
+2026-04-14 19:08:55,516 [INFO] Parsing model identifier. Schema: None, Identifier: ViT-L-14
+2026-04-14 19:08:55,516 [INFO] Loaded built-in ViT-L-14 model config.
+2026-04-14 19:08:55,584 [INFO] HTTP Request: HEAD https://huggingface.co/timm/vit_large_patch14_clip_224.openai/resolve/main/open_clip_model.safetensors "HTTP/1.1 302 Found"
+2026-04-14 19:08:55,589 [INFO] Instantiating model architecture: CLIP
+2026-04-14 19:08:58,380 [INFO] Loading full pretrained weights from: /home/libe2152/.cache/huggingface/hub/models--timm--vit_large_patch14_clip_224.openai/snapshots/18d0535469bb561bf468d76c1d73aa35156c922b/open_clip_model.safetensors
+2026-04-14 19:08:58,552 [INFO] Final image preprocessing configuration set: {'size': (224, 224), 'mode': 'RGB', 'mean': (0.48145466, 0.4578275, 0.40821073), 'std': (0.26862954, 0.26130258, 0.27577711), 'interpolation': 'bicubic', 'resize_mode': 'shortest', 'fill_color': 0}
+2026-04-14 19:08:58,553 [INFO] Model ViT-L-14 creation process complete.
+2026-04-14 19:08:58,554 [INFO] Parsing tokenizer identifier. Schema: None, Identifier: ViT-L-14
+2026-04-14 19:08:58,554 [INFO] Attempting to load config from built-in: ViT-L-14
+2026-04-14 19:08:58,554 [INFO] Using default SimpleTokenizer.
+2026-04-14 19:08:58,628 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-14 19:08:59,034 [INFO] Loss: concept
+2026-04-14 19:08:59,034 [INFO] LR=0.0001, weight_decay=0.01
+2026-04-15 14:55:13,089 [INFO] Logging to logs/open_clip__txt-open_clip__loc-satclip__tproj-linear__lproj-none__loss-concept__lr-0.0001.log
+2026-04-15 14:55:13,095 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/open_clip/txt-open_clip__loc-satclip__tproj-linear__lproj-none__loss-concept__lr-0.0001
+2026-04-15 14:55:18,584 [INFO] Loaded dataset from /home/libe2152/data/skyscript/satclip/open_clip/
+2026-04-15 14:55:18,585 [INFO] Train size=341661, Val size=715
+2026-04-15 14:55:18,724 [INFO] Parsing model identifier. Schema: None, Identifier: ViT-L-14
+2026-04-15 14:55:18,725 [INFO] Loaded built-in ViT-L-14 model config.
+2026-04-15 14:55:18,798 [INFO] HTTP Request: HEAD https://huggingface.co/timm/vit_large_patch14_clip_224.openai/resolve/main/open_clip_model.safetensors "HTTP/1.1 302 Found"
+2026-04-15 14:55:18,803 [INFO] Instantiating model architecture: CLIP
+2026-04-15 14:55:21,780 [INFO] Loading full pretrained weights from: /home/libe2152/.cache/huggingface/hub/models--timm--vit_large_patch14_clip_224.openai/snapshots/18d0535469bb561bf468d76c1d73aa35156c922b/open_clip_model.safetensors
+2026-04-15 14:55:21,955 [INFO] Final image preprocessing configuration set: {'size': (224, 224), 'mode': 'RGB', 'mean': (0.48145466, 0.4578275, 0.40821073), 'std': (0.26862954, 0.26130258, 0.27577711), 'interpolation': 'bicubic', 'resize_mode': 'shortest', 'fill_color': 0}
+2026-04-15 14:55:21,955 [INFO] Model ViT-L-14 creation process complete.
+2026-04-15 14:55:21,956 [INFO] Parsing tokenizer identifier. Schema: None, Identifier: ViT-L-14
+2026-04-15 14:55:21,957 [INFO] Attempting to load config from built-in: ViT-L-14
+2026-04-15 14:55:21,957 [INFO] Using default SimpleTokenizer.
+2026-04-15 14:55:22,028 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-15 14:55:22,620 [INFO] Loss: concept
+2026-04-15 14:55:22,621 [INFO] LR=0.0001, weight_decay=0.01

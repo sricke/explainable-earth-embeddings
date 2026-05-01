@@ -1,0 +1,17 @@
+2026-04-16 11:40:59,256 [INFO] Logging to logs/skyscript__txt-open_clip__loc-satclip__tproj-linear__lproj-linear__tft-all__lft-only_proj__loss-clip__lr-0.0001.log
+2026-04-16 11:40:59,263 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/skyscript/txt-open_clip__loc-satclip__tproj-linear__lproj-linear__tft-all__lft-only_proj__loss-clip__lr-0.0001
+2026-04-16 11:41:04,961 [INFO] Loaded dataset from /home/libe2152/data/skyscript/satclip/open_clip/
+2026-04-16 11:41:04,962 [INFO] Train size=341661, Val size=715
+2026-04-16 11:41:05,109 [INFO] Parsing model identifier. Schema: None, Identifier: ViT-L-14
+2026-04-16 11:41:05,109 [INFO] Loaded built-in ViT-L-14 model config.
+2026-04-16 11:41:05,180 [INFO] HTTP Request: HEAD https://huggingface.co/timm/vit_large_patch14_clip_224.openai/resolve/main/open_clip_model.safetensors "HTTP/1.1 302 Found"
+2026-04-16 11:41:05,185 [INFO] Instantiating model architecture: CLIP
+2026-04-16 11:41:08,180 [INFO] Loading full pretrained weights from: /home/libe2152/.cache/huggingface/hub/models--timm--vit_large_patch14_clip_224.openai/snapshots/18d0535469bb561bf468d76c1d73aa35156c922b/open_clip_model.safetensors
+2026-04-16 11:41:08,354 [INFO] Final image preprocessing configuration set: {'size': (224, 224), 'mode': 'RGB', 'mean': (0.48145466, 0.4578275, 0.40821073), 'std': (0.26862954, 0.26130258, 0.27577711), 'interpolation': 'bicubic', 'resize_mode': 'shortest', 'fill_color': 0}
+2026-04-16 11:41:08,354 [INFO] Model ViT-L-14 creation process complete.
+2026-04-16 11:41:08,356 [INFO] Parsing tokenizer identifier. Schema: None, Identifier: ViT-L-14
+2026-04-16 11:41:08,356 [INFO] Attempting to load config from built-in: ViT-L-14
+2026-04-16 11:41:08,356 [INFO] Using default SimpleTokenizer.
+2026-04-16 11:41:08,429 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-16 11:41:08,802 [INFO] Loss: clip
+2026-04-16 11:41:08,802 [INFO] LR=0.0001, weight_decay=0.01
