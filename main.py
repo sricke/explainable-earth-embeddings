@@ -39,7 +39,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     # Data
     parser.add_argument('--dataset_path', type=str, required=True)
-    parser.add_argument('--precomputed_dir', type=str, required=True)
+    parser.add_argument('--precomputed_dir', type=str, default=None)
     parser.add_argument('--train_subsample_size', type=_int, required=True)
     parser.add_argument('--val_subsample_size', type=_int, required=True)
     parser.add_argument('--precomputed_text_embeddings', type=bool, required=True)
@@ -77,21 +77,21 @@ def get_args():
     parser.add_argument('--loc_nonlinearity', type=str, required=True, help="'relu' | 'sine'")
     parser.add_argument('--accumulation_steps', type=int, required=True, help="1 disables accumulation")
     parser.add_argument('--loc_queue_size', type=_int, required=True, help="Queue size for asymmetric loss (location side); None disables")
-    parser.add_argument('--text_queue_size', type=_int, required=True, help="Queue size for asymmetric loss (text side); None disables")
+    parser.add_argument('--text_queue_size', type=_int, default=None, help="Queue size for asymmetric loss (text side); None disables")
     parser.add_argument('--num_workers', type=int, required=True)
     parser.add_argument('--seed', type=int, required=True)
     parser.add_argument('--device', type=str, required=True)
     # Checkpointing
     parser.add_argument(
-        '--model_save_path', type=str, required=True,
+        '--model_save_path', type=str, default=None,
         help='Base directory for checkpoints; checkpoints go in <base>/<run-subdir>/best.pt. File logs use ./logs in the cwd.',
     )
-    parser.add_argument('--resume_from', type=str, required=True)
+    parser.add_argument('--resume_from', type=str, default=None)
     # Logging
     parser.add_argument('--wandb_entity', type=str, required=True,
                         help='W&B team or username.')
     parser.add_argument('--wandb_project', type=str, required=True)
-    parser.add_argument('--wandb_run_name', type=str, required=True)
+    parser.add_argument('--wandb_run_name', type=str, default=None)
     parser.add_argument('--no_wandb', action='store_true')
     return parser.parse_args()
 

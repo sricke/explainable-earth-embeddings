@@ -48,7 +48,7 @@ parameters:
 
   # --- Text encoder projection ---
   text_encoder:
-    value: open_clip_vit_h
+    value: open_clip_vit_l
   text_projection:
     values: [linear]
   text_nonlinearity:
@@ -78,11 +78,13 @@ parameters:
   num_val_checks_without_improvement:
     value: 5
   batch_size:
-    value: 2048
+    value: 256
   accumulation_steps:
-    value: 4 
+    value: 32 
   loc_queue_size:
     value: None 
+  text_queue_size:
+    value: None
   lr:
     value: 0.0001
   scheduler:
