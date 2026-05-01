@@ -173,8 +173,8 @@ def build_dataloaders(
     g = torch.Generator()
     g.manual_seed(seed)
     worker_init = lambda wid: set_seed(seed + wid)
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=worker_init, generator=g)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, worker_init_fn=worker_init)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=worker_init, generator=g, drop_last=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, worker_init_fn=worker_init, drop_last=True)
     logger.info(f"Loaded dataset from {dataset_path}")
     logger.info(f"Train size={len(train_dataset)}, Val size={len(val_dataset)}")
     return train_dataloader, val_dataloader

@@ -14,15 +14,12 @@ from models.finetune import apply_lora
 from loss import make_loss
 from train import train_epoch
 from eval import val_epoch
-from utils import EarlyStopping, set_seed, build_scheduler
-from log_utils import setup_logging, build_run_name
+from utils import EarlyStopping, set_seed, build_scheduler, build_optimizer
+from log_utils import setup_logging, build_run_name, sanitize
+from checkpoint import build_checkpoint_base, save_checkpoint, load_checkpoint
 
 
 logger = logging.getLogger(__name__)
-
-
-def sanitize(s: str) -> str:
-    return str(s).strip().replace(" ", "-").replace("/", "_").replace("\\", "_")
 
 
 def get_args():
@@ -69,7 +66,8 @@ def get_args():
     parser.add_argument('--logit_scale_temp', type=float, required=True)
     # Training
     parser.add_argument('--num_epochs', type=int, required=True)
-    parser.add_argument('--patience', type=int, required=True)
+    parser.add_argument('--val_every_n_steps', type=int, required=True)
+    parser.add_argument('--num_val_checks_without_improvement', type=int, required=True)
     parser.add_argument('--batch_size', type=int, required=True)
     parser.add_argument('--lr', type=float, required=True)
     parser.add_argument('--scheduler', type=str, required=True, help="'cosine' | None")
@@ -98,62 +96,59 @@ def get_args():
     return parser.parse_args()
 
 
-def build_checkpoint_base(args, dataset_name: str) -> Path:
-    if getattr(args, "model_save_path", None):
-        return Path(args.model_save_path).expanduser().resolve()
-    return (Path(__file__).parent / "../../outputs" / "explainable-earth-embeddings" / dataset_name).resolve()
+def init_run(args, dataset_name: str, default_run_tag: str, desired_wandb_name: str) -> str:
+    if not args.no_wandb:
+        wandb.init(
+            entity=args.wandb_entity,
+            project=args.wandb_project,
+            name=desired_wandb_name,
+            config=vars(args),
+        )
+        wandb_name = wandb.run.name if wandb.run is not None else desired_wandb_name
+        run_tag = sanitize(wandb_name.replace(f"{dataset_name}__", "", 1))
+    else:
+        run_tag = default_run_tag
+    return sanitize(run_tag)
 
 
-def build_optimizer(args, model, criterion):
-    no_decay = lambda n, p: p.ndim < 2 or any(k in n for k in ("bn", "ln", "bias", "logit_scale"))
-    named = list(model.named_parameters()) + list(criterion.named_parameters())
-    return torch.optim.AdamW(
-        [
-            {"params": [p for n, p in named if no_decay(n, p) and p.requires_grad], "weight_decay": 0.0},
-            {"params": [p for n, p in named if not no_decay(n, p) and p.requires_grad], "weight_decay": args.weight_decay},
-        ],
-        lr=args.lr,
-    )
+def setup_checkpoint_dir(checkpoint_base: Path, run_tag: str, args) -> tuple[Path, Path]:
+    checkpoint_dir = checkpoint_base / run_tag
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    save_path = checkpoint_dir / "best.pt"
+    with open(checkpoint_dir / "config.yaml", "w") as f:
+        yaml.dump(vars(args), f, default_flow_style=False)
+    logger.info(f"Checkpoints directory: {checkpoint_dir}")
+    return checkpoint_dir, save_path
 
 
-def save_checkpoint(path, epoch, model, criterion, optimizer, scheduler, best_val_loss, args, loc_queue=None, text_queue=None):
-    torch.save({
-        'epoch': epoch,
-        'model': model.state_dict(),
-        'criterion': criterion.state_dict(),
-        'optimizer': optimizer.state_dict(),
-        'scheduler': scheduler.state_dict() if scheduler is not None else None,
-        'best_val_loss': best_val_loss,
-        'args': vars(args),
-        'loc_queue': loc_queue.state_dict() if loc_queue is not None else None,
-        'text_queue': text_queue.state_dict() if text_queue is not None else None,
-    }, path)
+def build_queues(args, model, device):
+    loc_queue = None
+    if getattr(args, "loc_queue_size", None):
+        queue_dim = 2 if not args.precomputed_location_embeddings else model.location_encoder.location_embedding_dim
+        loc_queue = LocQueue(queue_size=args.loc_queue_size, dim=queue_dim).to(device)
+
+    text_queue = None
+    if getattr(args, "text_queue_size", None):
+        text_queue_dim = TEXT_EMBEDDING_DIMENSIONS[args.text_encoder] if args.precomputed_text_embeddings else model.text_encoder.output_dim
+        text_queue = TextQueue(queue_size=args.text_queue_size, dim=text_queue_dim).to(device)
+
+    return loc_queue, text_queue
 
 
-def load_checkpoint(path, model, criterion, optimizer, scheduler, device, loc_queue=None, text_queue=None):
-    ckpt = torch.load(path, map_location=device)
-    model.load_state_dict(ckpt['model'])
-    if 'criterion' in ckpt:
-        criterion.load_state_dict(ckpt['criterion'])
-    elif 'logit_scale' in ckpt and hasattr(criterion, 'logit_scale'):
-        # backward compat: old checkpoints saved logit_scale separately
-        criterion.logit_scale.data = ckpt['logit_scale'].to(device)
-    optimizer.load_state_dict(ckpt['optimizer'])
-    if scheduler is not None and ckpt.get('scheduler') is not None:
-        scheduler.load_state_dict(ckpt['scheduler'])
-    if loc_queue is not None and ckpt.get('loc_queue') is not None:
-        loc_queue.load_state_dict(ckpt['loc_queue'])
-        loc_queue.to(device)
-    if text_queue is not None and ckpt.get('text_queue') is not None:
-        text_queue.load_state_dict(ckpt['text_queue'])
-        text_queue.to(device)
-    model.to(device)
-    for state in optimizer.state.values():
-        for k, v in list(state.items()):
-            if torch.is_tensor(v):
-                state[k] = v.to(device)
-    logger.info(f"Resumed from epoch {ckpt['epoch']}")
-    return ckpt['epoch'] + 1, ckpt.get('best_val_loss', float('inf'))
+def try_resume(args, save_path: Path, checkpoint_dir: Path, model, criterion, optimizer, scheduler, device, loc_queue, text_queue, early_stopping):
+    start_epoch = 0
+    best_val_loss = float('inf')
+    global_optimizer_step = 0
+
+    if args.resume_from:
+        start_epoch, best_val_loss, global_optimizer_step = load_checkpoint(args.resume_from, model, criterion, optimizer, scheduler, device, loc_queue=loc_queue, text_queue=text_queue)
+        early_stopping.load_best(best_val_loss)
+    elif save_path.exists() and not (checkpoint_dir / "done").exists():
+        logger.info(f"Found existing checkpoint without 'done' marker. Auto-resuming from {save_path}")
+        start_epoch, best_val_loss, global_optimizer_step = load_checkpoint(save_path, model, criterion, optimizer, scheduler, device, loc_queue=loc_queue, text_queue=text_queue)
+        early_stopping.load_best(best_val_loss)
+
+    return start_epoch, best_val_loss, global_optimizer_step
 
 
 def main():
@@ -170,27 +165,9 @@ def main():
         logger.info(f"Run {default_run_tag} already completed. Skipping.")
         return
 
-    if not args.no_wandb:
-        wandb.init(
-            entity=args.wandb_entity,
-            project=args.wandb_project,
-            name=desired_wandb_name,
-            config=vars(args),
-        )
-        wandb_name = wandb.run.name if wandb.run is not None else desired_wandb_name
-        run_tag = sanitize(wandb_name.replace(f"{dataset_name}__", "", 1))
-    else:
-        run_tag = default_run_tag
-
-    run_tag = sanitize(run_tag)
+    run_tag = init_run(args, dataset_name, default_run_tag, desired_wandb_name)
     setup_logging(sanitize(f"{dataset_name}__{run_tag}"), Path("logs"))
-
-    checkpoint_dir = checkpoint_base / run_tag
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    save_path = checkpoint_dir / "best.pt"
-    with open(checkpoint_dir / "config.yaml", "w") as f:
-        yaml.dump(vars(args), f, default_flow_style=False)
-    logger.info(f"Checkpoints directory: {checkpoint_dir}")
+    checkpoint_dir, save_path = setup_checkpoint_dir(checkpoint_base, run_tag, args)
 
     args.precomputed_text_embeddings = args.precomputed_text_embeddings and args.text_finetune_mode not in ("all", "lora")
     args.precomputed_location_embeddings = args.precomputed_location_embeddings and args.loc_finetune_mode not in ("all", "lora")
@@ -230,51 +207,50 @@ def main():
     if not args.precomputed_text_embeddings:
         model.text_encoder.text_encoder.m.gradient_checkpointing_enable()
 
-    loc_queue = None
-    if getattr(args, "loc_queue_size", None):
-        queue_dim = 2 if not args.precomputed_location_embeddings else model.location_encoder.location_embedding_dim
-        loc_queue = LocQueue(queue_size=args.loc_queue_size, dim=queue_dim).to(device)
-
-    text_queue = None
-    if getattr(args, "text_queue_size", None):
-        text_queue_dim = TEXT_EMBEDDING_DIMENSIONS[args.text_encoder] if args.precomputed_text_embeddings else model.text_encoder.output_dim
-        text_queue = TextQueue(queue_size=args.text_queue_size, dim=text_queue_dim).to(device)
+    loc_queue, text_queue = build_queues(args, model, device)
 
     criterion = make_loss(args.train_loss, args.logit_scale_temp, args.lambda_alignment, args.sigma).to(device)
     optimizer = build_optimizer(args, model, criterion)
     steps_per_epoch = len(train_dataloader) // args.accumulation_steps
     total_steps = args.num_epochs * steps_per_epoch
     scheduler = build_scheduler(args, optimizer, total_steps)
-    early_stopping = EarlyStopping(patience=args.patience, mode="min")
+    early_stopping = EarlyStopping(patience=args.num_val_checks_without_improvement, mode="min")
     logger.info(f"Loss: {args.train_loss}")
     logger.info(f"LR={args.lr}, scheduler={getattr(args, 'scheduler', None)}, warmup_steps={getattr(args, 'warmup_steps', 0)}, total_steps={total_steps}, weight_decay={args.weight_decay}")
 
-    start_epoch = 0
-    best_val_loss = float('inf')
+    start_epoch, best_val_loss, global_optimizer_step = try_resume(
+        args, save_path, checkpoint_dir, model, criterion, optimizer, scheduler, device, loc_queue, text_queue, early_stopping
+    )
 
-    if args.resume_from:
-        start_epoch, best_val_loss = load_checkpoint(args.resume_from, model, criterion, optimizer, scheduler, device, loc_queue=loc_queue, text_queue=text_queue)
-        early_stopping.load_best(best_val_loss)
-    elif save_path.exists() and not (checkpoint_dir / "done").exists():
-        logger.info(f"Found existing checkpoint without 'done' marker. Auto-resuming from {save_path}")
-        start_epoch, best_val_loss = load_checkpoint(save_path, model, criterion, optimizer, scheduler, device, loc_queue=loc_queue, text_queue=text_queue)
-        early_stopping.load_best(best_val_loss)
-
-    for epoch in range(start_epoch, args.num_epochs):
-        train_loss = train_epoch(train_dataloader, model, criterion, optimizer, epoch, device, logger, scheduler=scheduler, accumulation_steps=args.accumulation_steps, loc_queue=loc_queue, text_queue=text_queue)
+    def val_callback(global_opt_step: int) -> bool:
+        nonlocal best_val_loss
         val_loss = val_epoch(val_dataloader, model, criterion, epoch, device, logger, loc_queue=loc_queue, text_queue=text_queue)
-
         current_lr = optimizer.param_groups[0]['lr']
-        logger.info(f"Epoch {epoch} | train={train_loss:.4f} | val={val_loss:.4f} | lr={current_lr:.2e}")
+        logger.info(f"Step {global_opt_step} | val={val_loss:.4f} | lr={current_lr:.2e}")
         if wandb.run is not None:
-            wandb.log({"train/lr": current_lr, "epoch": epoch})
-
+            wandb.log({"val/loss": val_loss, "train/lr": current_lr, "step": global_opt_step})
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            save_checkpoint(save_path, epoch, model, criterion, optimizer, scheduler, best_val_loss, args, loc_queue=loc_queue, text_queue=text_queue)
+            save_checkpoint(save_path, epoch, model, criterion, optimizer, scheduler, best_val_loss, args, global_optimizer_step=global_opt_step, loc_queue=loc_queue, text_queue=text_queue)
             logger.info(f"Saved checkpoint (val={val_loss:.4f})")
+        return early_stopping(val_loss)
 
-        if early_stopping(val_loss):
+    for epoch in range(start_epoch, args.num_epochs):
+        train_loss, steps_taken, should_stop = train_epoch(
+            train_dataloader, model, criterion, optimizer, epoch, device, logger,
+            scheduler=scheduler, accumulation_steps=args.accumulation_steps,
+            loc_queue=loc_queue, text_queue=text_queue,
+            val_callback=val_callback, val_every_n_steps=args.val_every_n_steps,
+            global_step_offset=global_optimizer_step,
+        )
+        global_optimizer_step += steps_taken
+
+        current_lr = optimizer.param_groups[0]['lr']
+        logger.info(f"Epoch {epoch} | train={train_loss:.4f} | lr={current_lr:.2e}")
+        if wandb.run is not None:
+            wandb.log({"train/loss_epoch": train_loss, "train/lr": current_lr, "epoch": epoch})
+
+        if should_stop:
             logger.info("Early stopping triggered.")
             (checkpoint_dir / "done").touch()
             logger.info("Training stopped early. Wrote 'done' marker.")

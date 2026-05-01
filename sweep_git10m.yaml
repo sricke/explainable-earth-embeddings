@@ -72,9 +72,11 @@ parameters:
 
   # --- Training ---
   num_epochs:
+    value: 10
+  val_every_n_steps:
     value: 500
-  patience:
-    value: 20
+  num_val_checks_without_improvement:
+    value: 5
   batch_size:
     value: 2048
   accumulation_steps:

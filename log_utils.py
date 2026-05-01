@@ -6,6 +6,10 @@ from pathlib import Path
 _HASH_EXCLUDE = frozenset(("resume_from", "device", "no_wandb", "wandb_run_name", "model_save_path"))
 
 
+def sanitize(s: str) -> str:
+    return str(s).strip().replace(" ", "-").replace("/", "_").replace("\\", "_")
+
+
 def config_hash(args) -> str:
     d = {k: v for k, v in sorted(vars(args).items()) if k not in _HASH_EXCLUDE}
     return hashlib.md5(json.dumps(d, default=str).encode()).hexdigest()[:8]
