@@ -1,6 +1,8 @@
 
 .DS_Store
 
+**__pycache__**
+
 *.csv
 .vscode/
 
@@ -23,3 +25,4 @@ wandb/
 *.jsonl
 
 splice_results/
+logs/
