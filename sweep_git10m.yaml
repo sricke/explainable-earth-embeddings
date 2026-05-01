@@ -14,13 +14,13 @@ metric:
 parameters:
   dataset_path:
     values:
-      - /home/libe2152/data/git-10M/satclip/open_clip_vit_h/
+      - /home/libe2152/data/git-10M/climplicit/
   train_subsample_size:
     value: None
   val_subsample_size:
     value: None
   precomputed_text_embeddings:
-    value: true
+    value: false
   precomputed_location_embeddings:
     value: true
 
@@ -38,7 +38,7 @@ parameters:
   location_encoder:
     value: satclip
   location_projection:
-    values: [none, linear, mlp]
+    value: none
   loc_nonlinearity:
     value: sine
   loc_proj_hidden_layers: # only used for mlp projection
@@ -68,7 +68,7 @@ parameters:
   lora_rank:
     value: 8
   lora_layers:
-    values: [8, null]
+    value: 8
 
   # --- Training ---
   num_epochs:
