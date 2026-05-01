@@ -14,13 +14,14 @@ metric:
 parameters:
   dataset_path:
     values:
-      - /home/libe2152/data/git-10M/satclip/open_clip_vit_h/
+      - /media/volume/xemb-data/data/git-10M/gair
+      - /media/volume/xemb-data/data/git-10M/climplicit
   train_subsample_size:
     value: None
   val_subsample_size:
     value: None
   precomputed_text_embeddings:
-    value: true
+    value: false
   precomputed_location_embeddings:
     value: true
 
@@ -38,7 +39,7 @@ parameters:
   location_encoder:
     value: satclip
   location_projection:
-    values: [none, linear, mlp]
+    value: none
   loc_nonlinearity:
     value: sine
   loc_proj_hidden_layers: # only used for mlp projection
@@ -48,7 +49,7 @@ parameters:
 
   # --- Text encoder projection ---
   text_encoder:
-    value: open_clip_vit_h
+    value: open_clip_vit_l
   text_projection:
     values: [linear]
   text_nonlinearity:
@@ -78,11 +79,13 @@ parameters:
   num_val_checks_without_improvement:
     value: 5
   batch_size:
-    value: 2048
+    value: 256
   accumulation_steps:
-    value: 4 
+    value: 32 
   loc_queue_size:
     value: None 
+  text_queue_size:
+    value: None
   lr:
     value: 0.0001
   scheduler:

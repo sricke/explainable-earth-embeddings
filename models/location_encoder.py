@@ -8,7 +8,7 @@ LOCATION_EMBEDDING_DIMENSIONS = {
     "geoclip": 512,
     "satclip": 256,
     "gair": 768,
-    "climplicit": 256
+    "climplicit": 1024 # this defaults to 256 dim embeddings times 4 months!
 }
 
 LOCATION_MODEL_IDS = {
@@ -45,7 +45,7 @@ def load_model(location_model: str, device: str = "cuda:0"):
     elif location_model == "gair":
         from huggingface_hub import hf_hub_download
         from external.GAIR.gair import GAIRModel
-        checkpoint = hf_hub_download(repo_id=LOCATION_MODEL_IDS["gair"], filename=LOCATION_MODEL_IDS["gair"])
+        checkpoint = hf_hub_download(repo_id=LOCATION_MODEL_IDS["gair"], filename=LOCATION_MODEL_CHECKPOINTS["gair"])
         model = GAIRModel.from_checkpoint(checkpoint, device=device, query_mode="nili")
         return model.location_encoder
     else:
