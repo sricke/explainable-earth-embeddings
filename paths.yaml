@@ -1,0 +1,37 @@
+models:
+  root: /home/libe2152/outputs/explainable-earth-embeddings
+
+  satclip_open_clip_vit_h:
+    model_path: "${root}/git-10M/txt-open_clip_vit_h__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-4bb7c457/best.pt"
+  geoclip:
+    model_path: "${root}/geoclip_init.pt"
+
+concept_sets:
+  git-10m:
+    root: /home/libe2152/projects/explainable-earth-embeddings/data/git-10m/concept_dictionaries
+    geospatial_all: "${root}/concept_dictionary_n500000.json"
+    geospatial: "${root}/augmented_concepts.json"
+
+  geoyfcc:
+    geoyfcc: /home/libe2152/projects/eda/0_vocabs/geoyfcc_concept_set.json
+
+
+
+splice:
+  root: /home/libe2152/projects/explainable-earth-embeddings/splice_results
+
+  geoclip_geospatial_all:
+    model: "${root}/geoclip/concept_dictionary_n500000/splice_model.pt"
+    concepts: "${root}/geoclip/concept_dictionary_n500000/concepts.pt"
+
+  geoclip_geoyfcc:
+    model: "${root}/geoclip/geoyfcc_concept_set/splice_model.pt"
+    concepts: "${root}/geoclip/geoyfcc_concept_set/concepts.pt"
+  satclip_geospatial:
+    model: "${root}/txt-open_clip_vit_h__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-4bb7c457/augmented_concepts/splice_model.pt"
+    concepts: "${root}/txt-open_clip_vit_h__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-4bb7c457/augmented_concepts/concepts.pt"
+
+
+  satclip_geospatial_all:
+    model: "${root}/txt-open_clip_vit_h__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-4bb7c457/concept_dictionary_n500000/splice_model.pt"
+    concepts: "${root}/txt-open_clip_vit_h__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-4bb7c457/concept_dictionary_n500000/concepts.pt"

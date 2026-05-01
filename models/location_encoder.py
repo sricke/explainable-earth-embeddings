@@ -2,38 +2,52 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from huggingface_hub import hf_hub_download
-
-from external.satclip.satclip.load import get_satclip
-
 from models.layers import EmbeddingProjection
 
 LOCATION_EMBEDDING_DIMENSIONS = {
     "geoclip": 512,
     "satclip": 256,
-    "aef": 64,
+    "gair": 768,
+    "climplicit": 256
 }
 
 LOCATION_MODEL_IDS = {
     "satclip": "microsoft/SatCLIP-ViT16-L40",
     # might need to include L10 as well, or can also look at ResNet-based models
+    "climplicit": "Jobedo/climplicit",
+    "gair": "PingL/GAIR"
 }
 
 LOCATION_MODEL_CHECKPOINTS = {
     "satclip": "satclip-vit16-l40.ckpt",
+    "gair": "checkpoint.pth"
 }
 
 
 def load_model(location_model: str, device: str = "cuda:0"):
     """Load a pretrained location encoder."""
     if location_model == "satclip":
+        from external.satclip.satclip.load import get_satclip
+        from huggingface_hub import hf_hub_download
         return get_satclip(
             hf_hub_download(LOCATION_MODEL_IDS["satclip"], LOCATION_MODEL_CHECKPOINTS["satclip"]),
             device=device,
         )
+    
     elif location_model == "geoclip":
         from geoclip import GeoCLIP
         return GeoCLIP().location_encoder
+    
+    elif location_model == "climplicit":
+        from rshf.climplicit import Climplicit
+        return Climplicit.from_pretrained(LOCATION_MODEL_IDS["climplicit"], config={"return_chelsa": False})
+    
+    elif location_model == "gair":
+        from huggingface_hub import hf_hub_download
+        from external.GAIR.gair import GAIRModel
+        checkpoint = hf_hub_download(repo_id=LOCATION_MODEL_IDS["gair"], filename=LOCATION_MODEL_IDS["gair"])
+        model = GAIRModel.from_checkpoint(checkpoint, device=device, query_mode="nili")
+        return model.location_encoder
     else:
         raise ValueError(f"Location model '{location_model}' is not supported")
 
@@ -82,7 +96,9 @@ class LocationEncoder(nn.Module):
             embedding = F.normalize(x.to(dtype=torch.float32), dim=-1)
         else:
             assert x.shape[1] == 2, "Forward expects (lat, lon) pairs"
-            x = x[:, [1, 0]].double() if self.location_model == "satclip" else x.float()
+            x = x[:, [1, 0]] if self.location_model in ["satclip", "gair", "climplicit"] else x
+            x = x.double() if self.location_model in ["satclip"] else x.float()
+
             # Ensure coords live on the same device as the encoder.
             enc_device = next(self.location_encoder.parameters()).device
             if x.device != enc_device:

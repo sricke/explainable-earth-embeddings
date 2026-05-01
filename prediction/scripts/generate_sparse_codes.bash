@@ -2,7 +2,7 @@
 set -e
 
 ROOT=/data/locbench
-MODEL_PATH=$1  # path to SpLiCE checkpoint
+MODEL_NAME=${1}
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT/prediction"
 export PYTHONPATH="$REPO_ROOT"
@@ -21,9 +21,7 @@ DATASETS=(
 
 for DS in "${DATASETS[@]}"; do
   python generate_embeddings.py \
-    --encoder sparse \
-    --model_path "$MODEL_PATH" \
+    --sparse_model "$MODEL_NAME" \
     --dataset "$DS" \
-    --dataset_root "$ROOT" \
     --out_dir "$ROOT/${DS//.//}"
 done

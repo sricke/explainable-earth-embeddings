@@ -1,17 +1,22 @@
 import argparse
+import sys
 import numpy as np
 from pathlib import Path
 
 import torch
 from sklearn.metrics import r2_score, accuracy_score
 
+sys.path.append("..")
+
+from prediction import load_paths
 from train import train
 from eval import top_concepts
+
 
 def get_args():
     p = argparse.ArgumentParser()
     p.add_argument("--emb_dir", required=True, help="Directory containing <prefix>_{train,val,test}.pt")
-    p.add_argument("--prefix", required=True, help="Filename prefix used by generate_embeddings.py (e.g. satclip/geoclip/splice)")
+    p.add_argument("--prefix", required=True, help="Filename prefix (e.g. satclip, geoclip, geoclip_geoyfcc)")
     p.add_argument("--mode", choices=["ridge", "logistic", "nn"], default="ridge")
     p.add_argument("--alpha", type=float, default=1.0, help="[ridge]")
     p.add_argument("--CV", action="store_true", help="[ridge] use RidgeCV instead of Ridge(alpha)")
@@ -25,19 +30,17 @@ def get_args():
     p.add_argument("--epochs", type=int, default=20, help="[nn]")
     p.add_argument("--batch_size", type=int, default=1024, help="[nn]")
     p.add_argument("--device", default="cuda", help="[nn]")
-    p.add_argument("--topk", type=int, default=10, help="Top features for ridge")
-    p.add_argument("--concepts_pt", default=None, help="concepts.pt (list[str]) to resolve indices to names")
+    p.add_argument("--topk", type=int, default=10)
+    p.add_argument("--model", default=None, help="Named sparse model from paths.yaml to resolve concepts (e.g. geoclip_geoyfcc)")
     return p.parse_args()
 
 
 def _load(pt: Path):
     d = torch.load(pt, map_location="cpu", weights_only=False)
-    X = d["embeddings"].numpy() if d.get("codes") is None else d["codes"].numpy() # this will run for earth embeddings, check for splice
+    X = d["embeddings"].numpy() if d.get("codes") is None else d["codes"].numpy()
     y = d["values"].numpy() if d.get("vals") is None else d["vals"].numpy()
-    nan_mask = np.isnan(y) # to dtype torch bool, need to convert to numpy bool
-    X = X[~nan_mask]
-    y = y[~nan_mask]
-    return X, y
+    nan_mask = np.isnan(y)
+    return X[~nan_mask], y[~nan_mask]
 
 
 def main():
@@ -54,10 +57,15 @@ def main():
     preds = m.predict(X_test) if hasattr(m, "predict") else m(torch.tensor(X_test)).detach().cpu().numpy()
     metric = accuracy_score(y_test.astype(int), preds.astype(int)) if a.mode == "logistic" else r2_score(y_test, preds)
     print(f"{a.mode} test metric: {metric:.4f}")
+
     if a.mode == "ridge":
         idxs = top_concepts(m, k=a.topk)
         if getattr(m.coef_, "ndim", 1) == 1:
-            concepts = torch.load(a.concepts_pt, weights_only=False) if a.concepts_pt else None
+            concepts = None
+            if a.model:
+                paths = load_paths()
+                concepts_pt = paths["sparse_models"]["splice"][a.model]["concepts"]
+                concepts = torch.load(concepts_pt, weights_only=False)
             names = [concepts[i] for i in idxs] if concepts else idxs.tolist()
             print("top concepts:", names)
         else:

@@ -4,8 +4,7 @@ set -e
 # ── config ───────────────────────────────────────────────────────────────────
 EMB_ROOT=/data/locbench
 EARTH_PREFIX=satclip
-SPARSE_PREFIX=splice
-CONCEPTS_PT=/path/to/concepts.pt
+SPARSE_MODEL=geoclip_geoyfcc
 TOPK=10
 RESULTS_DIR=/data/locbench/ridge_results
 # ─────────────────────────────────────────────────────────────────────────────
@@ -35,10 +34,10 @@ for DS in "${DATASETS[@]}"; do
   OUT="$RESULTS_DIR/${DS//./_}"
   mkdir -p "$OUT"
 
-  for PREFIX in "$EARTH_PREFIX" "$SPARSE_PREFIX"; do
+  for PREFIX in "$EARTH_PREFIX" "$SPARSE_MODEL"; do
     LOG="$OUT/${PREFIX}.txt"
     ARGS="--emb_dir $EMB_DIR --prefix $PREFIX --mode ridge --CV --topk $TOPK"
-    [[ "$PREFIX" == "$SPARSE_PREFIX" ]] && ARGS="$ARGS --concepts_pt $CONCEPTS_PT"
+    [[ "$PREFIX" == "$SPARSE_MODEL" ]] && ARGS="$ARGS --model $SPARSE_MODEL"
 
     echo "=== $DS / $PREFIX ===" | tee "$LOG"
     python main.py $ARGS 2>&1 | tee -a "$LOG"

@@ -24,7 +24,6 @@ for ENCODER in geoclip; do
     python generate_embeddings.py \
       --encoder "$ENCODER" \
       --dataset "$DS" \
-      --dataset_root "$ROOT" \
       --out_dir "$ROOT/${DS//.//}"
   done
 done

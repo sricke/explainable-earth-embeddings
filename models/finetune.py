@@ -9,7 +9,7 @@ def apply_lora(model: nn.Module, r: int = 4, alpha: float = 1.0, last_n_layers: 
         layers_to_transform = list(range(num_layers - last_n_layers, num_layers))
 
     config = LoraConfig(
-        r=r,
+        r=int(r),
         lora_alpha=alpha,
         target_modules=["q_proj", "v_proj"],
         lora_dropout=0.0,
