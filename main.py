@@ -1,10 +1,12 @@
 import argparse
+import itertools
 import logging
 from pathlib import Path
 
 import torch
 import wandb
 import yaml
+from tqdm import tqdm
 
 from dataset import build_dataloaders
 from models.model import build_model
@@ -12,18 +14,16 @@ from models.queue import LocQueue, TextQueue
 from models.text_encoder import TEXT_EMBEDDING_DIMENSIONS
 from models.finetune import apply_lora
 from loss import make_loss
-from train import train_epoch
-from eval import val_epoch
+from train import run_train
 from utils import EarlyStopping, set_seed, build_scheduler, build_optimizer
 from log_utils import setup_logging, build_run_name, sanitize
-from checkpoint import build_checkpoint_base, save_checkpoint, load_checkpoint
+from checkpoint import build_checkpoint_base, load_checkpoint
 
 
 logger = logging.getLogger(__name__)
 
 
 def get_args():
-    # Check for --config file before building the full parser
     pre = argparse.ArgumentParser(add_help=False)
     pre.add_argument('--config', type=str)
     pre_args, _ = pre.parse_known_args()
@@ -38,6 +38,7 @@ def get_args():
 
     parser = argparse.ArgumentParser()
     # Data
+    parser.add_argument('--dataset_name', type=str, required=True)
     parser.add_argument('--dataset_path', type=str, required=True)
     parser.add_argument('--precomputed_dir', type=str, default=None)
     parser.add_argument('--train_subsample_size', type=_int, required=True)
@@ -65,8 +66,8 @@ def get_args():
     parser.add_argument('--sigma', type=_float, required=True)
     parser.add_argument('--logit_scale_temp', type=float, required=True)
     # Training
-    parser.add_argument('--num_epochs', type=int, required=True)
-    parser.add_argument('--val_every_n_steps', type=int, required=True)
+    parser.add_argument('--max_steps', type=int, required=True)
+    parser.add_argument('--val_every_n_steps', type=int, default=100)
     parser.add_argument('--num_val_checks_without_improvement', type=int, required=True)
     parser.add_argument('--batch_size', type=int, required=True)
     parser.add_argument('--lr', type=float, required=True)
@@ -136,19 +137,18 @@ def build_queues(args, model, device):
 
 
 def try_resume(args, save_path: Path, checkpoint_dir: Path, model, criterion, optimizer, scheduler, device, loc_queue, text_queue, early_stopping):
-    start_epoch = 0
+    start_step = 0
     best_val_loss = float('inf')
-    global_optimizer_step = 0
 
     if args.resume_from:
-        start_epoch, best_val_loss, global_optimizer_step = load_checkpoint(args.resume_from, model, criterion, optimizer, scheduler, device, loc_queue=loc_queue, text_queue=text_queue)
+        start_step, best_val_loss = load_checkpoint(args.resume_from, model, criterion, optimizer, scheduler, device, loc_queue=loc_queue, text_queue=text_queue)
         early_stopping.load_best(best_val_loss)
     elif save_path.exists() and not (checkpoint_dir / "done").exists():
         logger.info(f"Found existing checkpoint without 'done' marker. Auto-resuming from {save_path}")
-        start_epoch, best_val_loss, global_optimizer_step = load_checkpoint(save_path, model, criterion, optimizer, scheduler, device, loc_queue=loc_queue, text_queue=text_queue)
+        start_step, best_val_loss = load_checkpoint(save_path, model, criterion, optimizer, scheduler, device, loc_queue=loc_queue, text_queue=text_queue)
         early_stopping.load_best(best_val_loss)
 
-    return start_epoch, best_val_loss, global_optimizer_step
+    return start_step, best_val_loss
 
 
 def main():
@@ -156,7 +156,7 @@ def main():
     set_seed(args.seed)
     device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
 
-    dataset_name = Path(args.dataset_path).expanduser().resolve().parent.parent.name
+    dataset_name = args.dataset_name
     default_wandb_name, default_run_tag = build_run_name(args, dataset_name)
     desired_wandb_name = sanitize(args.wandb_run_name) if getattr(args, "wandb_run_name", None) else default_wandb_name
 
@@ -211,53 +211,32 @@ def main():
 
     criterion = make_loss(args.train_loss, args.logit_scale_temp, args.lambda_alignment, args.sigma).to(device)
     optimizer = build_optimizer(args, model, criterion)
-    steps_per_epoch = len(train_dataloader) // args.accumulation_steps
-    total_steps = args.num_epochs * steps_per_epoch
-    scheduler = build_scheduler(args, optimizer, total_steps)
-    early_stopping = EarlyStopping(patience=args.num_val_checks_without_improvement, mode="min")
+    scheduler = build_scheduler(args, optimizer, args.max_steps)
+    early_stopper = EarlyStopping(patience_steps=args.num_val_checks_without_improvement, mode="min")
     logger.info(f"Loss: {args.train_loss}")
-    logger.info(f"LR={args.lr}, scheduler={getattr(args, 'scheduler', None)}, warmup_steps={getattr(args, 'warmup_steps', 0)}, total_steps={total_steps}, weight_decay={args.weight_decay}")
+    logger.info(f"LR={args.lr}, scheduler={getattr(args, 'scheduler', None)}, warmup_steps={getattr(args, 'warmup_steps', 0)}, max_steps={args.max_steps}, weight_decay={args.weight_decay}")
 
-    start_epoch, best_val_loss, global_optimizer_step = try_resume(
-        args, save_path, checkpoint_dir, model, criterion, optimizer, scheduler, device, loc_queue, text_queue, early_stopping
+    start_step, best_val_loss = try_resume(args, save_path, checkpoint_dir, model, criterion, optimizer, scheduler, device, loc_queue, text_queue, early_stopper)
+
+    run_train(
+        train_dataloader,
+        val_dataloader,
+        model,
+        criterion,
+        optimizer,
+        device,
+        save_path=save_path,
+        args=args,
+        scheduler=scheduler,
+        accumulation_steps=args.accumulation_steps,
+        loc_queue=loc_queue,
+        text_queue=text_queue,
+        max_steps=args.max_steps,
+        val_every_n_steps=args.val_every_n_steps,
+        early_stopper=early_stopper,
+        start_step=start_step,
+        best_val=best_val_loss,
     )
-
-    def val_callback(global_opt_step: int) -> bool:
-        nonlocal best_val_loss
-        val_loss = val_epoch(val_dataloader, model, criterion, epoch, device, logger, loc_queue=loc_queue, text_queue=text_queue)
-        current_lr = optimizer.param_groups[0]['lr']
-        logger.info(f"Step {global_opt_step} | val={val_loss:.4f} | lr={current_lr:.2e}")
-        if wandb.run is not None:
-            wandb.log({"val/loss": val_loss, "train/lr": current_lr, "step": global_opt_step})
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            save_checkpoint(save_path, epoch, model, criterion, optimizer, scheduler, best_val_loss, args, global_optimizer_step=global_opt_step, loc_queue=loc_queue, text_queue=text_queue)
-            logger.info(f"Saved checkpoint (val={val_loss:.4f})")
-        return early_stopping(val_loss)
-
-    for epoch in range(start_epoch, args.num_epochs):
-        train_loss, steps_taken, should_stop = train_epoch(
-            train_dataloader, model, criterion, optimizer, epoch, device, logger,
-            scheduler=scheduler, accumulation_steps=args.accumulation_steps,
-            loc_queue=loc_queue, text_queue=text_queue,
-            val_callback=val_callback, val_every_n_steps=args.val_every_n_steps,
-            global_step_offset=global_optimizer_step,
-        )
-        global_optimizer_step += steps_taken
-
-        current_lr = optimizer.param_groups[0]['lr']
-        logger.info(f"Epoch {epoch} | train={train_loss:.4f} | lr={current_lr:.2e}")
-        if wandb.run is not None:
-            wandb.log({"train/loss_epoch": train_loss, "train/lr": current_lr, "epoch": epoch})
-
-        if should_stop:
-            logger.info("Early stopping triggered.")
-            (checkpoint_dir / "done").touch()
-            logger.info("Training stopped early. Wrote 'done' marker.")
-            break
-    else:
-        (checkpoint_dir / "done").touch()
-        logger.info("Training completed all epochs. Wrote 'done' marker.")
 
     if not args.no_wandb:
         wandb.finish()

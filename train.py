@@ -1,79 +1,135 @@
-import wandb
 import torch
+import wandb
+import logging
 from tqdm import tqdm
 
+logger = logging.getLogger(__name__)
 
-@torch.no_grad()
-def _get_loc_queue_embeddings(loc_queue, model, device) -> torch.Tensor:
-    queue = loc_queue.get().to(device)
-    return model.location_model_predict(queue)
+from eval import run_eval
+from checkpoint import save_checkpoint
 
+from queue_utils import _get_loc_queue_embeddings, _get_text_queue_embeddings
 
-@torch.no_grad()
-def _get_text_queue_embeddings(text_queue, model, device) -> torch.Tensor:
-    queue = text_queue.get().to(device)
-    return model.text_model_predict(queue)
-
-
-def train_epoch(train_dataloader, model, criterion, optimizer, epoch, device, logger, scheduler=None, accumulation_steps=1, loc_queue=None, text_queue=None, val_callback=None, val_every_n_steps=None, global_step_offset=0):
-    logger.info(f"Starting epoch {epoch}")
-
+def run_train(
+    train_dataloader,
+    val_dataloader,
+    model,
+    criterion,
+    optimizer,
+    device,
+    save_path,
+    args,
+    scheduler=None,
+    accumulation_steps=1,
+    loc_queue=None,
+    text_queue=None,
+    max_steps=None,
+    val_every_n_steps=100,
+    early_stopper=None,
+    start_step=0,
+    best_val=float("inf"),
+):
     model.train()
-    total_loss = 0.0
-    global_step = epoch * len(train_dataloader)
     optimizer.zero_grad()
-    optimizer_step = 0
-    batches_done = 0
-    should_stop = False
 
-    bar = tqdm(enumerate(train_dataloader), total=len(train_dataloader))
-    for i, (locs, texts) in bar:
-        if not isinstance(locs, torch.Tensor):
-            raise TypeError(f"Expected locs to be a torch.Tensor, got {type(locs)}")
-        if not isinstance(texts, (torch.Tensor, list, tuple)):
-            raise TypeError(f"Expected texts to be a torch.Tensor, list, or tuple, got {type(texts)}")
-        locs = locs.to(device)
-        if isinstance(texts, torch.Tensor):
-            texts = texts.to(device)
-        text_features, location_features = model(texts, locs)
+    pbar = tqdm(
+        total=max_steps,
+        initial=start_step,
+        desc="training",
+    )
 
-        loc_queue_embeddings = _get_loc_queue_embeddings(loc_queue, model, device) if loc_queue is not None else None
-        text_queue_embeddings = _get_text_queue_embeddings(text_queue, model, device) if text_queue is not None else None
-        loss = criterion(text_features, location_features, loc_queue=loc_queue_embeddings, text_queue=text_queue_embeddings) / accumulation_steps
-        loss.backward()
-        batches_done += 1
-        if (i + 1) % accumulation_steps == 0 or (i + 1) == len(train_dataloader):
-            optimizer.step()
+    global_step = start_step
+    epoch = 0
+    data_iter = iter(train_dataloader)
+
+    while global_step < max_steps:
+
+        try:
+            batch = next(data_iter)
+        except StopIteration:
+            data_iter = iter(train_dataloader)
+            epoch += 1
+            continue
+
+        loss, _, _ = train_step(batch, model, criterion, device, loc_queue, text_queue)
+
+        (loss / accumulation_steps).backward()
+
+        if (global_step + 1) % accumulation_steps == 0:
+            optimizer.step() # step the optimizer after accumulation steps
             optimizer.zero_grad()
-            optimizer_step += 1
-            global_opt_step = global_step_offset + optimizer_step
-            if val_callback is not None and val_every_n_steps is not None and global_opt_step % val_every_n_steps == 0:
-                should_stop = val_callback(global_opt_step)
-                model.train()
-                if should_stop:
-                    break
+            if scheduler:
+                scheduler.step()
 
-        if scheduler is not None:
-            scheduler.step()
+        global_step += 1
+        pbar.update(1)
 
-        if loc_queue is not None:
-            loc_queue.enqueue(locs.detach())
-        if text_queue is not None:
-            if isinstance(texts, torch.Tensor):
-                text_queue.enqueue(texts.detach())
-            else:
-                with torch.no_grad():
-                    pre_proj = model.text_encoder.encode_texts(texts)
-                text_queue.enqueue(pre_proj.detach())
+        pbar.set_postfix({
+            "loss": f"{loss.item():.4f}",
+            "epoch": epoch,
+        })
 
-        loss_value = loss.item() * accumulation_steps
-        total_loss += loss_value
-        bar.set_description("Epoch {} Train loss: {:.5f}".format(epoch, loss_value))
+        # logging
         if wandb.run is not None:
-            wandb.log({"train/loss_step": loss_value, "step": global_step + i})
+            wandb.log({
+                "train/loss_step": loss.item(),
+                "step": global_step,
+                "epoch": epoch,
+            })
 
-    epoch_loss = total_loss / batches_done if batches_done > 0 else 0.0
-    logger.info(f"[Epoch {epoch}] train_loss={epoch_loss:.4f}")
-    if wandb.run is not None:
-        wandb.log({"train/loss_epoch": epoch_loss, "epoch": epoch})
-    return epoch_loss, optimizer_step, should_stop
+        if global_step % val_every_n_steps == 0:
+            val_loss = run_eval(
+                val_dataloader,
+                model,
+                criterion,
+                global_step,
+                device,
+                epoch=epoch,
+                loc_queue=loc_queue,
+                text_queue=text_queue,
+            )
+
+            print(f"Step={global_step}, Val Loss={val_loss}")
+            logger.info(f"step={global_step} val={val_loss:.4f}")
+
+            if wandb.run is not None:
+                wandb.log({
+                    "val/loss": val_loss,
+                    "step": global_step,
+                })
+
+            model.train()
+
+            if val_loss < best_val:
+                best_val = val_loss
+                save_checkpoint(save_path, global_step, model, criterion, optimizer, scheduler, best_val, args, loc_queue=loc_queue, text_queue=text_queue)
+
+            if early_stopper is not None and early_stopper(val_loss):
+                logger.info(
+                    f"Early stopping triggered at step {global_step} "
+                    f"(best_val={best_val:.4f})"
+                )
+                break
+
+    pbar.close()
+
+    return global_step, best_val
+
+
+def train_step(batch, model, criterion, device, loc_queue=None, text_queue=None) -> tuple:
+    locs, texts = batch
+    if not isinstance(locs, torch.Tensor):
+        raise TypeError(f"Expected locs to be a torch.Tensor, got {type(locs)}")
+    if not isinstance(texts, (torch.Tensor, list, tuple)):
+        raise TypeError(f"Expected texts to be a torch.Tensor, list, or tuple, got {type(texts)}")
+    locs = locs.to(device)
+    if isinstance(texts, torch.Tensor):
+        texts = texts.to(device)
+
+    text_features, location_features = model(texts, locs)
+    loc_queue_embs = _get_loc_queue_embeddings(loc_queue, model, device) if loc_queue is not None else None
+    text_queue_embs = _get_text_queue_embeddings(text_queue, model, device) if text_queue is not None else None
+
+    loss = criterion(text_features, location_features, loc_queue=loc_queue_embs, text_queue=text_queue_embs)
+
+    return loss, locs, texts

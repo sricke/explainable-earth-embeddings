@@ -12,9 +12,11 @@ metric:
   goal: minimize
 
 parameters:
+  dataset_name:
+    value: git-10M
   dataset_path:
     values:
-      - /home/libe2152/data/git-10M/climplicit/
+      - /home/libe2152/data/git-10M/satclip/
   train_subsample_size:
     value: None
   val_subsample_size:
@@ -71,16 +73,16 @@ parameters:
     value: 8
 
   # --- Training ---
-  num_epochs:
-    value: 10
+  max_steps:
+    value: 100000
   val_every_n_steps:
     value: 500
   num_val_checks_without_improvement:
     value: 5
   batch_size:
-    value: 256
+    value: 2048
   accumulation_steps:
-    value: 32 
+    value: 4 
   loc_queue_size:
     value: None 
   text_queue_size:
