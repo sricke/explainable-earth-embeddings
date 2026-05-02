@@ -698,6 +698,22 @@ def global_pool_nlc(
     return x
 
 
+def _merge_satclip_dual_path_nlc(
+    x: Union[torch.Tensor, List[torch.Tensor]],
+) -> torch.Tensor:
+    """Merge ``[x_new, x_ori]`` from ConsistentAttention blocks into one NLC tensor.
+
+    Matches the end-of-backbone merge in :meth:`VisionTransformer.forward_features`.
+    """
+    if isinstance(x, list) and len(x) == 2:
+        x_new, x_ori = x
+        out = x_new.clone()
+        out[:, 0, :] = x_ori[:, 0, :]
+        return out
+    assert isinstance(x, torch.Tensor)
+    return x
+
+
 class VisionTransformer(nn.Module):
     """Vision Transformer
 
@@ -1035,8 +1051,12 @@ class VisionTransformer(nn.Module):
             else:
                 x = blk(x)
             if i in take_indices:
-                # normalize intermediates with final norm layer if enabled
-                intermediates.append(self.norm(x) if norm else x)
+                # Dual-path blocks return [x_new, x_ori]; merge before norm / storage (see forward_features).
+                xm = _merge_satclip_dual_path_nlc(x)
+                # Must clone: later ConsistentAttention blocks mutate `x` / list paths in-place; shared
+                # tensor refs would make every saved "layer" converge to the final activations.
+                to_store = self.norm(xm) if norm else xm
+                intermediates.append(to_store.detach().clone())
 
         # process intermediates
         if self.num_prefix_tokens:
@@ -1061,7 +1081,7 @@ class VisionTransformer(nn.Module):
 
             # Only include features if not intermediates_only
             if not intermediates_only:
-                x_final = self.norm(x)
+                x_final = self.norm(_merge_satclip_dual_path_nlc(x))
                 result_dict["image_features"] = x_final
 
             return result_dict
@@ -1074,7 +1094,7 @@ class VisionTransformer(nn.Module):
         if intermediates_only:
             return intermediates
 
-        x = self.norm(x)
+        x = self.norm(_merge_satclip_dual_path_nlc(x))
 
         return x, intermediates
 

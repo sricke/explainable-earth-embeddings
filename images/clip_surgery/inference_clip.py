@@ -26,11 +26,25 @@ import torch.nn.functional as F
 from huggingface_hub import hf_hub_download
 import clip
 from images.clip_surgery import get_satclip
+from images.clip_surgery.geoclip_surgery.load import get_geoclip
 
 BICUBIC = InterpolationMode.BICUBIC
 
+preprocess = Compose([
+    Resize((224, 224), interpolation=BICUBIC),
+    ToTensor(),
+    Normalize((0.48145466, 0.4578275, 0.40821073),
+              (0.26862954, 0.26130258, 0.27577711)),
+])
 
-def get_rgb_image(image):
+
+
+def load_rgb_image(image_path):
+    # OpenCV expects a NumPy array, not a PIL Image object.
+    image = Image.open(image_path).convert("RGB")
+    return np.array(image)
+
+def get_rgb_image_sentinel(image):
     if len(image.shape) == 4:
         image = image.squeeze(0)
     image_rgb = np.moveaxis(image.cpu().numpy(), 0, 2)
@@ -42,29 +56,41 @@ def get_rgb_image(image):
     return image_rgb
 
 
-def load_s2_sample(index_path, id_column):
+def load_s2_sample(index_path, id_column, lon_column="lon", lat_column="lat"):
     df_index = pd.read_csv(index_path)
     # Vectorized operation instead of iterrows (much faster)
-    locations = [[id_val, lon, lat] for id_val, lon, lat in zip(df_index[id_column], df_index["lon"], df_index["lat"])]
+    locations = [[id_val, lon, lat] for id_val, lon, lat in zip(df_index[id_column], df_index[lon_column], df_index[lat_column])]
     return locations
 
+_geoclip_preprocess = Compose([
+    Resize((224, 224), interpolation=BICUBIC),
+    ToTensor(),
+    Normalize((0.48145466, 0.4578275, 0.40821073),
+              (0.26862954, 0.26130258, 0.27577711)),
+])
 
-def load_image(path, device="cpu"):
+def load_image_geoclip(path, device="cpu"):
+    image = Image.open(path).convert("RGB")
+    image = _geoclip_preprocess(image).unsqueeze(0).to(device)
+    return image
+
+
+def load_image_sentinel(path, device="cpu"):
     with rasterio.open(path) as f:
         image = f.read().astype(np.float32)
     image = image / 10000.0
     B10 = np.zeros((1, *image.shape[1:]), dtype=image.dtype)
     image = np.concatenate([image[:10], B10, image[10:]], axis=0)
     image = torch.tensor(image, device=device)
-    image = F.interpolate(image.unsqueeze(0), size=(224, 224), mode="bilinear", align_corners=False)
+    image = preprocess(image.unsqueeze(0))
     return image
 
 
-def encode_locations(locations: tp.List, model, device):
+def encode_locations(locations: tp.List, encode_location: tp.Callable, device):
     # Batch all locations at once instead of one by one
     locations_tensor = torch.tensor([[lon, lat] for _, lon, lat in locations], device=device)
     # Encode all locations in batch
-    location_features = model.encode_location(locations_tensor).float()  # (N, #tokens, dim)
+    location_features = encode_location(locations_tensor).float()  # (N, #tokens, dim)
     # Normalize
     location_features = location_features / location_features.norm(dim=-1, keepdim=True)
     # Squeeze token dimension if needed
@@ -112,52 +138,77 @@ if __name__ == "__main__":
         )  # False for original CLIP
         model.eval()
     elif args.model == "geoclip":
-        try:
-            geoclip_model_path = SUPPORTED_MODELS["geoclip"][args.arquitecture]
-        except KeyError:
-            raise ValueError(f"Invalid geoclip arquitecture: {args.arquitecture}")
-
-        model = None # TODO: add geoclip implementation
+        geo_model = get_geoclip(device=device, surgery=True, return_all=True)
+        model, _ = clip.load("CS-ViT-L/14", device=device)
+        geo_model.eval()
+        model.eval()
 
 
     places_folder = args.source_folder
-    data_folder = "data"
+    data_folder = "data" if args.model == "satclip" else "images"
     places = [
         os.path.join(places_folder, place)
         for place in os.listdir(places_folder)
         if os.path.isdir(os.path.join(places_folder, place))
     ]
-
+    
+    if args.model == "geoclip":
+            encode_location = geo_model.location_encoder.forward
+            _vision_model = model.encode_image
+            #_visual_proj  = model.image_encoder.CLIP.visual_projection -> not needed for original clip
+            def encode_image(image):
+                #out = _vision_model(pixel_values=image, interpolate_pos_encoding=False)
+                out = model.encode_image(image)
+                #proj_out = _visual_proj(out.pooler_output)  # (B, N+1, proj_dim)
+                # apply two mlp layers
+                return geo_model.image_encoder.mlp(out)  # (B, N+1, 512)
+                
+    elif args.model == "satclip":
+        encode_location = model.encode_location
+        encode_image = model.encode_image
+    else:
+        raise ValueError(f"Invalid model: {args.model}")
+    
+    all_locations = load_s2_sample("/home/seri6958/translocator_eval_data/im2gps_places365.csv", "IMG_ID", lon_column="LON", lat_column="LAT")
+    all_location_features = encode_locations(all_locations, encode_location, device)
     for place in places:
         index_path = os.path.join(place, "index.csv")
-        all_locations = load_s2_sample(index_path, "id")
-        results_dir = os.path.join(place, "clip_surgery_test")
+        all_locations_place = load_s2_sample(index_path, "id")
+        results_dir = os.path.join(place, f"clip_surgery")
         os.makedirs(results_dir, exist_ok=True)
-        all_location_features = encode_locations(all_locations, model, device)
 
         # Create a mapping from id to index for O(1) lookup
-        id_to_idx = {loc[0]: idx for idx, loc in enumerate(all_locations)}
+        id_to_idx = {loc[0]: idx for idx, loc in enumerate(all_locations_place)}
 
         # First pass: collect all similarity maps to compute global min/max for consistent color scale
-        print(f"Computing CLIP Surgery similarity maps for {place}...")
+        print(f"Computing {args.model} Surgery similarity maps for {place}...")
         similarity_maps_dict = {}
         rgb_images_dict = {}
         cv2_img_bgr_dict = {}
+        
+        
 
-        for id, lon, lat in tqdm(all_locations, desc=f"Computing CLIP Surgery maps for {place}"):
+        for id, lon, lat in tqdm(all_locations_place, desc=f"Computing CLIP Surgery maps for {place}"):
             # if os.path.exists(os.path.join(results_dir, f'{id}.png')):
             #     continue
             data_path = os.path.join(place, data_folder, id)
             try:
-                image = load_image(data_path, device=device)
+                if args.model == "geoclip":
+                    
+                    image = load_image_geoclip(data_path, device=device)
+                else:
+                    image = load_image_sentinel(data_path, device=device)
             except Exception as e:
                 print(f"Error loading image {data_path}: {e}")
                 continue
-            rgb_img = get_rgb_image(image)
+            if args.model == "geoclip":
+                rgb_img = load_rgb_image(data_path)
+            else:
+                rgb_img = get_rgb_image_sentinel(image)
             cv2_img_bgr = cv2.cvtColor(rgb_img, cv2.COLOR_RGB2BGR)
 
             with torch.no_grad():
-                image_features = model.encode_image(image)
+                image_features = encode_image(image)
                 image_features = image_features / image_features.norm(dim=-1, keepdim=True)
                 similarity = clip.clip_feature_surgery(image_features, all_location_features)
                 # Use no_norm version to see actual differences (will normalize globally later)
@@ -186,10 +237,10 @@ if __name__ == "__main__":
             cv2_img_bgr = cv2_img_bgr_dict[id]
 
             # Normalize using global min/max for consistent color scale
-            if global_max > global_min:
-                similarity_map_norm = (similarity_map - global_min) / (global_max - global_min)
-            else:
-                similarity_map_norm = similarity_map
+            
+            similarity_map_norm = (similarity_map - global_min) / (global_max - global_min)
+            
+            similarity_map_norm = similarity_map
 
             for b in range(similarity_map_norm.shape[0]):
                 vis = (similarity_map_norm[b, :, :].numpy() * 255).astype("uint8")
@@ -197,7 +248,7 @@ if __name__ == "__main__":
                 vis = cv2.applyColorMap(vis, cv2.COLORMAP_JET)
 
                 # Blend: 80% background image, 20% similarity map
-                vis = cv2_img_bgr * 0.8 + vis * 0.2
+                vis = cv2_img_bgr * 0.6 + vis * 0.4
                 vis = np.clip(vis, 0, 255).astype("uint8")
 
                 # Convert BGR to RGB for matplotlib display
