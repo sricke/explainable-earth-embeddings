@@ -1,154 +1,219 @@
-#!/usr/bin/env python3
-"""
-Visualization script for SatCLIP with GradCAM
-Converted from visualize.ipynb
-"""
-
-import sys
 import os
+import sys
 from pathlib import Path
 
-# Add project root to path so we can import satclip
-project_root = Path(__file__).parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-# Add satclip/satclip directory to path for relative imports within satclip module
-satclip_dir = project_root / "satclip" / "satclip"
-if str(satclip_dir) not in sys.path:
-    sys.path.insert(0, str(satclip_dir))
-
+_root = Path(__file__).resolve().parents[2]
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
+if str(_root / "CLIP_Surgery") not in sys.path:
+    sys.path.insert(0, str(_root / "CLIP_Surgery"))
+import cv2
+import torch
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+from tqdm import tqdm
 from PIL import Image
-import rasterio  # Better for multi-band satellite imagery
-import torch
-from huggingface_hub import hf_hub_download
+from matplotlib import pyplot as plt
+from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+from torchvision.transforms import InterpolationMode
+import rasterio
 import torch.nn.functional as F
-from satclip.satclip.load import get_satclip
+
+from huggingface_hub import hf_hub_download
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
+from images.clip_surgery import get_satclip
+from images.clip_surgery.geoclip_surgery.load import get_geoclip
 
-def get_rgb_image(
-        image
-    ):
-        if len(image.shape) == 4:
-            image = image.squeeze(0)
-        image_rgb = np.rollaxis(image.numpy(), 0, 3)
-        
-        image_rgb = (image_rgb[:, :, [3,2,1]])
-        
-        image_rgb = np.clip(image_rgb, 0, 1).astype('float32')  # Ensure [0, 1] range
-        #image_rgb = (image_rgb * 255).astype('float32')
-        return image_rgb
-    
-def load_s2_sample(index_path, target_biome):
+BICUBIC = InterpolationMode.BICUBIC
+
+preprocess = Compose([
+    Resize((224, 224), interpolation=BICUBIC),
+    ToTensor(),
+    Normalize((0.48145466, 0.4578275, 0.40821073),
+              (0.26862954, 0.26130258, 0.27577711)),
+])
+
+_geoclip_preprocess = Compose([
+    Resize((224, 224), interpolation=BICUBIC),
+    ToTensor(),
+    Normalize((0.48145466, 0.4578275, 0.40821073),
+              (0.26862954, 0.26130258, 0.27577711)),
+])
+
+
+def load_rgb_image(image_path):
+    image = Image.open(image_path).convert("RGB")
+    return np.array(image).astype("float32") / 255.0
+
+
+def get_rgb_image_sentinel(image):
+    if len(image.shape) == 4:
+        image = image.squeeze(0)
+    image_rgb = np.moveaxis(image.cpu().numpy(), 0, 2)
+    image_rgb = image_rgb[:, :, [3, 2, 1]]
+    return np.clip(image_rgb, 0, 1).astype("float32")
+
+
+def load_s2_sample(index_path, id_column, lon_column="lon", lat_column="lat"):
     df_index = pd.read_csv(index_path)
-    locations = []
-    target_locations = []
-    for index, row in df_index.iterrows():
-        locations.append([row['lon'], row['lat']])
-        if pd.isna(row['biome']) or row['biome'] == "":
-            target_locations.append((row['fn'], [row['lon'], row['lat']]))
-    return locations, target_locations
+    locations = [[id_val, lon, lat] for id_val, lon, lat in zip(df_index[id_column], df_index[lon_column], df_index[lat_column])]
+    return locations
 
-def load_image(path):
+
+def load_image_geoclip(path, device="cpu"):
+    image = Image.open(path).convert("RGB")
+    return _geoclip_preprocess(image).unsqueeze(0).to(device)
+
+
+def load_image_sentinel(path, device="cpu"):
     with rasterio.open(path) as f:
         image = f.read().astype(np.float32)
-    image = image/10000.0
+    image = image / 10000.0
     B10 = np.zeros((1, *image.shape[1:]), dtype=image.dtype)
     image = np.concatenate([image[:10], B10, image[10:]], axis=0)
-    image = torch.tensor(image)
-    image = F.interpolate(image.unsqueeze(0), size=(224, 224), mode='bilinear', align_corners=False)
-    return image
+    image = torch.tensor(image, device=device)
+    return preprocess(image.unsqueeze(0))
 
 
 class EmbeddingOutputTarget:
     def __init__(self, target):
-        if isinstance(target, torch.Tensor):
-            self.target = target
-        else:
-            self.target = torch.tensor(target)
-            
+        self.target = target if isinstance(target, torch.Tensor) else torch.tensor(target)
+
     def __call__(self, model_output):
         self.target = self.target.to(model_output.device)
-        
         if len(model_output.shape) == 1:
             model_output = model_output.unsqueeze(0)
-        
-        # Normalize to unit vectors
-        norm_model_output = model_output / model_output.norm(dim=1, keepdim=True)
+        norm_output = model_output / model_output.norm(dim=1, keepdim=True)
         norm_target = self.target / self.target.norm(dim=1, keepdim=True)
-        
-        # Compute cosine similarity
-        return - torch.nn.functional.cosine_similarity(norm_model_output, norm_target, dim=-1)
+        return -F.cosine_similarity(norm_output, norm_target, dim=-1)
     
-def main():
-    # Configuration
-    image_id = "patch_2290.tif"
-    image_folder = "images1"
-    image_path = os.path.join(image_folder, image_id)
-    results_folder = "results_cam"
-    if not os.path.exists(results_folder):
-        os.makedirs(results_folder)
-    
-    # Load index CSV
-    print("Loading index CSV...")
-    
-    locations, target_locations = load_s2_sample("sample_index.csv", None)
-    
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+def vit_reshape_transform(tensor, height=16, width=16):
+  # CLIP ViT token output: [B, 1 + H*W, C]
+  tensor = tensor[:, 1:, :]  # remove CLS token
+  tensor = tensor.reshape(tensor.size(0), height, width, tensor.size(2))
+  tensor = tensor.permute(0, 3, 1, 2)  # [B, C, H, W]
+  return tensor
 
-    satclip_model_path = "microsoft/SatCLIP-ViT16-L40"
-    model = get_satclip(
-        hf_hub_download("microsoft/SatCLIP-ResNet50-L10", "satclip-resnet50-l10.ckpt"),
-        device=device,
-        return_all=True, # to also return the image model
-    )  
-    
-    model.eval()
-    image_folder = "/home/seri6958/explainable-earth-embeddings/satclip/figures/ssl4eo/example/images"
-    for image_id, location in target_locations:
-        image = load_image(os.path.join(image_folder, image_id))
-        # Move image to device and enable gradients for GradCAM
-        image = image.to(device).requires_grad_(True)
-        
-        image_features = model.encode_image(image)
-        location = torch.tensor([location], device=device)
-        location_features = model.encode_location(location).float()
-        print('location_features mean: ', location_features.mean().item())
-        print('image_features mean: ', image_features.mean().item())
-        # Setup GradCAM
-        #target_layers = [model.visual.blocks[-1]]
-        target_layers = [model.visual.layer4[-1]]
-        targets = [EmbeddingOutputTarget(location_features)]
-    
-        rgb_img = get_rgb_image(image.detach().cpu())
-        save_dir = os.path.join(results_folder, image_id.replace('.tif', ''))
-        os.makedirs(save_dir, exist_ok=True)
-        plt.imshow(rgb_img)
-        plt.axis('off')
-        plt.savefig(os.path.join(save_dir, 'rgb.png'), bbox_inches='tight', dpi=150)
-        # Run GradCAM
-        print("Running GradCAM...")
-        with GradCAM(model=model.visual, target_layers=target_layers) as cam:
-            # You can also pass aug_smooth=True and eigen_smooth=True, to apply smoothing.
-            grayscale_cam = cam(input_tensor=image, targets=targets)
-            # In this example grayscale_cam has only one image in the batch:
-            grayscale_cam = grayscale_cam[0, :]
-            
-            visualization = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
-            # You can also get the model outputs without having to redo inference
-            model_outputs = cam.outputs
-        # Save visualization
-        plt.imshow(visualization)
-        plt.title("GradCAM")
-        plt.axis('off')
-        os.makedirs(save_dir, exist_ok=True)
-        plt.savefig(os.path.join(save_dir, 'gradcam.png'), bbox_inches='tight', dpi=150)
-        print(f"Saved GradCAM visualization to '{os.path.join(save_dir, 'gradcam.png')}'")
-        plt.close()
-        
+
+class GeoCLIPVisualWrapper(torch.nn.Module):
+    """Wraps GeoCLIP image encoder into a single module for GradCAM."""
+    def __init__(self, vision_model, visual_proj, mlp):
+        super().__init__()
+        self.vision_model = vision_model
+        self.visual_proj = visual_proj
+        self.mlp = mlp
+
+    def forward(self, pixel_values):
+        out = self.vision_model(pixel_values=pixel_values, interpolate_pos_encoding=False)
+        proj_out = self.visual_proj(out.pooler_output)
+        return self.mlp(proj_out)
+
+
+SUPPORTED_MODELS = {
+    "satclip": {
+        "vit16": "microsoft/SatCLIP-ViT16-L40",
+    },
+}
+
 
 if __name__ == "__main__":
-    main()
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(device)
+    from argparse import ArgumentParser
+    args = ArgumentParser()
+    args.add_argument("--model", choices=["satclip", "geoclip"], default="satclip")
+    args.add_argument("--arquitecture", choices=["vit16"], default="vit16")
+    args.add_argument("--source_folder", type=str, default="/home/seri6958/Places")
+    args = args.parse_args()
+
+    if args.model == "satclip":
+        try:
+            satclip_model_path = SUPPORTED_MODELS["satclip"][args.arquitecture]
+        except KeyError:
+            raise ValueError(f"Invalid satclip arquitecture: {args.arquitecture}")
+
+        model = get_satclip(
+            hf_hub_download(satclip_model_path, "satclip-vit16-l40.ckpt"),
+            device=device,
+            return_all=True,
+        )
+        model.eval()
+        encode_location = model.encode_location
+        visual_model = model.visual
+        target_layers = [model.visual.blocks[-1]]
+
+    elif args.model == "geoclip":
+        geo_model = get_geoclip(device=device, return_all=True)
+        encode_location = geo_model.location_encoder.forward
+        visual_model = GeoCLIPVisualWrapper(
+            geo_model.image_encoder.CLIP.vision_model,
+            geo_model.image_encoder.CLIP.visual_projection,
+            geo_model.image_encoder.mlp,
+        )
+        target_layers = [geo_model.image_encoder.CLIP.vision_model.encoder.layers[-1].layer_norm1]
+    else:
+        raise ValueError(f"Invalid model: {args.model}")
+
+    places_folder = args.source_folder
+    data_folder = "data" if args.model == "satclip" else "images"
+    places = [
+        os.path.join(places_folder, place)
+        for place in os.listdir(places_folder)
+        if os.path.isdir(os.path.join(places_folder, place))
+    ]
+
+    for place in places:
+        index_path = os.path.join(place, "index.csv")
+        all_locations_place = load_s2_sample(index_path, "id")
+        results_dir = os.path.join(place, "gradcam")
+        os.makedirs(results_dir, exist_ok=True)
+
+        print(f"Computing {args.model} GradCAM maps for {place}...")
+
+        for id, lon, lat in tqdm(all_locations_place, desc=f"Computing GradCAM for {place}"):
+            data_path = os.path.join(place, data_folder, id)
+            try:
+                if args.model == "geoclip":
+                    image = load_image_geoclip(data_path, device=device)
+                else:
+                    image = load_image_sentinel(data_path, device=device)
+            except Exception as e:
+                print(f"Error loading image {data_path}: {e}")
+                continue
+
+            if args.model == "geoclip":
+                rgb_img = load_rgb_image(data_path)
+            else:
+                rgb_img = get_rgb_image_sentinel(image)
+
+            image = image.requires_grad_(True)
+
+            with torch.no_grad():
+                loc_tensor = torch.tensor([[lon, lat]], device=device)
+                loc_feat = encode_location(loc_tensor).float()
+                loc_feat = loc_feat / loc_feat.norm(dim=-1, keepdim=True)
+                if loc_feat.dim() == 3:
+                    loc_feat = loc_feat.squeeze(1)
+
+            targets = [EmbeddingOutputTarget(loc_feat)]
+
+            with GradCAM(
+                model=visual_model,
+                target_layers=target_layers,
+                reshape_transform=vit_reshape_transform,
+            ) as cam:
+                grayscale_cam = cam(input_tensor=image, targets=targets)
+                grayscale_cam = grayscale_cam[0, :]
+
+            h, w = rgb_img.shape[:2]
+            if grayscale_cam.shape != (h, w):
+                grayscale_cam = cv2.resize(grayscale_cam, (w, h), interpolation=cv2.INTER_LINEAR)
+
+            visualization = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
+
+            plt.imshow(visualization)
+            plt.title(f"GradCAM ({args.model})")
+            plt.axis("off")
+            plt.savefig(os.path.join(results_dir, f"{id}.png"), bbox_inches="tight", dpi=150)
+            plt.close()

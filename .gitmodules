@@ -4,3 +4,9 @@
 [submodule "CLIP_Surgery"]
 	path = CLIP_Surgery
 	url = https://github.com/xmed-lab/CLIP_Surgery.git
+[submodule "geoclip"]
+	path = geoclip
+	url = https://github.com/VicenteVivan/geo-clip.git
+[submodule "GAIR"]
+	path = GAIR
+	url = https://github.com/zpl99/GAIR.git
