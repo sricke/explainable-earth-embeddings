@@ -1,152 +1,246 @@
-import sys
+import argparse
+import itertools
+import logging
 from pathlib import Path
 
-# Add project root to path so we can import satclip
-project_root = Path(__file__).parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
-import lightning.pytorch
 import torch
-import numpy as np
-import torch.nn as nn
-from lightning.pytorch.cli import LightningCLI
+import wandb
+import yaml
+from tqdm import tqdm
 
-from modeling import LocationEmbeddingModel, TextEmbeddingModel
-from dataset import BigEarthNetv2_S2DataModule
-from datetime import datetime
-import open_clip
-from loss import ConceptLoss
-class Location2TextLightningModule(lightning.pytorch.LightningModule):
-    def __init__(self, 
-                 text_model: str,
-                 location_model: str,
-                 location_model_filename: str,
-                 text_model_filename: str,
-                 train_text_model: bool,
-                 learning_rate: float,
-                 weight_decay: float,
-                 logit_scale_temperature: float,
-                 lambda_alignment: float,
-                 sigma: float,
-                 train_location_model: bool,
-                 normalize_features: bool=True
-                 ):
-        super().__init__()
-        self.location_model = LocationEmbeddingModel(location_model=location_model, location_model_filename=location_model_filename, target_dim=None, train_location_model=False)
-        target_dim = self.location_model.dim_out
-        self.text_model = TextEmbeddingModel(text_model=text_model, text_model_filename=text_model_filename, train_text_model=train_text_model, target_dim=target_dim)
-        self.normalize_features = normalize_features
-        self.learning_rate = learning_rate
-        logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / logit_scale_temperature))
-        self.loss_fn = ConceptLoss(logit_scale=logit_scale, lambda_alignment=lambda_alignment, sigma=sigma)
-        self.weight_decay = weight_decay
-        self.save_hyperparameters()
-        
-    def on_fit_start(self):
-        if self.logger is not None:
-            self.logger.log_hyperparams({'target_dim': self.location_model.target_dim,
-                                         'location_dim': self.location_model.location_dim})
-        
-    def compute_loss(self, logits_per_text, logits_per_location):
-        return self.loss_fn(logits_per_text, logits_per_location)
+from dataset import build_dataloaders
+from models.model import build_model
+from models.queue import LocQueue, TextQueue
+from models.text_encoder import TEXT_EMBEDDING_DIMENSIONS
+from models.finetune import apply_lora
+from loss import make_loss
+from train import run_train
+from utils import EarlyStopping, set_seed, build_scheduler, build_optimizer
+from log_utils import setup_logging, build_run_name, sanitize
+from checkpoint import build_checkpoint_base, load_checkpoint
 
 
-            
-    def forward_step(self, batch):
-        locations, descriptions = batch
-        logits_per_text = self.text_model(descriptions, normalize=self.normalize_features)
-        logits_per_location = self.location_model(locations, normalize=self.normalize_features)
-        
-        # normalize after projection
-        logits_per_text = logits_per_text / logits_per_text.norm(dim=1, keepdim=True)
-        logits_per_location = logits_per_location / logits_per_location.norm(dim=1, keepdim=True)
+logger = logging.getLogger(__name__)
 
-        return logits_per_text, logits_per_location
 
-    def training_step(self, batch):
-        logits_per_text, logits_per_location = self.forward_step(batch)
-        loss = self.compute_loss(logits_per_text, logits_per_location)
-        current_lr = self.optimizers().param_groups[0]['lr']
-        self.log_dict({"train_loss": loss,
-                  "learning_rate": current_lr})
-        return loss
-    
-    def validation_step(self, batch):
-        logits_per_text, logits_per_location = self.forward_step(batch)
-        loss = self.compute_loss(logits_per_text, logits_per_location)
-        self.log_dict({"val_loss": loss}, on_step=True, on_epoch=True)
-        return loss
-    
-    def configure_optimizers(self):
-        params = [
-            param for param in self.location_model.parameters() if param.requires_grad
-        ]
-        # decay helps with reghhularizaion
-        optimizer = torch.optim.AdamW([{"params": params,"weight_decay": self.weight_decay}],lr=self.learning_rate)
-        
-        # LinearLR scheduler: linearly decays from start_factor to end_factor
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            mode="min",
-            patience=2, # epoch level
-            factor=0.1,   # new_lr = lr * factor
-            eps=1e-8, # minimum decay applied to lr
+def get_args():
+    pre = argparse.ArgumentParser(add_help=False)
+    pre.add_argument('--config', type=str)
+    pre_args, _ = pre.parse_known_args()
+
+    if pre_args.config:
+        with open(pre_args.config) as f:
+            cfg = yaml.safe_load(f)
+        return argparse.Namespace(**cfg)
+
+    _int = lambda x: None if x == 'None' else int(x)
+    _float = lambda x: None if x == 'None' else float(x)
+
+    parser = argparse.ArgumentParser()
+    # Data
+    parser.add_argument('--dataset_name', type=str, required=True)
+    parser.add_argument('--dataset_path', type=str, required=True)
+    parser.add_argument('--precomputed_dir', type=str, default=None)
+    parser.add_argument('--train_subsample_size', type=_int, required=True)
+    parser.add_argument('--val_subsample_size', type=_int, required=True)
+    parser.add_argument('--precomputed_text_embeddings', type=bool, required=True)
+    parser.add_argument('--precomputed_location_embeddings', type=bool, required=True)
+    # Encoders
+    parser.add_argument('--text_encoder', type=str, required=True, help="'open_clip' | 'geoclip'")
+    parser.add_argument('--location_encoder', type=str, required=True, help="'satclip' | 'geoclip'")
+    parser.add_argument('--text_finetune_mode', type=str, required=True, help="'all' | 'lora' | 'only_proj'")
+    parser.add_argument('--loc_finetune_mode', type=str, required=True, help="'all' | 'lora' | 'only_proj'")
+    parser.add_argument('--lora_rank', required=True, help='LoRA rank (used when finetune_mode=lora)')
+    parser.add_argument('--lora_layers', required=True, type=int, help='Apply LoRA to last N transformer blocks (None = all)')
+    # Projections
+    parser.add_argument('--text_projection', type=str, required=True, help="'linear' | 'mlp'")
+    parser.add_argument('--text_proj_hidden_layers', type=int, required=True)
+    parser.add_argument('--text_proj_hidden_features', type=int, required=True)
+    parser.add_argument('--location_projection', type=str, required=True, help="'none' | 'linear' | 'mlp'")
+    parser.add_argument('--loc_proj_hidden_layers', type=int, required=True)
+    parser.add_argument('--loc_proj_hidden_features', type=int, required=True)
+    parser.add_argument('--shared_dim', type=int, required=True)
+    # Loss
+    parser.add_argument('--train_loss', type=str, required=True, help="'clip' | 'mse'")
+    parser.add_argument('--lambda_alignment', type=_float, required=True)
+    parser.add_argument('--sigma', type=_float, required=True)
+    parser.add_argument('--logit_scale_temp', type=float, required=True)
+    # Training
+    parser.add_argument('--max_steps', type=int, required=True)
+    parser.add_argument('--val_every_n_steps', type=int, default=100)
+    parser.add_argument('--num_val_checks_without_improvement', type=int, required=True)
+    parser.add_argument('--batch_size', type=int, required=True)
+    parser.add_argument('--lr', type=float, required=True)
+    parser.add_argument('--scheduler', type=str, required=True, help="'cosine' | None")
+    parser.add_argument('--warmup_steps', type=int, required=True)
+    parser.add_argument('--weight_decay', type=float, required=True)
+    parser.add_argument('--text_nonlinearity', type=str, required=True, help="'relu' | 'sine'")
+    parser.add_argument('--loc_nonlinearity', type=str, required=True, help="'relu' | 'sine'")
+    parser.add_argument('--accumulation_steps', type=int, required=True, help="1 disables accumulation")
+    parser.add_argument('--loc_queue_size', type=_int, required=True, help="Queue size for asymmetric loss (location side); None disables")
+    parser.add_argument('--text_queue_size', type=_int, default=None, help="Queue size for asymmetric loss (text side); None disables")
+    parser.add_argument('--num_workers', type=int, required=True)
+    parser.add_argument('--seed', type=int, required=True)
+    parser.add_argument('--device', type=str, required=True)
+    # Checkpointing
+    parser.add_argument(
+        '--model_save_path', type=str, default=None,
+        help='Base directory for checkpoints; checkpoints go in <base>/<run-subdir>/best.pt. File logs use ./logs in the cwd.',
+    )
+    parser.add_argument('--resume_from', type=str, default=None)
+    # Logging
+    parser.add_argument('--wandb_entity', type=str, required=True,
+                        help='W&B team or username.')
+    parser.add_argument('--wandb_project', type=str, required=True)
+    parser.add_argument('--wandb_run_name', type=str, default=None)
+    parser.add_argument('--no_wandb', action='store_true')
+    return parser.parse_args()
+
+
+def init_run(args, dataset_name: str, default_run_tag: str, desired_wandb_name: str) -> str:
+    if not args.no_wandb:
+        wandb.init(
+            entity=args.wandb_entity,
+            project=args.wandb_project,
+            name=desired_wandb_name,
+            config=vars(args),
         )
-        
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "interval": "epoch",  # Update each epoch
-                "monitor": "val_loss", 
-            }
-        }
-        
+        wandb_name = wandb.run.name if wandb.run is not None else desired_wandb_name
+        run_tag = sanitize(wandb_name.replace(f"{dataset_name}__", "", 1))
+    else:
+        run_tag = default_run_tag
+    return sanitize(run_tag)
 
 
-        
-def cli_main(config_filename: str):
-    config_fn = Path(config_filename)
-   
-    cli = LightningCLI(
-        model_class=Location2TextLightningModule,
-        datamodule_class=BigEarthNetv2_S2DataModule,
-        save_config_kwargs=dict(
-            config_filename=config_fn,
-            overwrite=True,
-        ),
-        trainer_defaults={
-            "log_every_n_steps": 10 # controls how often Lightning sends metrics to loggers
-        },
-        parser_kwargs={"default_config_files": [config_fn]},
-        seed_everything_default=0,
-        run=False,
+def setup_checkpoint_dir(checkpoint_base: Path, run_tag: str, args) -> tuple[Path, Path]:
+    checkpoint_dir = checkpoint_base / run_tag
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    save_path = checkpoint_dir / "best.pt"
+    with open(checkpoint_dir / "config.yaml", "w") as f:
+        yaml.dump(vars(args), f, default_flow_style=False)
+    logger.info(f"Checkpoints directory: {checkpoint_dir}")
+    return checkpoint_dir, save_path
+
+
+def build_queues(args, model, device):
+    loc_queue = None
+    if getattr(args, "loc_queue_size", None):
+        queue_dim = 2 if not args.precomputed_location_embeddings else model.location_encoder.location_embedding_dim
+        loc_queue = LocQueue(queue_size=args.loc_queue_size, dim=queue_dim).to(device)
+
+    text_queue = None
+    if getattr(args, "text_queue_size", None):
+        text_queue_dim = TEXT_EMBEDDING_DIMENSIONS[args.text_encoder] if args.precomputed_text_embeddings else model.text_encoder.output_dim
+        text_queue = TextQueue(queue_size=args.text_queue_size, dim=text_queue_dim).to(device)
+
+    return loc_queue, text_queue
+
+
+def try_resume(args, save_path: Path, checkpoint_dir: Path, model, criterion, optimizer, scheduler, device, loc_queue, text_queue, early_stopping):
+    start_step = 0
+    best_val_loss = float('inf')
+
+    if args.resume_from:
+        start_step, best_val_loss = load_checkpoint(args.resume_from, model, criterion, optimizer, scheduler, device, loc_queue=loc_queue, text_queue=text_queue)
+        early_stopping.load_best(best_val_loss)
+    elif save_path.exists() and not (checkpoint_dir / "done").exists():
+        logger.info(f"Found existing checkpoint without 'done' marker. Auto-resuming from {save_path}")
+        start_step, best_val_loss = load_checkpoint(save_path, model, criterion, optimizer, scheduler, device, loc_queue=loc_queue, text_queue=text_queue)
+        early_stopping.load_best(best_val_loss)
+
+    return start_step, best_val_loss
+
+
+def main():
+    args = get_args()
+    set_seed(args.seed)
+    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
+
+    dataset_name = args.dataset_name
+    default_wandb_name, default_run_tag = build_run_name(args, dataset_name)
+    desired_wandb_name = sanitize(args.wandb_run_name) if getattr(args, "wandb_run_name", None) else default_wandb_name
+
+    checkpoint_base = build_checkpoint_base(args, dataset_name)
+    if (checkpoint_base / default_run_tag / "done").exists():
+        logger.info(f"Run {default_run_tag} already completed. Skipping.")
+        return
+
+    run_tag = init_run(args, dataset_name, default_run_tag, desired_wandb_name)
+    setup_logging(sanitize(f"{dataset_name}__{run_tag}"), Path("logs"))
+    checkpoint_dir, save_path = setup_checkpoint_dir(checkpoint_base, run_tag, args)
+
+    args.precomputed_text_embeddings = args.precomputed_text_embeddings and args.text_finetune_mode not in ("all", "lora")
+    args.precomputed_location_embeddings = args.precomputed_location_embeddings and args.loc_finetune_mode not in ("all", "lora")
+
+    train_dataloader, val_dataloader = build_dataloaders(
+        dataset_path=args.dataset_path,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        seed=args.seed,
+        precomputed_text_embeddings=args.precomputed_text_embeddings,
+        precomputed_location_embeddings=args.precomputed_location_embeddings,
+        train_subsample_size=args.train_subsample_size,
+        val_subsample_size=args.val_subsample_size,
+    )
+    model = build_model(
+        text_encoder=args.text_encoder,
+        location_encoder=args.location_encoder,
+        text_projection=args.text_projection,
+        location_projection=args.location_projection,
+        shared_dim=args.shared_dim,
+        text_finetune_mode=args.text_finetune_mode,
+        loc_finetune_mode=args.loc_finetune_mode,
+        text_proj_hidden_layers=args.text_proj_hidden_layers,
+        text_proj_hidden_features=args.text_proj_hidden_features,
+        loc_proj_hidden_layers=args.loc_proj_hidden_layers,
+        loc_proj_hidden_features=args.loc_proj_hidden_features,
+        text_nonlinearity=args.text_nonlinearity,
+        loc_nonlinearity=args.loc_nonlinearity,
+        precomputed_text_embeddings=args.precomputed_text_embeddings,
+        precomputed_location_embeddings=args.precomputed_location_embeddings,
+        device=device,
+    )
+    if args.text_finetune_mode == 'lora':
+        model.text_encoder.text_encoder.m = apply_lora(
+            model.text_encoder.text_encoder.m, int(args.lora_rank), last_n_layers=args.lora_layers
+        )
+    if not args.precomputed_text_embeddings:
+        model.text_encoder.text_encoder.m.gradient_checkpointing_enable()
+
+    loc_queue, text_queue = build_queues(args, model, device)
+
+    criterion = make_loss(args.train_loss, args.logit_scale_temp, args.lambda_alignment, args.sigma).to(device)
+    optimizer = build_optimizer(args, model, criterion)
+    scheduler = build_scheduler(args, optimizer, args.max_steps)
+    early_stopper = EarlyStopping(patience_steps=args.num_val_checks_without_improvement, mode="min")
+    logger.info(f"Loss: {args.train_loss}")
+    logger.info(f"LR={args.lr}, scheduler={getattr(args, 'scheduler', None)}, warmup_steps={getattr(args, 'warmup_steps', 0)}, max_steps={args.max_steps}, weight_decay={args.weight_decay}")
+
+    start_step, best_val_loss = try_resume(args, save_path, checkpoint_dir, model, criterion, optimizer, scheduler, device, loc_queue, text_queue, early_stopper)
+
+    run_train(
+        train_dataloader,
+        val_dataloader,
+        model,
+        criterion,
+        optimizer,
+        device,
+        save_path=save_path,
+        args=args,
+        scheduler=scheduler,
+        accumulation_steps=args.accumulation_steps,
+        loc_queue=loc_queue,
+        text_queue=text_queue,
+        max_steps=args.max_steps,
+        val_every_n_steps=args.val_every_n_steps,
+        early_stopper=early_stopper,
+        start_step=start_step,
+        best_val=best_val_loss,
     )
 
-    ts = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    run_name = f"Location2Text_S2_{ts}"
-    if cli.trainer.logger is not None:
-        cli.trainer.logger.experiment.name = run_name
-        # log datamodule hyperparams
-        # model hyperparams are logged in class
-        cli.trainer.logger.log_hyperparams(cli.datamodule.hparams)
-
-    
-    # Create folder to log configs
-    dirname_cfg = Path(config_fn).parent
-    dir_log_cfg = Path(cli.trainer.log_dir) / dirname_cfg
-    dir_log_cfg.mkdir(parents=True, exist_ok=True)
-    
-
-    cli.trainer.fit(
-        model=cli.model,
-        datamodule=cli.datamodule,
-    )
+    if not args.no_wandb:
+        wandb.finish()
 
 
-if __name__ == "__main__":
-    config_fn = "./configs/train_location_text_alignment_encoder_10.yaml"
-
-    cli_main(config_fn)
-        
+if __name__ == '__main__':
+    main()

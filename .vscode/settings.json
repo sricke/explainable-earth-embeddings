@@ -1,0 +1,4 @@
+{
+    "python-envs.defaultPackageManager": "ms-python.python:pip",
+    "liveServer.settings.port": 5504
+}

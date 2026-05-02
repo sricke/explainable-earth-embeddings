@@ -1,1 +1,0 @@
-# explainable-earth-embeddings
