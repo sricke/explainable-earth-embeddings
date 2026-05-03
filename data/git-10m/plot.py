@@ -1,6 +1,11 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
+from paths import GIT10M_DIR
 
 SPLITS = {"train": "tab:blue", "val": "tab:orange", "test": "tab:green"}
 
@@ -11,7 +16,7 @@ def make_basemap(ax):
 
 # Load all splits once
 data = {
-    split: pd.read_parquet(f"/home/libe2152/data/git-10M/{split}.parquet", columns=["lon", "lat"])
+    split: pd.read_parquet(GIT10M_DIR / f"{split}.parquet", columns=["lon", "lat"])
     for split in SPLITS
 }
 

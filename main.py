@@ -18,6 +18,7 @@ from train import run_train
 from utils import EarlyStopping, set_seed, build_scheduler, build_optimizer
 from log_utils import setup_logging, build_run_name, sanitize
 from checkpoint import build_checkpoint_base, load_checkpoint
+from paths import DATA_ROOT
 
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,8 @@ def get_args():
     parser = argparse.ArgumentParser()
     # Data
     parser.add_argument('--dataset_name', type=str, required=True)
-    parser.add_argument('--dataset_path', type=str, required=True)
+    parser.add_argument('--dataset_path', type=str, default=None,
+                        help='If omitted, resolved as DATA_ROOT/dataset_name/location_encoder/')
     parser.add_argument('--precomputed_dir', type=str, default=None)
     parser.add_argument('--train_subsample_size', type=_int, required=True)
     parser.add_argument('--val_subsample_size', type=_int, required=True)
@@ -153,6 +155,8 @@ def try_resume(args, save_path: Path, checkpoint_dir: Path, model, criterion, op
 
 def main():
     args = get_args()
+    if not getattr(args, 'dataset_path', None):
+        args.dataset_path = str(DATA_ROOT / args.dataset_name / args.location_encoder)
     set_seed(args.seed)
     device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
 

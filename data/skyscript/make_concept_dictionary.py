@@ -1,10 +1,13 @@
-import pickle, json, glob
+import sys, pickle, json, glob
+from pathlib import Path
 from tqdm import tqdm
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from paths import SKYSCRIPT_DIR
 
-meta2_dir = "/home/libe2152/data/skyscript/meta2"
-out_path = "/home/libe2152/data/skyscript/concepts.json"
+meta2_dir = SKYSCRIPT_DIR / "meta2"
+out_path  = SKYSCRIPT_DIR / "concepts.json"
 
-metas = [pickle.load(open(f, "rb")) for f in glob.glob(f"{meta2_dir}/*.pickle")]
+metas = [pickle.load(open(f, "rb")) for f in glob.glob(str(meta2_dir / "*.pickle"))]
 
 concepts = set()
 for m in tqdm(metas, desc="Meta files"):

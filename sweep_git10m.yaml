@@ -14,9 +14,6 @@ metric:
 parameters:
   dataset_name:
     value: git-10M
-  dataset_path:
-    values:
-      - /home/libe2152/data/git-10M/satclip/
   train_subsample_size:
     value: None
   val_subsample_size:
@@ -38,7 +35,7 @@ parameters:
 
   # --- Location encoder projection ---
   location_encoder:
-    value: satclip
+    values: [csp_fmow, sinr, csp_inat]
   location_projection:
     value: none
   loc_nonlinearity:

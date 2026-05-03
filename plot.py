@@ -25,8 +25,7 @@ sys.path.append("..")
 sys.path.append("../..")
 from models.model import build_model
 from models.finetune import apply_lora
-
-SHAPEFILE = Path.home() / "data/shapefiles/ne_110m_admin_0_countries.shp"
+from paths import SHAPEFILE
 
 CONTINENT_PALETTE = {
     "Africa":        "#4C78A8",  # cool

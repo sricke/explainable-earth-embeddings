@@ -149,7 +149,6 @@ dependencies:
       - ee==0.2
       - eerepr==0.1.2
       - einops==0.8.2
-      - en-core-web-sm==3.8.0
       - fastparquet==2026.3.0
       - filelock==3.25.2
       - folium==0.20.0
@@ -345,4 +344,3 @@ dependencies:
       - xyzservices==2026.3.0
       - yarl==1.23.0
       - zarr==3.1.6
-prefix: /home/libe2152/miniconda3/envs/fai

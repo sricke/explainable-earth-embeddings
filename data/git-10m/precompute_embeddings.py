@@ -24,7 +24,6 @@ from dataset import GeoTextDataset
 from models.location_encoder import LocationEncoder
 from models.text_encoder import TextEncoder
 
-GIT10M_DIR = Path.home() / "data" / "git-10M"
 SPLITS = ["train", "val", "test"]
 DEVICE = "cuda"
 
@@ -108,9 +107,13 @@ def precompute(location_model, text_model, batch_size: int):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--location_model", default=None, choices=["satclip", "geoclip", "gair", "climplicit"])
+    parser.add_argument("--git10m_dir", default=None)
+    parser.add_argument("--location_model", default=None, choices=["satclip", "geoclip", "gair", "climplicit", "csp_fmow", "csp_inat", "sinr"])
     parser.add_argument("--text_model", default=None, choices=["open_clip_vit_l", "open_clip_vit_h", "geoclip"])
     parser.add_argument("--batch_size", type=int, default=1024)
     args = parser.parse_args()
+
+    global GIT10M_DIR
+    GIT10M_DIR = Path(args.git10m_dir)
 
     precompute(args.location_model, args.text_model, args.batch_size)

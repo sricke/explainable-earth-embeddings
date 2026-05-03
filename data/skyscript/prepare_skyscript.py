@@ -1,9 +1,10 @@
+import sys
 import pickle
 import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
-
-SKYSCRIPT_DIR = Path("/home/libe2152/data/skyscript")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from paths import SKYSCRIPT_DIR
 META_DIR = SKYSCRIPT_DIR / "meta2"
 OUT_DIR = SKYSCRIPT_DIR
 
