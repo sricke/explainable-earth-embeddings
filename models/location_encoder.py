@@ -3,25 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from models.layers import EmbeddingProjection
-
-LOCATION_EMBEDDING_DIMENSIONS = {
-    "geoclip": 512,
-    "satclip": 256,
-    "gair": 768,
-    "climplicit": 1024 # this defaults to 256 dim embeddings times 4 months!
-}
-
-LOCATION_MODEL_IDS = {
-    "satclip": "microsoft/SatCLIP-ViT16-L40",
-    # might need to include L10 as well, or can also look at ResNet-based models
-    "climplicit": "Jobedo/climplicit",
-    "gair": "PingL/GAIR"
-}
-
-LOCATION_MODEL_CHECKPOINTS = {
-    "satclip": "satclip-vit16-l40.ckpt",
-    "gair": "checkpoint.pth"
-}
+from models.utils_loc import *
 
 
 def load_model(location_model: str, device: str = "cuda:0"):
@@ -48,6 +30,20 @@ def load_model(location_model: str, device: str = "cuda:0"):
         checkpoint = hf_hub_download(repo_id=LOCATION_MODEL_IDS["gair"], filename=LOCATION_MODEL_CHECKPOINTS["gair"])
         model = GAIRModel.from_checkpoint(checkpoint, device=device, query_mode="nili")
         return model.location_encoder
+    
+    elif location_model.startswith("csp"):
+        return load_csp(LOCATION_MODEL_CHECKPOINTS[location_model], device)
+
+    elif location_model == "sinr":
+        return load_sinr(LOCATION_MODEL_CHECKPOINTS["sinr"], device)
+    
+    elif location_model == "taxabind":
+        from transformers import PretrainedConfig
+        from rshf.taxabind import TaxaBind
+        config = PretrainedConfig.from_pretrained(LOCATION_MODEL_IDS['taxabind'])
+        taxabind = TaxaBind(config)
+        return taxabind.get_location_encoder()
+
     else:
         raise ValueError(f"Location model '{location_model}' is not supported")
 
@@ -96,14 +92,19 @@ class LocationEncoder(nn.Module):
             embedding = F.normalize(x.to(dtype=torch.float32), dim=-1)
         else:
             assert x.shape[1] == 2, "Forward expects (lat, lon) pairs"
-            x = x[:, [1, 0]] if self.location_model in ["satclip", "gair", "climplicit"] else x
+            x = x[:, [1, 0]] if self.location_model in ["satclip", "gair", "climplicit", "sinr"] or self.location_model.startswith("csp") else x
             x = x.double() if self.location_model in ["satclip"] else x.float()
 
             # Ensure coords live on the same device as the encoder.
             enc_device = next(self.location_encoder.parameters()).device
             if x.device != enc_device:
                 x = x.to(enc_device, non_blocking=True)
-            embedding = F.normalize(self.location_encoder(x).float(), dim=-1)
+
+            if self.location_model.startswith("csp") or self.location_model == "sinr":
+                raw = self.location_encoder(x, return_feats=True)
+            else:
+                raw = self.location_encoder(x)
+            embedding = F.normalize(raw.float(), dim=-1)
 
         if self.embed_project is not None:
             embedding = F.normalize(self.embed_project(embedding), dim=-1)

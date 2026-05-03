@@ -76,4 +76,4 @@ class EarlyStopping:
 
         if self.patience_steps <= 0:
             return False
-        return self.count >= self.patience
+        return self.count >= self.patience_steps
