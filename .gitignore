@@ -26,3 +26,6 @@ wandb/
 
 splice_results/
 logs/
+eval_results/plots/
+eval_results/figures/
+splice_results/
