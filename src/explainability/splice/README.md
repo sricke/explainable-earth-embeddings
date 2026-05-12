@@ -24,7 +24,7 @@ python location_text_alignment/data/create_dense_grid.py \
 
 Output: a CSV with `lat` and `lon` columns at the path given by `--out`.
 
-### Step 3 — Run SPLICE demo
+### Step 3: Run SPLICE demo
 
 Open [`notebooks/splice_demo.ipynb`](../../../notebooks/splice_demo.ipynb) and set:
 
