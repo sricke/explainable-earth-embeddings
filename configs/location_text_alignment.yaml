@@ -1,0 +1,44 @@
+dataset:
+  name: git-10m
+  path: ~/data/git-10M/satclip/
+
+model:
+  save_dir: ~/outputs/explainable-earth-embeddings/
+
+# Text model
+text_encoder:
+  name: open_clip_vit_l
+  finetune_mode: lora
+  projection: linear
+  proj_hidden_layers: 0
+  proj_hidden_features: null
+  proj_nonlinearity: null
+  precomputed: false
+  lora_r: 8
+  lora_alpha: 1.0
+  lora_last_n_layers: 8
+
+# Location model
+location_encoder:
+  finetune_mode: none
+  precomputed: true
+
+# Training
+training:
+  batch_size: 2048
+  num_workers: 4
+  train_subsample_size: null
+  lr: 0.0001
+  weight_decay: 0.01
+  max_steps: 100000
+  accumulation_steps: 4
+  val_every_n_steps: 500
+  scheduler: cosine
+  warmup_steps: 0
+  num_val_checks_without_improvement: 5
+  seed: 42
+
+# Logging
+logging:
+  wandb_project: null
+  resume: null
