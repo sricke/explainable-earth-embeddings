@@ -22,29 +22,6 @@ Output parquets (`train.parquet`, `val.parquet`, `test.parquet`) are written to 
 
 Available location models: `satclip`, `geoclip`, `climplicit`, `csp_fmow`, `sinr`.
 
-## Create dense grid for SpLiCE evaluation
-
-Generates 100,000 points sampled uniformly at random across land surfaces (using sine-latitude sampling to avoid polar clustering). Used as a fixed evaluation set for SpLiCE decompositions.
-
-**Prerequisites:** a land polygon shapefile, e.g. [Natural Earth 10m land](https://www.naturalearthdata.com/downloads/10m-physical-vectors/).
-
-**Configure paths:** create `src/explainability/splice/paths.py` (the script imports from two directories up):
-
-```python
-from pathlib import Path
-
-DATA_ROOT = Path("/path/to/data")        # output root; grid saved to DATA_ROOT/dense_grid/dense_grid.csv
-SHAPEFILE = Path("/path/to/ne_10m_land.shp")  # land polygon shapefile
-```
-
-**Run:**
-
-```bash
-python data/create_dense_grid.py
-```
-
-Output: `<DATA_ROOT>/dense_grid/dense_grid.csv` — a CSV with `lat` and `lon` columns, 100,000 rows.
-
 
 ## Setup
 

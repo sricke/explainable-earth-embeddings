@@ -1,0 +1,106 @@
+2026-04-20 19:45:25,973 [INFO] Logging to logs/modified-git-10M__txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-4__loss-clip__lr-0.0001__sub-1000000.log
+2026-04-20 19:45:25,976 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/modified-git-10M/txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-4__loss-clip__lr-0.0001__sub-1000000
+2026-04-20 19:46:35,626 [INFO] Loaded dataset from /home/libe2152/data/modified-git-10M/satclip/open_clip/
+2026-04-20 19:46:35,626 [INFO] Train size=1000000, Val size=250000
+2026-04-20 19:46:35,767 [INFO] Parsing model identifier. Schema: None, Identifier: ViT-L-14
+2026-04-20 19:46:35,767 [INFO] Loaded built-in ViT-L-14 model config.
+2026-04-20 19:46:35,868 [INFO] HTTP Request: HEAD https://huggingface.co/timm/vit_large_patch14_clip_224.openai/resolve/main/open_clip_model.safetensors "HTTP/1.1 302 Found"
+2026-04-20 19:46:35,873 [INFO] Instantiating model architecture: CLIP
+2026-04-20 19:46:38,631 [INFO] Loading full pretrained weights from: /home/libe2152/.cache/huggingface/hub/models--timm--vit_large_patch14_clip_224.openai/snapshots/18d0535469bb561bf468d76c1d73aa35156c922b/open_clip_model.safetensors
+2026-04-20 19:46:38,804 [INFO] Final image preprocessing configuration set: {'size': (224, 224), 'mode': 'RGB', 'mean': (0.48145466, 0.4578275, 0.40821073), 'std': (0.26862954, 0.26130258, 0.27577711), 'interpolation': 'bicubic', 'resize_mode': 'shortest', 'fill_color': 0}
+2026-04-20 19:46:38,805 [INFO] Model ViT-L-14 creation process complete.
+2026-04-20 19:46:38,806 [INFO] Parsing tokenizer identifier. Schema: None, Identifier: ViT-L-14
+2026-04-20 19:46:38,806 [INFO] Attempting to load config from built-in: ViT-L-14
+2026-04-20 19:46:38,806 [INFO] Using default SimpleTokenizer.
+2026-04-20 19:46:38,872 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-20 19:46:39,323 [INFO] Loss: clip
+2026-04-20 19:46:39,323 [INFO] LR=0.0001, weight_decay=0.01
+2026-04-20 20:17:23,695 [INFO] Logging to logs/modified-git-10M__txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-4__loss-clip__lr-0.0001__sub-1000000.log
+2026-04-20 20:17:23,698 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/modified-git-10M/txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-4__loss-clip__lr-0.0001__sub-1000000
+2026-04-20 20:18:32,715 [INFO] Loaded dataset from /home/libe2152/data/modified-git-10M/satclip/open_clip/
+2026-04-20 20:18:32,716 [INFO] Train size=1000000, Val size=250000
+2026-04-20 20:18:32,851 [INFO] Parsing model identifier. Schema: None, Identifier: ViT-L-14
+2026-04-20 20:18:32,851 [INFO] Loaded built-in ViT-L-14 model config.
+2026-04-20 20:18:32,921 [INFO] HTTP Request: HEAD https://huggingface.co/timm/vit_large_patch14_clip_224.openai/resolve/main/open_clip_model.safetensors "HTTP/1.1 302 Found"
+2026-04-20 20:18:32,926 [INFO] Instantiating model architecture: CLIP
+2026-04-20 20:18:35,651 [INFO] Loading full pretrained weights from: /home/libe2152/.cache/huggingface/hub/models--timm--vit_large_patch14_clip_224.openai/snapshots/18d0535469bb561bf468d76c1d73aa35156c922b/open_clip_model.safetensors
+2026-04-20 20:18:35,824 [INFO] Final image preprocessing configuration set: {'size': (224, 224), 'mode': 'RGB', 'mean': (0.48145466, 0.4578275, 0.40821073), 'std': (0.26862954, 0.26130258, 0.27577711), 'interpolation': 'bicubic', 'resize_mode': 'shortest', 'fill_color': 0}
+2026-04-20 20:18:35,824 [INFO] Model ViT-L-14 creation process complete.
+2026-04-20 20:18:35,825 [INFO] Parsing tokenizer identifier. Schema: None, Identifier: ViT-L-14
+2026-04-20 20:18:35,825 [INFO] Attempting to load config from built-in: ViT-L-14
+2026-04-20 20:18:35,826 [INFO] Using default SimpleTokenizer.
+2026-04-20 20:18:35,893 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-20 20:18:36,304 [INFO] Loss: clip
+2026-04-20 20:18:36,305 [INFO] LR=0.0001, weight_decay=0.01
+2026-04-20 20:24:33,552 [INFO] Logging to logs/modified-git-10M__txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-4__loss-clip__lr-0.0001__sub-1000000.log
+2026-04-20 20:24:33,555 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/modified-git-10M/txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-4__loss-clip__lr-0.0001__sub-1000000
+2026-04-20 20:25:42,812 [INFO] Loaded dataset from /home/libe2152/data/modified-git-10M/satclip/open_clip/
+2026-04-20 20:25:42,813 [INFO] Train size=1000000, Val size=250000
+2026-04-20 20:25:42,951 [INFO] Parsing model identifier. Schema: None, Identifier: ViT-L-14
+2026-04-20 20:25:42,951 [INFO] Loaded built-in ViT-L-14 model config.
+2026-04-20 20:25:43,049 [INFO] HTTP Request: HEAD https://huggingface.co/timm/vit_large_patch14_clip_224.openai/resolve/main/open_clip_model.safetensors "HTTP/1.1 302 Found"
+2026-04-20 20:25:43,054 [INFO] Instantiating model architecture: CLIP
+2026-04-20 20:25:45,801 [INFO] Loading full pretrained weights from: /home/libe2152/.cache/huggingface/hub/models--timm--vit_large_patch14_clip_224.openai/snapshots/18d0535469bb561bf468d76c1d73aa35156c922b/open_clip_model.safetensors
+2026-04-20 20:25:45,971 [INFO] Final image preprocessing configuration set: {'size': (224, 224), 'mode': 'RGB', 'mean': (0.48145466, 0.4578275, 0.40821073), 'std': (0.26862954, 0.26130258, 0.27577711), 'interpolation': 'bicubic', 'resize_mode': 'shortest', 'fill_color': 0}
+2026-04-20 20:25:45,971 [INFO] Model ViT-L-14 creation process complete.
+2026-04-20 20:25:45,972 [INFO] Parsing tokenizer identifier. Schema: None, Identifier: ViT-L-14
+2026-04-20 20:25:45,973 [INFO] Attempting to load config from built-in: ViT-L-14
+2026-04-20 20:25:45,973 [INFO] Using default SimpleTokenizer.
+2026-04-20 20:25:46,039 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-20 20:25:46,410 [INFO] Loss: clip
+2026-04-20 20:25:46,410 [INFO] LR=0.0001, weight_decay=0.01
+2026-04-20 20:27:09,727 [INFO] Logging to logs/modified-git-10M__txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-4__loss-clip__lr-0.0001__sub-1000000.log
+2026-04-20 20:27:09,730 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/modified-git-10M/txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-4__loss-clip__lr-0.0001__sub-1000000
+2026-04-20 20:28:18,912 [INFO] Loaded dataset from /home/libe2152/data/modified-git-10M/satclip/open_clip/
+2026-04-20 20:28:18,912 [INFO] Train size=1000000, Val size=250000
+2026-04-20 20:28:19,051 [INFO] Parsing model identifier. Schema: None, Identifier: ViT-L-14
+2026-04-20 20:28:19,052 [INFO] Loaded built-in ViT-L-14 model config.
+2026-04-20 20:28:19,155 [INFO] HTTP Request: HEAD https://huggingface.co/timm/vit_large_patch14_clip_224.openai/resolve/main/open_clip_model.safetensors "HTTP/1.1 302 Found"
+2026-04-20 20:28:19,161 [INFO] Instantiating model architecture: CLIP
+2026-04-20 20:28:21,882 [INFO] Loading full pretrained weights from: /home/libe2152/.cache/huggingface/hub/models--timm--vit_large_patch14_clip_224.openai/snapshots/18d0535469bb561bf468d76c1d73aa35156c922b/open_clip_model.safetensors
+2026-04-20 20:28:22,055 [INFO] Final image preprocessing configuration set: {'size': (224, 224), 'mode': 'RGB', 'mean': (0.48145466, 0.4578275, 0.40821073), 'std': (0.26862954, 0.26130258, 0.27577711), 'interpolation': 'bicubic', 'resize_mode': 'shortest', 'fill_color': 0}
+2026-04-20 20:28:22,055 [INFO] Model ViT-L-14 creation process complete.
+2026-04-20 20:28:22,056 [INFO] Parsing tokenizer identifier. Schema: None, Identifier: ViT-L-14
+2026-04-20 20:28:22,057 [INFO] Attempting to load config from built-in: ViT-L-14
+2026-04-20 20:28:22,057 [INFO] Using default SimpleTokenizer.
+2026-04-20 20:28:22,124 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-20 20:28:22,491 [INFO] Loss: clip
+2026-04-20 20:28:22,491 [INFO] LR=0.0001, weight_decay=0.01
+2026-04-20 20:31:04,208 [INFO] Logging to logs/modified-git-10M__txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-4__loss-clip__lr-0.0001__sub-1000000.log
+2026-04-20 20:31:04,211 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/modified-git-10M/txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-4__loss-clip__lr-0.0001__sub-1000000
+2026-04-20 20:32:15,042 [INFO] Loaded dataset from /home/libe2152/data/modified-git-10M/satclip/open_clip/
+2026-04-20 20:32:15,043 [INFO] Train size=1000000, Val size=250000
+2026-04-20 20:32:15,180 [INFO] Parsing model identifier. Schema: None, Identifier: ViT-L-14
+2026-04-20 20:32:15,180 [INFO] Loaded built-in ViT-L-14 model config.
+2026-04-20 20:32:15,279 [INFO] HTTP Request: HEAD https://huggingface.co/timm/vit_large_patch14_clip_224.openai/resolve/main/open_clip_model.safetensors "HTTP/1.1 302 Found"
+2026-04-20 20:32:15,281 [WARNING] Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-04-20 20:32:15,286 [INFO] Instantiating model architecture: CLIP
+2026-04-20 20:32:18,022 [INFO] Loading full pretrained weights from: /home/libe2152/.cache/huggingface/hub/models--timm--vit_large_patch14_clip_224.openai/snapshots/18d0535469bb561bf468d76c1d73aa35156c922b/open_clip_model.safetensors
+2026-04-20 20:32:18,196 [INFO] Final image preprocessing configuration set: {'size': (224, 224), 'mode': 'RGB', 'mean': (0.48145466, 0.4578275, 0.40821073), 'std': (0.26862954, 0.26130258, 0.27577711), 'interpolation': 'bicubic', 'resize_mode': 'shortest', 'fill_color': 0}
+2026-04-20 20:32:18,196 [INFO] Model ViT-L-14 creation process complete.
+2026-04-20 20:32:18,197 [INFO] Parsing tokenizer identifier. Schema: None, Identifier: ViT-L-14
+2026-04-20 20:32:18,197 [INFO] Attempting to load config from built-in: ViT-L-14
+2026-04-20 20:32:18,198 [INFO] Using default SimpleTokenizer.
+2026-04-20 20:32:18,264 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-20 20:32:18,691 [INFO] Loss: clip
+2026-04-20 20:32:18,691 [INFO] LR=0.0001, weight_decay=0.01
+2026-04-20 20:33:25,998 [WARNING] socket.send() raised exception.
+2026-04-20 20:33:25,999 [WARNING] socket.send() raised exception.
+2026-04-20 21:32:04,287 [INFO] Logging to logs/modified-git-10M__txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-4__loss-clip__lr-0.0001__sub-1000000.log
+2026-04-20 21:32:04,290 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/modified-git-10M/txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-4__loss-clip__lr-0.0001__sub-1000000
+2026-04-20 21:33:10,871 [INFO] Loaded dataset from /home/libe2152/data/modified-git-10M/satclip/open_clip/
+2026-04-20 21:33:10,872 [INFO] Train size=1000000, Val size=250000
+2026-04-20 21:33:11,005 [INFO] Parsing model identifier. Schema: None, Identifier: ViT-L-14
+2026-04-20 21:33:11,005 [INFO] Loaded built-in ViT-L-14 model config.
+2026-04-20 21:33:11,073 [INFO] HTTP Request: HEAD https://huggingface.co/timm/vit_large_patch14_clip_224.openai/resolve/main/open_clip_model.safetensors "HTTP/1.1 302 Found"
+2026-04-20 21:33:11,075 [WARNING] Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-04-20 21:33:11,079 [INFO] Instantiating model architecture: CLIP
+2026-04-20 21:33:13,717 [INFO] Loading full pretrained weights from: /home/libe2152/.cache/huggingface/hub/models--timm--vit_large_patch14_clip_224.openai/snapshots/18d0535469bb561bf468d76c1d73aa35156c922b/open_clip_model.safetensors
+2026-04-20 21:33:13,862 [INFO] Final image preprocessing configuration set: {'size': (224, 224), 'mode': 'RGB', 'mean': (0.48145466, 0.4578275, 0.40821073), 'std': (0.26862954, 0.26130258, 0.27577711), 'interpolation': 'bicubic', 'resize_mode': 'shortest', 'fill_color': 0}
+2026-04-20 21:33:13,862 [INFO] Model ViT-L-14 creation process complete.
+2026-04-20 21:33:13,863 [INFO] Parsing tokenizer identifier. Schema: None, Identifier: ViT-L-14
+2026-04-20 21:33:13,864 [INFO] Attempting to load config from built-in: ViT-L-14
+2026-04-20 21:33:13,864 [INFO] Using default SimpleTokenizer.
+2026-04-20 21:33:13,928 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-20 21:33:14,407 [INFO] Loss: clip
+2026-04-20 21:33:14,407 [INFO] LR=0.0001, weight_decay=0.01

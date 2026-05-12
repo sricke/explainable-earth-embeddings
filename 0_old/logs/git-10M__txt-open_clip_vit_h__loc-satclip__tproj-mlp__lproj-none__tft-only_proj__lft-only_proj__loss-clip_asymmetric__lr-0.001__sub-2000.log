@@ -1,0 +1,27 @@
+2026-04-29 02:09:33,536 [INFO] Logging to logs/git-10M__txt-open_clip_vit_h__loc-satclip__tproj-mlp__lproj-none__tft-only_proj__lft-only_proj__loss-clip_asymmetric__lr-0.001__sub-2000.log
+2026-04-29 02:09:33,539 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/git-10M/txt-open_clip_vit_h__loc-satclip__tproj-mlp__lproj-none__tft-only_proj__lft-only_proj__loss-clip_asymmetric__lr-0.001__sub-2000
+2026-04-29 02:11:01,132 [INFO] Loaded dataset from /home/libe2152/data/git-10M/satclip/open_clip_vit_h/
+2026-04-29 02:11:01,132 [INFO] Train size=2000, Val size=500
+2026-04-29 02:11:01,154 [INFO] Using text encoder=open_clip_vit_h, location encoder=satclip
+2026-04-29 02:11:01,531 [INFO] Loss: clip_asymmetric
+2026-04-29 02:11:01,531 [INFO] LR=0.001, scheduler=cosine, warmup_epochs=2, weight_decay=0.01
+2026-04-29 02:11:01,532 [INFO] Starting epoch 0
+2026-04-29 02:11:03,625 [INFO] [Epoch 0] train_loss=8.6673
+2026-04-29 02:11:05,327 [INFO] [Epoch 0] val_loss=8.8051
+2026-04-29 02:11:05,330 [INFO] Epoch 0 | train=8.6673 | val=8.8051 | lr=5.00e-04
+2026-04-29 02:11:05,397 [INFO] Saved checkpoint (val=8.8051)
+2026-04-29 02:11:05,398 [INFO] Starting epoch 1
+2026-04-29 02:11:28,894 [INFO] Logging to logs/git-10M__txt-open_clip_vit_h__loc-satclip__tproj-mlp__lproj-none__tft-only_proj__lft-only_proj__loss-clip_asymmetric__lr-0.001__sub-2000.log
+2026-04-29 02:11:28,896 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/git-10M/txt-open_clip_vit_h__loc-satclip__tproj-mlp__lproj-none__tft-only_proj__lft-only_proj__loss-clip_asymmetric__lr-0.001__sub-2000
+2026-04-29 02:12:58,858 [INFO] Loaded dataset from /home/libe2152/data/git-10M/satclip/open_clip_vit_h/
+2026-04-29 02:12:58,858 [INFO] Train size=2000, Val size=500
+2026-04-29 02:12:58,883 [INFO] Using text encoder=open_clip_vit_h, location encoder=satclip
+2026-04-29 02:12:59,338 [INFO] Loss: clip_asymmetric
+2026-04-29 02:12:59,338 [INFO] LR=0.001, scheduler=None, warmup_epochs=0, weight_decay=0.01
+2026-04-29 02:12:59,338 [INFO] Found existing checkpoint without 'done' marker. Auto-resuming from /home/libe2152/outputs/explainable-earth-embeddings/git-10M/txt-open_clip_vit_h__loc-satclip__tproj-mlp__lproj-none__tft-only_proj__lft-only_proj__loss-clip_asymmetric__lr-0.001__sub-2000/best.pt
+2026-04-29 02:12:59,358 [INFO] Resumed from epoch 0
+2026-04-29 02:12:59,358 [INFO] Starting epoch 1
+2026-04-29 02:13:01,490 [INFO] [Epoch 1] train_loss=9.0651
+2026-04-29 02:13:03,285 [INFO] [Epoch 1] val_loss=9.0531
+2026-04-29 02:13:03,289 [INFO] Epoch 1 | train=9.0651 | val=9.0531 | lr=5.00e-04
+2026-04-29 02:13:03,289 [INFO] Training completed all epochs. Wrote 'done' marker.

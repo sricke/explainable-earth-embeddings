@@ -1,0 +1,69 @@
+datasets:
+  root: /data/locbench
+
+  fmow:
+    data: "${root}/fmow/{split}_location.json"
+    annotation: "${root}/fmow/{split}.json"
+    value_col: category_id
+    lat_col: latitude
+    lon_col: longitude
+    splice_dir: "${root}/fmow/splice"
+
+  nabirds:
+    meta: "${root}/nabirds/nabirds_with_loc_2019.json"
+    value_col: class_id
+    lat_col: lat
+    lon_col: lon
+    splice_dir: "${root}/nabirds/splice"
+
+  birdsnap:
+    meta: "${root}/birdsnap/birdsnap_with_loc_2019.json"
+    value_col: class_id
+    lat_col: lat
+    lon_col: lon
+    splice_dir: "${root}/birdsnap/splice"
+
+  yfcc:
+    meta: "${root}/yfcc/train_test_split.csv"
+    value_col: class
+    lat_col: lat
+    lon_col: lon
+    splice_dir: "${root}/yfcc/splice"
+
+  mosaiks:
+    elevation:
+      csv: "${root}/mosaiks/elevation/data.csv"
+      value_col: elevation
+      lat_col: lat
+      lon_col: lon
+      splice_dir: "${root}/mosaiks/elevation/splice"
+    forest:
+      csv: "${root}/mosaiks/forest/data.csv"
+      value_col: treecover
+      lat_col: lat
+      lon_col: lon
+      splice_dir: "${root}/mosaiks/forest/splice"
+    nightlights:
+      csv: "${root}/mosaiks/nightlights/data.csv"
+      value_col: luminosity
+      lat_col: lat
+      lon_col: lon
+      splice_dir: "${root}/mosaiks/nightlights/splice"
+    population:
+      csv: "${root}/mosaiks/population/data.csv"
+      value_col: population
+      lat_col: lat
+      lon_col: lon
+      splice_dir: "${root}/mosaiks/population/splice"
+
+  sustainbench:
+    trainval: "${root}/sustainbench/dhs_trainval_labels.csv"
+    test: "${root}/sustainbench/dhs_test_labels.csv"
+    value_col: asset_index_normalized
+    lat_col: lat
+    lon_col: lon
+    splice_dir: "${root}/sustainbench/splice"
+
+outputs:
+  root: /data/locbench
+  ridge_results: "${root}/ridge_results"

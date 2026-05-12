@@ -15,4 +15,5 @@ wandb/
 *.csv
 *.jsonl
 
-0_old/
+0_old/ # for now, while transferring old code
+

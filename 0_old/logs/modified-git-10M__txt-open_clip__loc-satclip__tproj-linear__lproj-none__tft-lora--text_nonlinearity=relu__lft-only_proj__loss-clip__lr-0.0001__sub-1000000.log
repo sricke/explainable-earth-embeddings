@@ -1,0 +1,126 @@
+2026-04-20 21:15:58,717 [INFO] Logging to logs/modified-git-10M__txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora--text_nonlinearity=relu__lft-only_proj__loss-clip__lr-0.0001__sub-1000000.log
+2026-04-20 21:15:58,719 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/modified-git-10M/txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-lora--text_nonlinearity=relu__lft-only_proj__loss-clip__lr-0.0001__sub-1000000
+2026-04-20 21:17:05,960 [INFO] Loaded dataset from /home/libe2152/data/modified-git-10M/satclip/open_clip/
+2026-04-20 21:17:05,960 [INFO] Train size=1000000, Val size=250000
+2026-04-20 21:17:05,963 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-20 21:17:06,269 [INFO] Loss: clip
+2026-04-20 21:17:06,270 [INFO] LR=0.0001, weight_decay=0.01
+2026-04-20 21:17:26,773 [INFO] [Epoch 0] train_loss=7.8590
+2026-04-20 21:17:33,206 [INFO] [Epoch 0] val_loss=7.6386
+2026-04-20 21:17:33,217 [INFO] Epoch 0 | train=7.8590 | val=7.6386
+2026-04-20 21:17:33,252 [INFO] Saved checkpoint (val=7.6386)
+2026-04-20 21:17:54,912 [INFO] [Epoch 1] train_loss=7.6349
+2026-04-20 21:18:01,320 [INFO] [Epoch 1] val_loss=7.5535
+2026-04-20 21:18:01,333 [INFO] Epoch 1 | train=7.6349 | val=7.5535
+2026-04-20 21:18:01,344 [INFO] Saved checkpoint (val=7.5535)
+2026-04-20 21:18:21,860 [INFO] [Epoch 2] train_loss=7.5781
+2026-04-20 21:18:28,165 [INFO] [Epoch 2] val_loss=7.5160
+2026-04-20 21:18:28,176 [INFO] Epoch 2 | train=7.5781 | val=7.5160
+2026-04-20 21:18:28,189 [INFO] Saved checkpoint (val=7.5160)
+2026-04-20 21:18:48,516 [INFO] [Epoch 3] train_loss=7.5486
+2026-04-20 21:18:54,888 [INFO] [Epoch 3] val_loss=7.4931
+2026-04-20 21:18:54,900 [INFO] Epoch 3 | train=7.5486 | val=7.4931
+2026-04-20 21:18:54,912 [INFO] Saved checkpoint (val=7.4931)
+2026-04-20 21:19:15,037 [INFO] [Epoch 4] train_loss=7.5289
+2026-04-20 21:19:21,400 [INFO] [Epoch 4] val_loss=7.4776
+2026-04-20 21:19:21,412 [INFO] Epoch 4 | train=7.5289 | val=7.4776
+2026-04-20 21:19:21,424 [INFO] Saved checkpoint (val=7.4776)
+2026-04-20 21:19:41,446 [INFO] [Epoch 5] train_loss=7.5141
+2026-04-20 21:19:47,695 [INFO] [Epoch 5] val_loss=7.4647
+2026-04-20 21:19:47,707 [INFO] Epoch 5 | train=7.5141 | val=7.4647
+2026-04-20 21:19:47,719 [INFO] Saved checkpoint (val=7.4647)
+2026-04-20 21:20:08,386 [INFO] [Epoch 6] train_loss=7.5023
+2026-04-20 21:20:14,676 [INFO] [Epoch 6] val_loss=7.4547
+2026-04-20 21:20:14,688 [INFO] Epoch 6 | train=7.5023 | val=7.4547
+2026-04-20 21:20:14,699 [INFO] Saved checkpoint (val=7.4547)
+2026-04-20 21:20:35,084 [INFO] [Epoch 7] train_loss=7.4924
+2026-04-20 21:20:41,421 [INFO] [Epoch 7] val_loss=7.4477
+2026-04-20 21:20:41,433 [INFO] Epoch 7 | train=7.4924 | val=7.4477
+2026-04-20 21:20:41,445 [INFO] Saved checkpoint (val=7.4477)
+2026-04-20 21:21:01,514 [INFO] [Epoch 8] train_loss=7.4842
+2026-04-20 21:21:07,918 [INFO] [Epoch 8] val_loss=7.4390
+2026-04-20 21:21:07,929 [INFO] Epoch 8 | train=7.4842 | val=7.4390
+2026-04-20 21:21:07,942 [INFO] Saved checkpoint (val=7.4390)
+2026-04-20 21:21:28,883 [INFO] [Epoch 9] train_loss=7.4773
+2026-04-20 21:21:35,142 [INFO] [Epoch 9] val_loss=7.4333
+2026-04-20 21:21:35,153 [INFO] Epoch 9 | train=7.4773 | val=7.4333
+2026-04-20 21:21:35,165 [INFO] Saved checkpoint (val=7.4333)
+2026-04-20 21:21:55,310 [INFO] [Epoch 10] train_loss=7.4703
+2026-04-20 21:22:01,680 [INFO] [Epoch 10] val_loss=7.4266
+2026-04-20 21:22:01,692 [INFO] Epoch 10 | train=7.4703 | val=7.4266
+2026-04-20 21:22:01,703 [INFO] Saved checkpoint (val=7.4266)
+2026-04-20 21:22:21,841 [INFO] [Epoch 11] train_loss=7.4647
+2026-04-20 21:22:28,172 [INFO] [Epoch 11] val_loss=7.4230
+2026-04-20 21:22:28,184 [INFO] Epoch 11 | train=7.4647 | val=7.4230
+2026-04-20 21:22:28,196 [INFO] Saved checkpoint (val=7.4230)
+2026-04-20 21:22:48,519 [INFO] [Epoch 12] train_loss=7.4588
+2026-04-20 21:22:54,795 [INFO] [Epoch 12] val_loss=7.4181
+2026-04-20 21:22:54,807 [INFO] Epoch 12 | train=7.4588 | val=7.4181
+2026-04-20 21:22:54,818 [INFO] Saved checkpoint (val=7.4181)
+2026-04-20 21:23:14,952 [INFO] [Epoch 13] train_loss=7.4536
+2026-04-20 21:23:21,379 [INFO] [Epoch 13] val_loss=7.4115
+2026-04-20 21:23:21,391 [INFO] Epoch 13 | train=7.4536 | val=7.4115
+2026-04-20 21:23:21,402 [INFO] Saved checkpoint (val=7.4115)
+2026-04-20 21:23:41,473 [INFO] [Epoch 14] train_loss=7.4491
+2026-04-20 21:23:48,036 [INFO] [Epoch 14] val_loss=7.4078
+2026-04-20 21:23:48,048 [INFO] Epoch 14 | train=7.4491 | val=7.4078
+2026-04-20 21:23:48,059 [INFO] Saved checkpoint (val=7.4078)
+2026-04-20 21:24:08,307 [INFO] [Epoch 15] train_loss=7.4443
+2026-04-20 21:24:14,767 [INFO] [Epoch 15] val_loss=7.4030
+2026-04-20 21:24:14,778 [INFO] Epoch 15 | train=7.4443 | val=7.4030
+2026-04-20 21:24:14,788 [INFO] Saved checkpoint (val=7.4030)
+2026-04-20 21:24:35,264 [INFO] [Epoch 16] train_loss=7.4400
+2026-04-20 21:24:41,637 [INFO] [Epoch 16] val_loss=7.4003
+2026-04-20 21:24:41,649 [INFO] Epoch 16 | train=7.4400 | val=7.4003
+2026-04-20 21:24:41,660 [INFO] Saved checkpoint (val=7.4003)
+2026-04-20 21:25:02,005 [INFO] [Epoch 17] train_loss=7.4362
+2026-04-20 21:25:08,317 [INFO] [Epoch 17] val_loss=7.3970
+2026-04-20 21:25:08,328 [INFO] Epoch 17 | train=7.4362 | val=7.3970
+2026-04-20 21:25:08,338 [INFO] Saved checkpoint (val=7.3970)
+2026-04-20 21:25:28,556 [INFO] [Epoch 18] train_loss=7.4321
+2026-04-20 21:25:34,866 [INFO] [Epoch 18] val_loss=7.3925
+2026-04-20 21:25:34,877 [INFO] Epoch 18 | train=7.4321 | val=7.3925
+2026-04-20 21:25:34,888 [INFO] Saved checkpoint (val=7.3925)
+2026-04-20 21:25:55,199 [INFO] [Epoch 19] train_loss=7.4284
+2026-04-20 21:26:01,539 [INFO] [Epoch 19] val_loss=7.3907
+2026-04-20 21:26:01,551 [INFO] Epoch 19 | train=7.4284 | val=7.3907
+2026-04-20 21:26:01,562 [INFO] Saved checkpoint (val=7.3907)
+2026-04-20 21:26:21,655 [INFO] [Epoch 20] train_loss=7.4248
+2026-04-20 21:26:27,942 [INFO] [Epoch 20] val_loss=7.3869
+2026-04-20 21:26:27,954 [INFO] Epoch 20 | train=7.4248 | val=7.3869
+2026-04-20 21:26:27,964 [INFO] Saved checkpoint (val=7.3869)
+2026-04-20 21:26:48,195 [INFO] [Epoch 21] train_loss=7.4212
+2026-04-20 21:26:54,810 [INFO] [Epoch 21] val_loss=7.3832
+2026-04-20 21:26:54,822 [INFO] Epoch 21 | train=7.4212 | val=7.3832
+2026-04-20 21:26:54,833 [INFO] Saved checkpoint (val=7.3832)
+2026-04-20 21:27:15,344 [INFO] [Epoch 22] train_loss=7.4180
+2026-04-20 21:27:21,825 [INFO] [Epoch 22] val_loss=7.3795
+2026-04-20 21:27:21,836 [INFO] Epoch 22 | train=7.4180 | val=7.3795
+2026-04-20 21:27:21,847 [INFO] Saved checkpoint (val=7.3795)
+2026-04-20 21:27:42,594 [INFO] [Epoch 23] train_loss=7.4144
+2026-04-20 21:27:48,931 [INFO] [Epoch 23] val_loss=7.3772
+2026-04-20 21:27:48,942 [INFO] Epoch 23 | train=7.4144 | val=7.3772
+2026-04-20 21:27:48,953 [INFO] Saved checkpoint (val=7.3772)
+2026-04-20 21:28:09,353 [INFO] [Epoch 24] train_loss=7.4116
+2026-04-20 21:28:15,849 [INFO] [Epoch 24] val_loss=7.3740
+2026-04-20 21:28:15,861 [INFO] Epoch 24 | train=7.4116 | val=7.3740
+2026-04-20 21:28:15,873 [INFO] Saved checkpoint (val=7.3740)
+2026-04-20 21:28:36,318 [INFO] [Epoch 25] train_loss=7.4080
+2026-04-20 21:28:42,686 [INFO] [Epoch 25] val_loss=7.3713
+2026-04-20 21:28:42,696 [INFO] Epoch 25 | train=7.4080 | val=7.3713
+2026-04-20 21:28:42,705 [INFO] Saved checkpoint (val=7.3713)
+2026-04-20 21:29:03,799 [INFO] [Epoch 26] train_loss=7.4048
+2026-04-20 21:29:10,554 [INFO] [Epoch 26] val_loss=7.3685
+2026-04-20 21:29:10,566 [INFO] Epoch 26 | train=7.4048 | val=7.3685
+2026-04-20 21:29:10,577 [INFO] Saved checkpoint (val=7.3685)
+2026-04-20 21:29:31,077 [INFO] [Epoch 27] train_loss=7.4018
+2026-04-20 21:29:37,429 [INFO] [Epoch 27] val_loss=7.3650
+2026-04-20 21:29:37,440 [INFO] Epoch 27 | train=7.4018 | val=7.3650
+2026-04-20 21:29:37,451 [INFO] Saved checkpoint (val=7.3650)
+2026-04-20 21:29:57,859 [INFO] [Epoch 28] train_loss=7.3991
+2026-04-20 21:30:04,236 [INFO] [Epoch 28] val_loss=7.3628
+2026-04-20 21:30:04,247 [INFO] Epoch 28 | train=7.3991 | val=7.3628
+2026-04-20 21:30:04,259 [INFO] Saved checkpoint (val=7.3628)
+2026-04-20 21:30:24,348 [INFO] [Epoch 29] train_loss=7.3960
+2026-04-20 21:30:25,819 [WARNING] socket.send() raised exception.
+2026-04-20 21:30:25,820 [WARNING] socket.send() raised exception.
