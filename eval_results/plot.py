@@ -20,30 +20,28 @@ import matplotlib.colors as mcolors
 from matplotlib.lines import Line2D
 import plotly.graph_objects as go
 
-sys.path.insert(0, str(Path(__file__).parent))
-sys.path.append("..")
-sys.path.append("../..")
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from models.model import build_model
 from models.finetune import apply_lora
 from paths import SHAPEFILE
 
+
 CONTINENT_PALETTE = {
-    "Africa":        "#4C78A8",  # cool
-    "Asia":          "#72B7B2",  # cool
-    "Europe":        "#54A24B",  # cool
-    "North America": "#1F77B4",  # cool
-    "South America": "#6BAED6",  # cool
-    "Oceania":       "#9ECAE1",  # cool
-    "Antarctica":    "#FFA500",  # warm
-    "Unknown":       None,       # will be filtered out
+    "Africa":        "#4C78A8",
+    "Asia":          "#72B7B2",
+    "Europe":        "#54A24B",
+    "North America": "#1F77B4",
+    "South America": "#6BAED6",
+    "Oceania":       "#9ECAE1",
+    "Antarctica":    "#FFA500",
+    "Unknown":       None,
 }
 _KNOWN_CONTINENTS = frozenset(CONTINENT_PALETTE) - {"Unknown"}
 CONCEPT_COLOR = "#E4572E"
 
 RC_PARAMS = {
-    "font.family":        "serif",
-    "font.serif":         ["Linux Libertine O", "Libertinus Serif", "Times New Roman",
-                           "Nimbus Roman", "DejaVu Serif"],
+    "font.family": "sans-serif",
+    "font.sans-serif": ["Helvetica", "Arial", "DejaVu Sans"],
     "mathtext.fontset":   "stix",
     "pdf.fonttype":       42,
     "ps.fonttype":        42,
@@ -55,7 +53,7 @@ RC_PARAMS = {
     "ytick.labelsize":    10,
     "axes.linewidth":     0.8,
     "figure.dpi":         150,
-    "savefig.dpi":        400,
+    "savefig.dpi":        300,
     "savefig.bbox":       "tight",
     "savefig.pad_inches": 0.04,
     "figure.facecolor":   "white",
@@ -63,14 +61,7 @@ RC_PARAMS = {
 }
 
 
-def _alpha(c, a):
-    r, g, b, _ = mcolors.to_rgba(c)
-    return r, g, b, a
-
-
-def _with_alpha(color, alpha):
-    return _alpha(color, alpha)
-
+# ── Model & data loading ──────────────────────────────────────────────────────
 
 def load_model(ckpt_path, device, loc_precomputed=True):
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
@@ -99,6 +90,30 @@ def load_model(ckpt_path, device, loc_precomputed=True):
     return model.eval(), a
 
 
+def load_locations(locations_path, model_path=None):
+    if locations_path:
+        p = Path(locations_path)
+        files = sorted(p.glob("*.parquet")) or sorted(p.glob("*.csv")) if p.is_dir() else [p]
+    else:
+        ckpt_args = argparse.Namespace(**torch.load(model_path, map_location="cpu", weights_only=False)["args"])
+        files = sorted(Path(ckpt_args.dataset_path).glob("*.parquet"))
+    dfs = [pd.read_parquet(f) if f.suffix == ".parquet" else pd.read_csv(f) for f in files]
+    return pd.concat(dfs, ignore_index=True)
+
+
+def sample_locations(df, n, stratify):
+    if not n or len(df) <= n:
+        return df
+    if stratify:
+        df["_continent"] = get_continents(df)[0]
+        n_per = max(1, n // df["_continent"].nunique())
+        df = (df.groupby("_continent", group_keys=False)
+                .apply(lambda g: g.sample(min(len(g), n_per), random_state=0))
+                .reset_index(drop=True))
+    return (df.sample(frac=1, random_state=0).head(n)
+              .drop(columns="_continent", errors="ignore").reset_index(drop=True))
+
+
 @torch.no_grad()
 def embed_locations(model, df, device, lat_col="lat", lon_col="lon", batch_size=4096):
     if model.location_encoder.precomputed:
@@ -114,6 +129,20 @@ def embed_concepts(model, concepts, batch_size=4096):
     return torch.cat([model.text_model_predict(concepts[i:i+batch_size])
                       for i in tqdm(range(0, len(concepts), batch_size), desc="Concept emb")]).cpu()
 
+
+def get_continents(df):
+    world = gpd.read_file(SHAPEFILE)
+    col = "CONTINENT" if "CONTINENT" in world.columns else "continent"
+    gdf = gpd.GeoDataFrame(df.copy(),
+                           geometry=[Point(lon, lat) for lat, lon in zip(df.lat, df.lon)],
+                           crs="EPSG:4326")
+    joined = gpd.sjoin(gdf, world[[col, "geometry"]], how="left", predicate="within")
+    joined = joined[~joined.index.duplicated(keep="first")]
+    labels = [c if c in _KNOWN_CONTINENTS else "Unknown" for c in joined[col].fillna("Unknown")]
+    return labels, [CONTINENT_PALETTE[c] for c in labels]
+
+
+# ── Embedding utils ───────────────────────────────────────────────────────────
 
 def center_renorm(X, center=False):
     X = F.normalize(X, dim=1)
@@ -134,74 +163,65 @@ def tsne_reduce(X, n_components=2, perplexity=30, learning_rate=200, max_iter=10
                 max_iter=max_iter, init="pca", metric="cosine", random_state=0).fit_transform(X)
 
 
-def get_continents(df):
-    world = gpd.read_file(SHAPEFILE)
-    col = "CONTINENT" if "CONTINENT" in world.columns else "continent"
-    gdf = gpd.GeoDataFrame(df.copy(),
-                           geometry=[Point(lon, lat) for lat, lon in zip(df.lat, df.lon)],
-                           crs="EPSG:4326")
-    joined = gpd.sjoin(gdf, world[[col, "geometry"]], how="left", predicate="within")
-    joined = joined[~joined.index.duplicated(keep="first")]
-    labels = [c if c in _KNOWN_CONTINENTS else "Unknown" for c in joined[col].fillna("Unknown")]
-    return labels, [CONTINENT_PALETTE[c] for c in labels]
+# ── Plotting helpers ──────────────────────────────────────────────────────────
+
+def _mk_handle(label, marker, color, size=7, edgecolor="None", edgewidth=0):
+    return Line2D([0], [0], marker=marker, linestyle="None", markersize=size,
+                  markerfacecolor=color, markeredgecolor=edgecolor,
+                  markeredgewidth=edgewidth, label=label)
+
+
+def _legend_handles(present):
+    cont  = [_mk_handle(c, "o", CONTINENT_PALETTE[c]) for c in present]
+    types = [_mk_handle("Location", "o", "#777"),
+             _mk_handle("Concept",  "^", CONCEPT_COLOR, size=8, edgecolor="white", edgewidth=0.7)]
+    return cont + types
+
+
+def _add_legend(fig, present, ncol=5, anchor=(0.5, -0.01), bottom=0.18):
+    handles = _legend_handles(present)
+    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=anchor,
+               ncol=min(len(handles), ncol), frameon=False,
+               columnspacing=1.4, handletextpad=0.4)
+    fig.subplots_adjust(bottom=bottom)
 
 
 def _draw_panel(ax, Y_loc, Y_con, cont_labels, title=None,
-                loc_size=9, con_size=85, loc_alpha=0.6):
+                loc_size=9, con_size=75, loc_alpha=0.6):
     ca = np.array(cont_labels)
     order = ["Unknown"] + [c for c in CONTINENT_PALETTE if c != "Unknown" and c in set(ca)]
     for cont in order:
         m = ca == cont
         if not m.any():
             continue
-        ax.scatter(Y_loc[m, 0], Y_loc[m, 1], s=loc_size, marker="o",
-                   c=[_alpha(CONTINENT_PALETTE[cont], loc_alpha)],
-                   linewidths=0, rasterized=True)
+        ax.scatter(Y_loc[m, 0], Y_loc[m, 1], s=loc_size, marker="o", linewidths=0,
+                   c=[CONTINENT_PALETTE[cont]], alpha=loc_alpha, rasterized=True)
     ax.scatter(Y_con[:, 0], Y_con[:, 1], s=con_size, marker="^", zorder=5,
-               facecolors=CONCEPT_COLOR, edgecolors="white", linewidths=0.7,
-               rasterized=True)
+               facecolors=CONCEPT_COLOR, edgecolors="black", linewidths=0.5, rasterized=True)
 
     if title is not None:
         ax.set_title(title, pad=8, fontweight="regular")
     ax.set_xticks([]); ax.set_yticks([])
-    for s in ax.spines.values():
-        s.set_visible(False)
-    ax.set_aspect("equal", adjustable="datalim")
+    ax.tick_params(left=False, bottom=False)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.set_aspect("equal", adjustable="box")
 
-    ax_x = np.concatenate([Y_loc[:, 0], Y_con[:, 0]])
-    ax_y = np.concatenate([Y_loc[:, 1], Y_con[:, 1]])
-    xr, yr = ax_x.ptp(), ax_y.ptp()
-    ax.set_xlim(ax_x.min() - 0.04 * xr, ax_x.max() + 0.04 * xr)
-    ax.set_ylim(ax_y.min() - 0.04 * yr, ax_y.max() + 0.04 * yr)
+    all_pts = np.concatenate([Y_loc, Y_con])
+    for dim, setter in enumerate([ax.set_xlim, ax.set_ylim]):
+        lo, hi = all_pts[:, dim].min(), all_pts[:, dim].max()
+        pad = 0.04 * (hi - lo)
+        setter(lo - pad, hi + pad)
 
 
-def _legend_handles(present):
-    cont = [Line2D([0], [0], marker="o", linestyle="None", markersize=7,
-                   markerfacecolor=CONTINENT_PALETTE[c], markeredgewidth=0, label=c)
-            for c in present]
-    types = [
-        Line2D([0], [0], marker="o", linestyle="None", markersize=7,
-               markerfacecolor="#777", markeredgewidth=0, label="Location"),
-        Line2D([0], [0], marker="^", linestyle="None", markersize=8,
-               markerfacecolor=CONCEPT_COLOR, markeredgecolor="white",
-               markeredgewidth=0.7, label="Concept"),
-    ]
-    return cont, types
-
+# ── Plot outputs ──────────────────────────────────────────────────────────────
 
 def plot_png(Y_loc, Y_con, cont_labels, method, out_path):
     matplotlib.rcParams.update(RC_PARAMS)
     fig, ax = plt.subplots(figsize=(6.4, 5.6))
     _draw_panel(ax, Y_loc, Y_con, cont_labels, title=method)
-
     present = [c for c in CONTINENT_PALETTE if c in set(cont_labels)]
-    cont, types = _legend_handles(present)
-    handles = cont + types
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, -0.01),
-               ncol=min(len(handles), 5), frameon=False,
-               columnspacing=1.4, handletextpad=0.4)
-    fig.subplots_adjust(bottom=0.18)
-
+    _add_legend(fig, present)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path)
     plt.close(fig)
@@ -210,21 +230,12 @@ def plot_png(Y_loc, Y_con, cont_labels, method, out_path):
 
 def plot_panel(panels, cont_labels, out_path):
     matplotlib.rcParams.update(RC_PARAMS)
-    n = len(panels)
-    fig, axes = plt.subplots(1, n, figsize=(5.6 * n, 5.4))
-    if n == 1:
-        axes = [axes]
-    for ax, (Y_loc, Y_con, method) in zip(axes, panels):
+    fig, axes = plt.subplots(1, len(panels), figsize=(5.6 * len(panels), 5.4))
+    for ax, (Y_loc, Y_con, method) in zip(np.atleast_1d(axes), panels):
         _draw_panel(ax, Y_loc, Y_con, cont_labels, title=method)
-
     present = [c for c in CONTINENT_PALETTE if c in set(cont_labels)]
-    cont, types = _legend_handles(present)
-    handles = cont + types
-    fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, -0.02),
-               ncol=len(handles), frameon=False,
-               columnspacing=1.3, handletextpad=0.4)
-    fig.subplots_adjust(bottom=0.13, wspace=0.04)
-
+    _add_legend(fig, present, ncol=len(present) + 2, anchor=(0.5, -0.02), bottom=0.13)
+    fig.subplots_adjust(wspace=0.04)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path)
     plt.close(fig)
@@ -255,13 +266,9 @@ def plot_html(Y_loc_raw, Y_loc_mc, Y_txt_raw, Y_txt_mc, cont_labels,
             visible=visible))
         return traces
 
-    raw = build(Y_loc_raw, Y_txt_raw, True)
-    mc  = build(Y_loc_mc,  Y_txt_mc,  False)
-    fig = go.Figure(data=raw + mc)
+    raw, mc = build(Y_loc_raw, Y_txt_raw, True), build(Y_loc_mc, Y_txt_mc, False)
     n = len(raw)
-    vis_raw = [True] * n + [False] * n
-    vis_mc  = [False] * n + [True]  * n
-
+    fig = go.Figure(data=raw + mc)
     fig.update_layout(
         title=dict(text=f"{method} — raw", font_size=15),
         width=1200, height=750, template="plotly_white", hovermode="closest",
@@ -270,10 +277,10 @@ def plot_html(Y_loc_raw, Y_loc_mc, Y_txt_raw, Y_txt_mc, cont_labels,
             type="buttons", direction="left", x=0.0, y=1.08,
             xanchor="left", yanchor="top", showactive=True,
             buttons=[
-                dict(label="Raw", method="update",
-                     args=[{"visible": vis_raw}, {"title.text": f"{method} — raw"}]),
+                dict(label="Raw",          method="update",
+                     args=[{"visible": [True]*n  + [False]*n}, {"title.text": f"{method} — raw"}]),
                 dict(label="Mean-centred", method="update",
-                     args=[{"visible": vis_mc}, {"title.text": f"{method} — mean-centred"}]),
+                     args=[{"visible": [False]*n + [True]*n},  {"title.text": f"{method} — mean-centred"}]),
             ])])
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.write_html(str(out_path), include_plotlyjs="cdn",
@@ -281,62 +288,45 @@ def plot_html(Y_loc_raw, Y_loc_mc, Y_txt_raw, Y_txt_mc, cont_labels,
     print(f"Saved HTML: {out_path}")
 
 
+# ── Entry point ───────────────────────────────────────────────────────────────
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--model_path", required=True)
-    p.add_argument("--concept_set", required=True)
-    p.add_argument("--output_dir", default=None)
-    p.add_argument("--num_samples", type=int, default=None)
+    p.add_argument("--model_path",            required=True)
+    p.add_argument("--concept_set",           required=True)
+    p.add_argument("--output_dir",            default=None)
+    p.add_argument("--num_samples",           type=int, default=None)
     p.add_argument("--stratify_by_continent", action="store_true")
-    p.add_argument("--locations_path", default=None)
-    p.add_argument("--lat_col", default="lat")
-    p.add_argument("--lon_col", default="lon")
-    p.add_argument("--combined", action="store_true",
-                   help="Save a single side-by-side UMAP+t-SNE figure as well.")
+    p.add_argument("--locations_path",        default=None)
+    p.add_argument("--lat_col",               default="lat")
+    p.add_argument("--lon_col",               default="lon")
+    p.add_argument("--combined",              action="store_true",
+                   help="Also save a side-by-side UMAP+t-SNE figure.")
     args = p.parse_args()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device  = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     out_dir = Path(args.output_dir) if args.output_dir else Path("plots") / Path(args.concept_set).stem
 
-    if args.locations_path is not None:
-        loc_p = Path(args.locations_path)
-        files = sorted(loc_p.glob("*.parquet")) or sorted(loc_p.glob("*.csv")) if loc_p.is_dir() else [loc_p]
-        dfs = [pd.read_parquet(f) if f.suffix == ".parquet" else pd.read_csv(f) for f in files]
-    else:
-        ckpt_dataset = argparse.Namespace(
-            **torch.load(args.model_path, map_location="cpu", weights_only=False)["args"]).dataset_path
-        dfs = [pd.read_parquet(p_) for p_ in sorted(Path(ckpt_dataset).glob("*.parquet"))]
-    df = pd.concat(dfs, ignore_index=True)
+    df = load_locations(args.locations_path, args.model_path)
+    df = sample_locations(df, args.num_samples, args.stratify_by_continent)
 
     loc_precomputed = "location_embedding" in df.columns
     model, _ = load_model(args.model_path, device, loc_precomputed=loc_precomputed)
 
-    if args.num_samples and len(df) > args.num_samples:
-        if args.stratify_by_continent:
-            cont_full, _ = get_continents(df)
-            df["_continent"] = cont_full
-            n_per = max(1, args.num_samples // df["_continent"].nunique())
-            df = (df.groupby("_continent", group_keys=False)
-                    .apply(lambda g: g.sample(min(len(g), n_per), random_state=0))
-                    .reset_index(drop=True))
-        df = (df.sample(frac=1, random_state=0).head(args.num_samples)
-                .drop(columns="_continent", errors="ignore").reset_index(drop=True))
-
-    loc_emb = embed_locations(model, df, device, lat_col=args.lat_col, lon_col=args.lon_col)
+    loc_emb  = embed_locations(model, df, device, lat_col=args.lat_col, lon_col=args.lon_col)
     concepts = json.loads(Path(args.concept_set).read_text())
     concepts = list(concepts.keys()) if isinstance(concepts, dict) else [str(c) for c in concepts]
-    concept_emb = embed_concepts(model, [f"a satellite image of {c}" for c in concepts])
+    con_emb  = embed_concepts(model, [f"a satellite image of {c}" for c in concepts])
 
-    loc_raw, con_raw = center_renorm(loc_emb), center_renorm(concept_emb)
-    loc_mc,  con_mc  = center_renorm(loc_emb, True), center_renorm(concept_emb, True)
-    cont_labels, _ = get_continents(df)
+    loc_raw, con_raw = center_renorm(loc_emb),       center_renorm(con_emb)
+    loc_mc,  con_mc  = center_renorm(loc_emb, True), center_renorm(con_emb, True)
+    cont_labels, _   = get_continents(df)
     loc_labels = [f"{r[args.lat_col]:.4f}, {r[args.lon_col]:.4f}"
                   for _, r in df[[args.lat_col, args.lon_col]].iterrows()]
 
-    n = len(loc_raw)
-    panels = []
+    n, panels = len(loc_raw), []
     for method, reducer in [("UMAP", umap_reduce), ("t-SNE", tsne_reduce)]:
-        name = method.lower().replace("-", "")
+        name  = method.lower().replace("-", "")
         Y_raw = reducer(torch.cat([loc_raw, con_raw]).numpy())
         Y_mc  = reducer(torch.cat([loc_mc,  con_mc ]).numpy())
         plot_png(Y_mc[:n], Y_mc[n:], cont_labels, method, out_dir / f"{name}_mean_centered.png")

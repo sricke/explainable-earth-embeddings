@@ -5,9 +5,9 @@ from collections import Counter
 from pathlib import Path
 from tqdm import tqdm
 
-DATA_DIR = Path.home() / "data" / "modified-git-10M"
+DATA_DIR = Path.home() / "data" / "git-10M"
 OUT_DIR  = Path(__file__).parent
-SPLITS   = ["train", "val", "test"]
+SPLITS   = ["test"]
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ def load_texts(num_samples=None):
 def valid_chunk(chunk):
     """Return lemmatised concept string or None. Keeps single NOUNs only."""
     words = [t for t in chunk if t.is_alpha and not t.is_stop]
-    if len(words) == 1 and words[0].pos_ == "NOUN":
+    if len(words) == 1 and words[0].pos_ in {"NOUN", "PROPN"}:
         return words[0].lemma_.lower()
     return None
 
@@ -46,6 +46,7 @@ def extract_concepts(texts, n_process=4, batch_size=4096):
 def semantic_cluster(ranked, top_n, n_clusters):
     from sentence_transformers import SentenceTransformer
     from sklearn.cluster import MiniBatchKMeans
+    print("Performing semantic clustering...")
 
     vocab  = [c for c, _ in ranked[:top_n]]
     counts = {c: n for c, n in ranked[:top_n]}
@@ -91,10 +92,14 @@ def main():
     parser.add_argument("--n_process",  type=int, default=4)
     parser.add_argument("--num_samples", type=int, default=None,
                         help="randomly sample this many texts before extracting concepts")
+    parser.add_argument("--output_path", default=None)
     args = parser.parse_args()
 
-    suffix = f"_n{args.num_samples}" if args.num_samples is not None else ""
-    out = OUT_DIR / f"concept_dictionary{suffix}.json"
+    out = Path(args.output_path)
+    if out is None:
+        suffix = f"_n{args.num_samples}" if args.num_samples is not None else ""
+        out = OUT_DIR / f"concept_dictionary{suffix}.json"
+
     ranked = load_or_extract(out, n_process=args.n_process, num_samples=args.num_samples)
     print(f"Unique concepts: {len(ranked):,}")
 

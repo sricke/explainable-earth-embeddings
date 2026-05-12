@@ -10,34 +10,35 @@ class ADMM():
         self.verbose = verbose
         self.check_every = check_every
 
+    def set_C(self, C):
+        self.C = C
+
+        c = C.shape[0]
+        self.c = c
+
+        Q = 2*C @ C.T + torch.eye(c, device=self.device)*self.rho
+        self.Q = 2*C @ C.T + torch.eye(c, device=self.device)*self.rho
+        self.Q_cho = torch.linalg.cholesky(Q)
+
     def step(self, Cb, Q_cho, z, u):
         xn = torch.cholesky_solve(2*Cb + self.rho*(z - u), Q_cho)
         zn = torch.where((xn + u - self.l1_penalty/self.rho) > 0, xn + u - self.l1_penalty/self.rho, 0)
         un = u + xn - zn
         return xn, zn, un
 
-    def fit(self, C, v):
-        ## iterates are in c, the number of concepts
-        c = C.shape[0]
-
-        ## size: c x c
-        Q = 2*C @ C.T + (torch.eye(c)*self.rho).to(self.device)
-
-        # factor Q for quicker solve -- this is critical.
-        Q_cho = torch.linalg.cholesky(Q)
-
+    def fit(self, v):
         # precompute once — C and v don't change across iterations
-        Cb = C @ v.T
+        Cb = self.C @ v.T
 
         # iterates, size: c x batch
-        x = torch.randn((c, v.shape[0])).to(self.device)
-        z = torch.randn((c, v.shape[0])).to(self.device)
-        u = torch.randn((c, v.shape[0])).to(self.device)
+        x = torch.randn((self.c, v.shape[0])).to(self.device)
+        z = torch.randn((self.c, v.shape[0])).to(self.device)
+        u = torch.randn((self.c, v.shape[0])).to(self.device)
 
         res_prim = res_dual = None
         for ix in range(self.max_iter):
             z_old = z
-            x, z, u = self.step(Cb, Q_cho, z, u)
+            x, z, u = self.step(Cb, self.Q_cho, z, u)
 
             # .max() forces a GPU→CPU sync; only pay that cost every check_every steps
             if ix % 10 == 0:

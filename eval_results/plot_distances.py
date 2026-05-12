@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
-sys.path.append("..")
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from models.model import build_model
 from models.finetune import apply_lora
 

@@ -20,6 +20,7 @@ def get_args():
     p.add_argument("--out",         default="splice_results", help="Output directory for SpLiCE results")
     p.add_argument("--l1_penalty",    type=float, default=0.1)
     p.add_argument("--prompt",        default=None, help='Prompt template with {concept} placeholder, e.g. "A satellite image of a {concept}"')
+    p.add_argument("--pca_dim",       type=int, default=None, help="If set, project both loc and text embeddings to this PCA dim (fit jointly)")
     p.add_argument("--device",        default="cuda")
     return p.parse_args()
 
@@ -54,7 +55,7 @@ def main():
     df = pd.read_csv(args.lat_lon_csv)
     latlon = torch.tensor(df[["lat", "lon"]].values, dtype=torch.float32).to(device)
     with torch.no_grad():
-        mean_emb = model.location_model_predict(latlon).mean(0)
+        loc_embs = model.location_model_predict(latlon)
 
     with open(args.concepts_json) as f:
         concepts = json.load(f)
@@ -64,12 +65,25 @@ def main():
             model.text_model_predict(prompted[i:i + BATCH_SIZE])
             for i in range(0, len(prompted), BATCH_SIZE)
         ])
+
+    if args.pca_dim is not None:
+        from sklearn.decomposition import PCA
+        print("Running PCA reduction...")
+        pca = PCA(n_components=args.pca_dim)
+        all_embs = torch.cat([loc_embs, emb_concepts], dim=0).cpu().numpy()
+        pca.fit(all_embs)
+        loc_embs = torch.tensor(pca.transform(loc_embs.cpu().numpy()), dtype=torch.float32).to(device)
+        emb_concepts = torch.tensor(pca.transform(emb_concepts.cpu().numpy()), dtype=torch.float32).to(device)
+
+    mean_emb = loc_embs.mean(0)
     emb_concepts = F.normalize(emb_concepts - emb_concepts.mean(0), dim=1)
 
     splice_model = SPLICE(mean_emb, emb_concepts,
                           clip=_LocWrapper(model.location_encoder).to(device),
                           solver='admm', device=device, return_weights=True, return_cosine=True,
-                          l1_penalty=args.l1_penalty)
+                          l1_penalty=args.l1_penalty, text_mean=None)
+    if args.pca_dim is not None:
+        splice_model.pca = pca  # carried along so eval can apply the same transform
 
     model_id = Path(args.model_path).parent.name
     concept_id = Path(args.concepts_json).stem

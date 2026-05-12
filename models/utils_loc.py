@@ -1,32 +1,23 @@
 import torch
 import torch.nn as nn
-from paths import CSP_FMOW_CHECKPOINT, CSP_INAT_CHECKPOINT, SINR_CHECKPOINT
+from pathlib import Path
+from paths import _p
+
+_loc = _p["location_encoders"]
 
 LOCATION_EMBEDDING_DIMENSIONS = {
-    "geoclip": 512,
-    "satclip": 256,
-    "gair": 768,
-    "climplicit": 1024, # this defaults to 256 dim embeddings times 4 months!
-    "csp_fmow": 256,
-    "csp_inat": 256,
-    "sinr": 256
+    k: v["dim"] for k, v in _loc.items() if isinstance(v, dict) and "dim" in v
 }
 
 LOCATION_MODEL_IDS = {
-    "satclip": "microsoft/SatCLIP-ViT16-L40",
-    # might need to include L10 as well, or can also look at ResNet-based models
-    "climplicit": "Jobedo/climplicit",
-    "gair": "PingL/GAIR",
-    "taxabind": "MVRL/taxabind-config"
+    k: str(v["model_id"]) for k, v in _loc.items() if isinstance(v, dict) and "model_id" in v
 }
 
 LOCATION_MODEL_CHECKPOINTS = {
-    "satclip": "satclip-vit16-l40.ckpt",
-    "gair": "checkpoint.pth",
-    "csp_fmow": CSP_FMOW_CHECKPOINT,
-    "csp_inat": CSP_INAT_CHECKPOINT,
-    "sinr": SINR_CHECKPOINT,
+    k: v["checkpoint"]
+    for k, v in _loc.items() if isinstance(v, dict) and "checkpoint" in v
 }
+
 
 def load_sinr(checkpoint_path, device):
     from external.sinr.models import get_model as sinr_get_model

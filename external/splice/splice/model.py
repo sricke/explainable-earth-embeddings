@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from sklearn import linear_model
 from .admm import ADMM
+from .svd import SVD
 
 class SPLICE(nn.Module):
     """Decomposes images into a sparse nonnegative linear combination of concept embeddings
@@ -32,23 +33,32 @@ class SPLICE(nn.Module):
         self.device = device
         self.clip = clip.to(self.device) if clip else None
         self.image_mean = image_mean.to(self.device)
-        self.text_mean = text_mean.to(self.device) if text_mean else None
+        self.text_mean = text_mean.to(self.device) if text_mean is not None else None
         self.dictionary = dictionary.to(self.device)
+        #normalize dictionary:
+        self.dictionary = (self.dictionary / self.dictionary.norm(dim=1, keepdim=True)).to(self.device)
         self.l1_penalty = l1_penalty
         self.return_weights = return_weights
         self.return_cosine = return_cosine
         self.decomp_text = decomp_text
 
-        if solver not in ['skl', 'admm']:
+        if solver not in ['skl', 'admm', 'svd']:
             return RuntimeError(f"Solver {solver} not supported, only \'skl\' or \'admm\'")
         self.solver = solver
 
         if self.solver == 'skl':
             self.l1_penalty = l1_penalty/(2*self.image_mean.shape[0]) ## skl regularization is off by a factor of 2 times the dimensionality of the CLIP embedding. See SKL docs.
         if self.solver == 'admm': 
-            self.rho = 5
+            print("Using ADMM solver...")
+            self.rho = 5.0
+            print(f"With rho value {self.rho}")
             self.tol = 1e-6
             self.admm = ADMM(rho=self.rho, l1_penalty=self.l1_penalty, tol=self.tol, max_iter=2000, device="cuda", verbose=False)
+            self.admm.set_C(self.dictionary)
+        if self.solver == "svd":
+            print("Using SVD solver...")
+            self.svd = SVD(device=self.device, verbose=False)
+            self.svd.set_C(self.dictionary)
 
     def decompose(self, embedding):
         """decompose Decomposes a dense CLIP embedding into a sparse weight vector
@@ -71,7 +81,9 @@ class SPLICE(nn.Module):
                 skl_weights.append(torch.tensor(clf.coef_))
             weights = torch.stack(skl_weights, dim=0).to(self.device)
         elif self.solver == 'admm':
-            weights = self.admm.fit(self.dictionary, embedding).to(self.device)
+            weights = self.admm.fit(embedding).to(self.device)
+        elif self.solver == 'svd':
+            weights = self.svd.fit(embedding).to(self.device)
         return weights
     
     def recompose_text(self, weights):

@@ -2,13 +2,7 @@ import re
 import yaml
 from pathlib import Path
 
-_YAML = Path(__file__).parent / "paths.yaml"
-
-
-def load_paths() -> dict:
-    raw = yaml.safe_load(_YAML.read_text())
-    assert isinstance(raw, dict)
-    return _resolve(raw)
+_CONFIGS = Path(__file__).parent / "configs"
 
 
 def _subst(s, ctx):
@@ -33,14 +27,31 @@ def _resolve(node, ctx=None):
     return result
 
 
-_PROJECT_ROOT = Path(__file__).parent
+def _load(name, ctx=None):
+    raw = yaml.safe_load((_CONFIGS / name).read_text())
+    assert isinstance(raw, dict)
+    return _resolve(raw, ctx)
+
+
+def load_paths() -> dict:
+    base = _load("base.yaml")
+    ctx = {k: v for k, v in base.items() if isinstance(v, str)}
+    return {
+        "base":              base,
+        "data":              _load("data.yaml", ctx),
+        "location_encoders": _load("location_encoders.yaml", ctx),
+        "models":            _load("models.yaml", ctx),
+        "concept_sets":      _load("concept_sets.yaml", ctx),
+        "splice":            _load("splice.yaml", ctx),
+        "prediction":        _load("prediction.yaml", ctx),
+    }
+
 
 _p = load_paths()
-DATA_ROOT     = Path(_p["data"]["root"])
-SKYSCRIPT_DIR = Path(_p["data"]["skyscript"])
-GIT10M_DIR    = Path(_p["data"]["git10m"])
-SHAPEFILE     = Path(_p["data"]["shapefile"])
-
-CSP_FMOW_CHECKPOINT = Path(_p["location_encoders"]["csp_fmow"]).expanduser()
-CSP_INAT_CHECKPOINT = Path(_p["location_encoders"]["csp_inat"]).expanduser()
-SINR_CHECKPOINT     = _PROJECT_ROOT / "external/sinr/pretrained_models/model_an_full_input_enc_sin_cos_hard_cap_num_per_class_1000.pt"
+DATA_ROOT            = Path(_p["data"]["root"])
+SKYSCRIPT_DIR        = Path(_p["data"]["skyscript"])
+GIT10M_DIR           = Path(_p["data"]["git10m"])
+SHAPEFILE            = Path(_p["data"]["shapefile"])
+CSP_FMOW_CHECKPOINT  = Path(_p["location_encoders"]["csp_fmow"]["checkpoint"]).expanduser()
+CSP_INAT_CHECKPOINT  = Path(_p["location_encoders"]["csp_inat"]["checkpoint"]).expanduser()
+SINR_CHECKPOINT      = Path(_p["location_encoders"]["sinr"]["checkpoint"])
