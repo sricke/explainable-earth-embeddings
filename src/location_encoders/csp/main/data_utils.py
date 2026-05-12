@@ -7,7 +7,7 @@ import os
 
 import numpy as np
 
-from paths import *
+from .paths import *
 
 def make_model_res_file(data_dir, dataset = "inat2018", eval_split = "val", 
                         res_type = "preds", sample_ratio = None):
