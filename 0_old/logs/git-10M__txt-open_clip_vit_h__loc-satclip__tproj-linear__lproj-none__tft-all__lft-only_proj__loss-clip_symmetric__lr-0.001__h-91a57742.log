@@ -1,2 +1,0 @@
-2026-04-29 04:17:13,405 [INFO] Logging to logs/git-10M__txt-open_clip_vit_h__loc-satclip__tproj-linear__lproj-none__tft-all__lft-only_proj__loss-clip_symmetric__lr-0.001__h-91a57742.log
-2026-04-29 04:17:13,408 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/git-10M/txt-open_clip_vit_h__loc-satclip__tproj-linear__lproj-none__tft-all__lft-only_proj__loss-clip_symmetric__lr-0.001__h-91a57742
