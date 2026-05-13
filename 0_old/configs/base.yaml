@@ -1,0 +1,5 @@
+base: /home/libe2152
+data_dir: "${base}/data"
+outputs_dir: "${base}/outputs"
+projects_dir: "${base}/projects"
+project_dir: "${projects_dir}/explainable-earth-embeddings"

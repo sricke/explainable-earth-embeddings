@@ -1,0 +1,262 @@
+2026-04-16 01:14:59,765 [INFO] Logging to logs/skyscript__txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-all__lft-only_proj__loss-clip__lr-0.0001.log
+2026-04-16 01:14:59,770 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/skyscript/txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-all__lft-only_proj__loss-clip__lr-0.0001
+2026-04-16 01:15:05,345 [INFO] Loaded dataset from /home/libe2152/data/skyscript/satclip/open_clip/
+2026-04-16 01:15:05,345 [INFO] Train size=341661, Val size=715
+2026-04-16 01:15:05,493 [INFO] Parsing model identifier. Schema: None, Identifier: ViT-L-14
+2026-04-16 01:15:05,493 [INFO] Loaded built-in ViT-L-14 model config.
+2026-04-16 01:15:05,601 [INFO] HTTP Request: HEAD https://huggingface.co/timm/vit_large_patch14_clip_224.openai/resolve/main/open_clip_model.safetensors "HTTP/1.1 302 Found"
+2026-04-16 01:15:05,603 [WARNING] Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-04-16 01:15:05,608 [INFO] Instantiating model architecture: CLIP
+2026-04-16 01:15:08,562 [INFO] Loading full pretrained weights from: /home/libe2152/.cache/huggingface/hub/models--timm--vit_large_patch14_clip_224.openai/snapshots/18d0535469bb561bf468d76c1d73aa35156c922b/open_clip_model.safetensors
+2026-04-16 01:15:08,738 [INFO] Final image preprocessing configuration set: {'size': (224, 224), 'mode': 'RGB', 'mean': (0.48145466, 0.4578275, 0.40821073), 'std': (0.26862954, 0.26130258, 0.27577711), 'interpolation': 'bicubic', 'resize_mode': 'shortest', 'fill_color': 0}
+2026-04-16 01:15:08,739 [INFO] Model ViT-L-14 creation process complete.
+2026-04-16 01:15:08,740 [INFO] Parsing tokenizer identifier. Schema: None, Identifier: ViT-L-14
+2026-04-16 01:15:08,740 [INFO] Attempting to load config from built-in: ViT-L-14
+2026-04-16 01:15:08,740 [INFO] Using default SimpleTokenizer.
+2026-04-16 01:15:08,811 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-16 01:15:09,196 [INFO] Loss: clip
+2026-04-16 01:15:09,196 [INFO] LR=0.0001, weight_decay=0.01
+2026-04-16 12:41:58,161 [INFO] Logging to logs/skyscript__txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-all__lft-only_proj__loss-clip__lr-0.0001.log
+2026-04-16 12:41:58,165 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/skyscript/txt-open_clip__loc-satclip__tproj-linear__lproj-none__tft-all__lft-only_proj__loss-clip__lr-0.0001
+2026-04-16 12:42:03,868 [INFO] Loaded dataset from /home/libe2152/data/skyscript/satclip/open_clip/
+2026-04-16 12:42:03,868 [INFO] Train size=341661, Val size=715
+2026-04-16 12:42:04,010 [INFO] Parsing model identifier. Schema: None, Identifier: ViT-L-14
+2026-04-16 12:42:04,010 [INFO] Loaded built-in ViT-L-14 model config.
+2026-04-16 12:42:04,105 [INFO] HTTP Request: HEAD https://huggingface.co/timm/vit_large_patch14_clip_224.openai/resolve/main/open_clip_model.safetensors "HTTP/1.1 302 Found"
+2026-04-16 12:42:04,110 [INFO] Instantiating model architecture: CLIP
+2026-04-16 12:42:07,024 [INFO] Loading full pretrained weights from: /home/libe2152/.cache/huggingface/hub/models--timm--vit_large_patch14_clip_224.openai/snapshots/18d0535469bb561bf468d76c1d73aa35156c922b/open_clip_model.safetensors
+2026-04-16 12:42:07,200 [INFO] Final image preprocessing configuration set: {'size': (224, 224), 'mode': 'RGB', 'mean': (0.48145466, 0.4578275, 0.40821073), 'std': (0.26862954, 0.26130258, 0.27577711), 'interpolation': 'bicubic', 'resize_mode': 'shortest', 'fill_color': 0}
+2026-04-16 12:42:07,201 [INFO] Model ViT-L-14 creation process complete.
+2026-04-16 12:42:07,202 [INFO] Parsing tokenizer identifier. Schema: None, Identifier: ViT-L-14
+2026-04-16 12:42:07,202 [INFO] Attempting to load config from built-in: ViT-L-14
+2026-04-16 12:42:07,202 [INFO] Using default SimpleTokenizer.
+2026-04-16 12:42:07,272 [INFO] Using text encoder=open_clip, location encoder=satclip
+2026-04-16 12:42:07,636 [INFO] Loss: clip
+2026-04-16 12:42:07,636 [INFO] LR=0.0001, weight_decay=0.01
+2026-04-16 13:09:33,920 [INFO] [Epoch 0] train_loss=4.0242
+2026-04-16 13:09:35,483 [INFO] [Epoch 0] val_loss=3.6498
+2026-04-16 13:09:35,487 [INFO] Epoch 0 | train=4.0242 | val=3.6498
+2026-04-16 13:09:37,174 [INFO] Saved checkpoint (val=3.6498)
+2026-04-16 13:35:24,831 [INFO] [Epoch 1] train_loss=3.5724
+2026-04-16 13:35:26,280 [INFO] [Epoch 1] val_loss=3.5104
+2026-04-16 13:35:26,283 [INFO] Epoch 1 | train=3.5724 | val=3.5104
+2026-04-16 13:35:28,889 [INFO] Saved checkpoint (val=3.5104)
+2026-04-16 14:01:19,978 [INFO] [Epoch 2] train_loss=3.3665
+2026-04-16 14:01:21,441 [INFO] [Epoch 2] val_loss=3.4377
+2026-04-16 14:01:21,445 [INFO] Epoch 2 | train=3.3665 | val=3.4377
+2026-04-16 14:01:23,968 [INFO] Saved checkpoint (val=3.4377)
+2026-04-16 14:26:54,792 [INFO] [Epoch 3] train_loss=3.1952
+2026-04-16 14:26:56,240 [INFO] [Epoch 3] val_loss=3.3586
+2026-04-16 14:26:56,243 [INFO] Epoch 3 | train=3.1952 | val=3.3586
+2026-04-16 14:26:58,820 [INFO] Saved checkpoint (val=3.3586)
+2026-04-16 14:52:19,558 [INFO] [Epoch 4] train_loss=3.0373
+2026-04-16 14:52:21,019 [INFO] [Epoch 4] val_loss=3.3616
+2026-04-16 14:52:21,022 [INFO] Epoch 4 | train=3.0373 | val=3.3616
+2026-04-16 15:17:32,283 [INFO] [Epoch 5] train_loss=2.8954
+2026-04-16 15:17:33,733 [INFO] [Epoch 5] val_loss=3.3241
+2026-04-16 15:17:33,737 [INFO] Epoch 5 | train=2.8954 | val=3.3241
+2026-04-16 15:17:36,233 [INFO] Saved checkpoint (val=3.3241)
+2026-04-16 15:42:48,828 [INFO] [Epoch 6] train_loss=2.7680
+2026-04-16 15:42:50,277 [INFO] [Epoch 6] val_loss=3.3601
+2026-04-16 15:42:50,281 [INFO] Epoch 6 | train=2.7680 | val=3.3601
+2026-04-16 16:08:02,539 [INFO] [Epoch 7] train_loss=2.6581
+2026-04-16 16:08:04,004 [INFO] [Epoch 7] val_loss=3.3972
+2026-04-16 16:08:04,007 [INFO] Epoch 7 | train=2.6581 | val=3.3972
+2026-04-16 16:33:19,320 [INFO] [Epoch 8] train_loss=2.5652
+2026-04-16 16:33:20,772 [INFO] [Epoch 8] val_loss=3.4030
+2026-04-16 16:33:20,775 [INFO] Epoch 8 | train=2.5652 | val=3.4030
+2026-04-16 16:58:37,467 [INFO] [Epoch 9] train_loss=2.4865
+2026-04-16 16:58:38,909 [INFO] [Epoch 9] val_loss=3.3921
+2026-04-16 16:58:38,912 [INFO] Epoch 9 | train=2.4865 | val=3.3921
+2026-04-16 17:23:57,611 [INFO] [Epoch 10] train_loss=2.4207
+2026-04-16 17:23:59,054 [INFO] [Epoch 10] val_loss=3.5291
+2026-04-16 17:23:59,057 [INFO] Epoch 10 | train=2.4207 | val=3.5291
+2026-04-16 17:49:17,397 [INFO] [Epoch 11] train_loss=2.3632
+2026-04-16 17:49:18,839 [INFO] [Epoch 11] val_loss=3.5294
+2026-04-16 17:49:18,841 [INFO] Epoch 11 | train=2.3632 | val=3.5294
+2026-04-16 18:14:36,674 [INFO] [Epoch 12] train_loss=2.3112
+2026-04-16 18:14:38,112 [INFO] [Epoch 12] val_loss=3.5539
+2026-04-16 18:14:38,115 [INFO] Epoch 12 | train=2.3112 | val=3.5539
+2026-04-16 18:39:55,885 [INFO] [Epoch 13] train_loss=2.2683
+2026-04-16 18:39:57,340 [INFO] [Epoch 13] val_loss=3.5875
+2026-04-16 18:39:57,343 [INFO] Epoch 13 | train=2.2683 | val=3.5875
+2026-04-16 19:05:15,761 [INFO] [Epoch 14] train_loss=2.2220
+2026-04-16 19:05:17,214 [INFO] [Epoch 14] val_loss=3.5247
+2026-04-16 19:05:17,217 [INFO] Epoch 14 | train=2.2220 | val=3.5247
+2026-04-16 19:30:34,388 [INFO] [Epoch 15] train_loss=2.1880
+2026-04-16 19:30:35,892 [INFO] [Epoch 15] val_loss=3.6152
+2026-04-16 19:30:35,894 [INFO] Epoch 15 | train=2.1880 | val=3.6152
+2026-04-16 19:55:55,009 [INFO] [Epoch 16] train_loss=2.1509
+2026-04-16 19:55:56,484 [INFO] [Epoch 16] val_loss=3.6446
+2026-04-16 19:55:56,488 [INFO] Epoch 16 | train=2.1509 | val=3.6446
+2026-04-16 20:21:15,626 [INFO] [Epoch 17] train_loss=2.1232
+2026-04-16 20:21:17,071 [INFO] [Epoch 17] val_loss=3.7005
+2026-04-16 20:21:17,073 [INFO] Epoch 17 | train=2.1232 | val=3.7005
+2026-04-16 20:46:36,311 [INFO] [Epoch 18] train_loss=2.0893
+2026-04-16 20:46:37,772 [INFO] [Epoch 18] val_loss=3.6992
+2026-04-16 20:46:37,775 [INFO] Epoch 18 | train=2.0893 | val=3.6992
+2026-04-16 21:11:56,269 [INFO] [Epoch 19] train_loss=2.0570
+2026-04-16 21:11:57,719 [INFO] [Epoch 19] val_loss=3.8332
+2026-04-16 21:11:57,720 [INFO] Epoch 19 | train=2.0570 | val=3.8332
+2026-04-16 21:37:17,347 [INFO] [Epoch 20] train_loss=2.0351
+2026-04-16 21:37:18,798 [INFO] [Epoch 20] val_loss=3.7577
+2026-04-16 21:37:18,799 [INFO] Epoch 20 | train=2.0351 | val=3.7577
+2026-04-16 22:02:38,273 [INFO] [Epoch 21] train_loss=2.0088
+2026-04-16 22:02:39,727 [INFO] [Epoch 21] val_loss=3.8824
+2026-04-16 22:02:39,731 [INFO] Epoch 21 | train=2.0088 | val=3.8824
+2026-04-16 22:27:59,622 [INFO] [Epoch 22] train_loss=1.9829
+2026-04-16 22:28:01,080 [INFO] [Epoch 22] val_loss=3.8835
+2026-04-16 22:28:01,083 [INFO] Epoch 22 | train=1.9829 | val=3.8835
+2026-04-16 22:53:25,204 [INFO] [Epoch 23] train_loss=1.9638
+2026-04-16 22:53:26,655 [INFO] [Epoch 23] val_loss=3.9126
+2026-04-16 22:53:26,658 [INFO] Epoch 23 | train=1.9638 | val=3.9126
+2026-04-16 23:18:46,838 [INFO] [Epoch 24] train_loss=1.9358
+2026-04-16 23:18:48,297 [INFO] [Epoch 24] val_loss=3.8860
+2026-04-16 23:18:48,300 [INFO] Epoch 24 | train=1.9358 | val=3.8860
+2026-04-16 23:44:08,624 [INFO] [Epoch 25] train_loss=1.9194
+2026-04-16 23:44:10,080 [INFO] [Epoch 25] val_loss=3.9246
+2026-04-16 23:44:10,083 [INFO] Epoch 25 | train=1.9194 | val=3.9246
+2026-04-17 00:09:29,434 [INFO] [Epoch 26] train_loss=1.8861
+2026-04-17 00:09:30,896 [INFO] [Epoch 26] val_loss=3.9650
+2026-04-17 00:09:30,898 [INFO] Epoch 26 | train=1.8861 | val=3.9650
+2026-04-17 00:34:51,867 [INFO] [Epoch 27] train_loss=1.8740
+2026-04-17 00:34:53,333 [INFO] [Epoch 27] val_loss=4.0270
+2026-04-17 00:34:53,337 [INFO] Epoch 27 | train=1.8740 | val=4.0270
+2026-04-17 01:00:13,272 [INFO] [Epoch 28] train_loss=1.8576
+2026-04-17 01:00:14,730 [INFO] [Epoch 28] val_loss=4.0171
+2026-04-17 01:00:14,733 [INFO] Epoch 28 | train=1.8576 | val=4.0171
+2026-04-17 01:25:32,585 [INFO] [Epoch 29] train_loss=1.8363
+2026-04-17 01:25:34,044 [INFO] [Epoch 29] val_loss=4.0334
+2026-04-17 01:25:34,047 [INFO] Epoch 29 | train=1.8363 | val=4.0334
+2026-04-17 01:50:52,564 [INFO] [Epoch 30] train_loss=1.8108
+2026-04-17 01:50:54,020 [INFO] [Epoch 30] val_loss=4.1267
+2026-04-17 01:50:54,021 [INFO] Epoch 30 | train=1.8108 | val=4.1267
+2026-04-17 02:16:14,799 [INFO] [Epoch 31] train_loss=1.7999
+2026-04-17 02:16:16,230 [INFO] [Epoch 31] val_loss=4.0362
+2026-04-17 02:16:16,233 [INFO] Epoch 31 | train=1.7999 | val=4.0362
+2026-04-17 02:41:34,438 [INFO] [Epoch 32] train_loss=1.7865
+2026-04-17 02:41:35,894 [INFO] [Epoch 32] val_loss=4.2598
+2026-04-17 02:41:35,897 [INFO] Epoch 32 | train=1.7865 | val=4.2598
+2026-04-17 03:06:55,103 [INFO] [Epoch 33] train_loss=1.7615
+2026-04-17 03:06:56,556 [INFO] [Epoch 33] val_loss=4.3004
+2026-04-17 03:06:56,558 [INFO] Epoch 33 | train=1.7615 | val=4.3004
+2026-04-17 03:32:15,134 [INFO] [Epoch 34] train_loss=1.7483
+2026-04-17 03:32:16,587 [INFO] [Epoch 34] val_loss=4.3277
+2026-04-17 03:32:16,589 [INFO] Epoch 34 | train=1.7483 | val=4.3277
+2026-04-17 03:57:35,954 [INFO] [Epoch 35] train_loss=1.7333
+2026-04-17 03:57:37,413 [INFO] [Epoch 35] val_loss=4.3914
+2026-04-17 03:57:37,416 [INFO] Epoch 35 | train=1.7333 | val=4.3914
+2026-04-17 04:22:56,271 [INFO] [Epoch 36] train_loss=1.7169
+2026-04-17 04:22:57,714 [INFO] [Epoch 36] val_loss=4.3227
+2026-04-17 04:22:57,717 [INFO] Epoch 36 | train=1.7169 | val=4.3227
+2026-04-17 04:48:16,469 [INFO] [Epoch 37] train_loss=1.7020
+2026-04-17 04:48:17,908 [INFO] [Epoch 37] val_loss=4.4757
+2026-04-17 04:48:17,911 [INFO] Epoch 37 | train=1.7020 | val=4.4757
+2026-04-17 05:13:35,423 [INFO] [Epoch 38] train_loss=1.6838
+2026-04-17 05:13:36,879 [INFO] [Epoch 38] val_loss=4.5620
+2026-04-17 05:13:36,881 [INFO] Epoch 38 | train=1.6838 | val=4.5620
+2026-04-17 05:38:56,158 [INFO] [Epoch 39] train_loss=1.6740
+2026-04-17 05:38:57,591 [INFO] [Epoch 39] val_loss=4.5169
+2026-04-17 05:38:57,594 [INFO] Epoch 39 | train=1.6740 | val=4.5169
+2026-04-17 06:04:15,054 [INFO] [Epoch 40] train_loss=1.6635
+2026-04-17 06:04:16,522 [INFO] [Epoch 40] val_loss=4.5310
+2026-04-17 06:04:16,526 [INFO] Epoch 40 | train=1.6635 | val=4.5310
+2026-04-17 06:29:35,255 [INFO] [Epoch 41] train_loss=1.6552
+2026-04-17 06:29:36,700 [INFO] [Epoch 41] val_loss=4.4552
+2026-04-17 06:29:36,703 [INFO] Epoch 41 | train=1.6552 | val=4.4552
+2026-04-17 06:54:55,078 [INFO] [Epoch 42] train_loss=1.6386
+2026-04-17 06:54:56,526 [INFO] [Epoch 42] val_loss=4.6031
+2026-04-17 06:54:56,528 [INFO] Epoch 42 | train=1.6386 | val=4.6031
+2026-04-17 07:20:13,562 [INFO] [Epoch 43] train_loss=1.6168
+2026-04-17 07:20:15,024 [INFO] [Epoch 43] val_loss=4.6668
+2026-04-17 07:20:15,028 [INFO] Epoch 43 | train=1.6168 | val=4.6668
+2026-04-17 07:45:31,980 [INFO] [Epoch 44] train_loss=1.6220
+2026-04-17 07:45:33,428 [INFO] [Epoch 44] val_loss=4.6878
+2026-04-17 07:45:33,431 [INFO] Epoch 44 | train=1.6220 | val=4.6878
+2026-04-17 08:10:50,150 [INFO] [Epoch 45] train_loss=1.6044
+2026-04-17 08:10:51,587 [INFO] [Epoch 45] val_loss=4.6028
+2026-04-17 08:10:51,588 [INFO] Epoch 45 | train=1.6044 | val=4.6028
+2026-04-17 08:36:08,601 [INFO] [Epoch 46] train_loss=1.6020
+2026-04-17 08:36:10,057 [INFO] [Epoch 46] val_loss=4.7319
+2026-04-17 08:36:10,060 [INFO] Epoch 46 | train=1.6020 | val=4.7319
+2026-04-17 09:01:26,107 [INFO] [Epoch 47] train_loss=1.5796
+2026-04-17 09:01:27,571 [INFO] [Epoch 47] val_loss=4.8038
+2026-04-17 09:01:27,573 [INFO] Epoch 47 | train=1.5796 | val=4.8038
+2026-04-17 09:26:43,691 [INFO] [Epoch 48] train_loss=1.5747
+2026-04-17 09:26:45,125 [INFO] [Epoch 48] val_loss=4.7558
+2026-04-17 09:26:45,127 [INFO] Epoch 48 | train=1.5747 | val=4.7558
+2026-04-17 09:52:01,970 [INFO] [Epoch 49] train_loss=1.5721
+2026-04-17 09:52:03,417 [INFO] [Epoch 49] val_loss=4.8631
+2026-04-17 09:52:03,420 [INFO] Epoch 49 | train=1.5721 | val=4.8631
+2026-04-17 10:17:22,715 [INFO] [Epoch 50] train_loss=1.5666
+2026-04-17 10:17:24,167 [INFO] [Epoch 50] val_loss=4.9352
+2026-04-17 10:17:24,170 [INFO] Epoch 50 | train=1.5666 | val=4.9352
+2026-04-17 10:42:40,122 [INFO] [Epoch 51] train_loss=1.5498
+2026-04-17 10:42:41,554 [INFO] [Epoch 51] val_loss=4.9536
+2026-04-17 10:42:41,557 [INFO] Epoch 51 | train=1.5498 | val=4.9536
+2026-04-17 11:07:58,875 [INFO] [Epoch 52] train_loss=1.5383
+2026-04-17 11:08:00,323 [INFO] [Epoch 52] val_loss=4.9483
+2026-04-17 11:08:00,327 [INFO] Epoch 52 | train=1.5383 | val=4.9483
+2026-04-17 11:33:16,472 [INFO] [Epoch 53] train_loss=1.5345
+2026-04-17 11:33:17,928 [INFO] [Epoch 53] val_loss=4.9854
+2026-04-17 11:33:17,931 [INFO] Epoch 53 | train=1.5345 | val=4.9854
+2026-04-17 11:58:36,382 [INFO] [Epoch 54] train_loss=1.5318
+2026-04-17 11:58:37,839 [INFO] [Epoch 54] val_loss=5.0294
+2026-04-17 11:58:37,842 [INFO] Epoch 54 | train=1.5318 | val=5.0294
+2026-04-17 12:23:53,412 [INFO] [Epoch 55] train_loss=1.5227
+2026-04-17 12:23:54,858 [INFO] [Epoch 55] val_loss=4.9955
+2026-04-17 12:23:54,862 [INFO] Epoch 55 | train=1.5227 | val=4.9955
+2026-04-17 12:49:11,675 [INFO] [Epoch 56] train_loss=1.5162
+2026-04-17 12:49:13,135 [INFO] [Epoch 56] val_loss=4.9072
+2026-04-17 12:49:13,138 [INFO] Epoch 56 | train=1.5162 | val=4.9072
+2026-04-17 13:14:28,744 [INFO] [Epoch 57] train_loss=1.5173
+2026-04-17 13:14:30,197 [INFO] [Epoch 57] val_loss=5.1187
+2026-04-17 13:14:30,199 [INFO] Epoch 57 | train=1.5173 | val=5.1187
+2026-04-17 13:39:46,564 [INFO] [Epoch 58] train_loss=1.5001
+2026-04-17 13:39:48,017 [INFO] [Epoch 58] val_loss=4.9393
+2026-04-17 13:39:48,020 [INFO] Epoch 58 | train=1.5001 | val=4.9393
+2026-04-17 14:05:04,275 [INFO] [Epoch 59] train_loss=1.4944
+2026-04-17 14:05:05,718 [INFO] [Epoch 59] val_loss=4.8345
+2026-04-17 14:05:05,720 [INFO] Epoch 59 | train=1.4944 | val=4.8345
+2026-04-17 14:30:22,228 [INFO] [Epoch 60] train_loss=1.4930
+2026-04-17 14:30:23,679 [INFO] [Epoch 60] val_loss=5.1841
+2026-04-17 14:30:23,683 [INFO] Epoch 60 | train=1.4930 | val=5.1841
+2026-04-17 14:55:40,916 [INFO] [Epoch 61] train_loss=1.4871
+2026-04-17 14:55:42,373 [INFO] [Epoch 61] val_loss=5.0984
+2026-04-17 14:55:42,376 [INFO] Epoch 61 | train=1.4871 | val=5.0984
+2026-04-17 15:21:00,774 [INFO] [Epoch 62] train_loss=1.4746
+2026-04-17 15:21:02,271 [INFO] [Epoch 62] val_loss=5.4276
+2026-04-17 15:21:02,274 [INFO] Epoch 62 | train=1.4746 | val=5.4276
+2026-04-17 15:46:19,271 [INFO] [Epoch 63] train_loss=1.4694
+2026-04-17 15:46:20,724 [INFO] [Epoch 63] val_loss=5.3570
+2026-04-17 15:46:20,727 [INFO] Epoch 63 | train=1.4694 | val=5.3570
+2026-04-17 16:11:38,749 [INFO] [Epoch 64] train_loss=1.4700
+2026-04-17 16:11:40,200 [INFO] [Epoch 64] val_loss=5.2698
+2026-04-17 16:11:40,204 [INFO] Epoch 64 | train=1.4700 | val=5.2698
+2026-04-17 16:36:57,679 [INFO] [Epoch 65] train_loss=1.4800
+2026-04-17 16:36:59,133 [INFO] [Epoch 65] val_loss=5.1325
+2026-04-17 16:36:59,136 [INFO] Epoch 65 | train=1.4800 | val=5.1325
+2026-04-17 17:02:16,705 [INFO] [Epoch 66] train_loss=1.4540
+2026-04-17 17:02:18,158 [INFO] [Epoch 66] val_loss=5.5124
+2026-04-17 17:02:18,161 [INFO] Epoch 66 | train=1.4540 | val=5.5124
+2026-04-17 17:27:34,904 [INFO] [Epoch 67] train_loss=1.4621
+2026-04-17 17:27:36,355 [INFO] [Epoch 67] val_loss=5.3368
+2026-04-17 17:27:36,358 [INFO] Epoch 67 | train=1.4621 | val=5.3368
+2026-04-17 17:52:53,427 [INFO] [Epoch 68] train_loss=1.4447
+2026-04-17 17:52:54,891 [INFO] [Epoch 68] val_loss=5.6867
+2026-04-17 17:52:54,895 [INFO] Epoch 68 | train=1.4447 | val=5.6867
+2026-04-17 18:18:11,252 [INFO] [Epoch 69] train_loss=1.4352
+2026-04-17 18:18:12,732 [INFO] [Epoch 69] val_loss=5.2544
+2026-04-17 18:18:12,735 [INFO] Epoch 69 | train=1.4352 | val=5.2544
+2026-04-17 18:43:30,123 [INFO] [Epoch 70] train_loss=1.4485
+2026-04-17 18:43:31,606 [INFO] [Epoch 70] val_loss=5.3074
+2026-04-17 18:43:31,609 [INFO] Epoch 70 | train=1.4485 | val=5.3074
+2026-04-17 19:08:50,187 [INFO] [Epoch 71] train_loss=1.4394
+2026-04-17 19:08:51,631 [INFO] [Epoch 71] val_loss=5.3420
+2026-04-17 19:08:51,633 [INFO] Epoch 71 | train=1.4394 | val=5.3420
+2026-04-17 19:34:09,133 [INFO] [Epoch 72] train_loss=1.4301
+2026-04-17 19:34:10,615 [INFO] [Epoch 72] val_loss=5.3946
+2026-04-17 19:34:10,617 [INFO] Epoch 72 | train=1.4301 | val=5.3946
+2026-04-17 19:59:28,768 [INFO] [Epoch 73] train_loss=1.4271
+2026-04-17 19:59:30,236 [INFO] [Epoch 73] val_loss=5.5524
+2026-04-17 19:59:30,240 [INFO] Epoch 73 | train=1.4271 | val=5.5524

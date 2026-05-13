@@ -1,0 +1,189 @@
+2026-04-29 02:46:35,399 [INFO] Logging to logs/git-10M__txt-open_clip_vit_h__loc-satclip__tproj-mlp__lproj-none__tft-only_proj__lft-only_proj__loss-clip_asymmetric__lr-0.001__h-59bb3541.log
+2026-04-29 02:46:35,402 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/git-10M/txt-open_clip_vit_h__loc-satclip__tproj-mlp__lproj-none__tft-only_proj__lft-only_proj__loss-clip_asymmetric__lr-0.001__h-59bb3541
+2026-04-29 02:48:03,809 [INFO] Loaded dataset from /home/libe2152/data/git-10M/satclip/open_clip_vit_h/
+2026-04-29 02:48:03,809 [INFO] Train size=5585742, Val size=620638
+2026-04-29 02:48:03,835 [INFO] Using text encoder=open_clip_vit_h, location encoder=satclip
+2026-04-29 02:48:04,152 [INFO] Loss: clip_asymmetric
+2026-04-29 02:48:04,152 [INFO] LR=0.001, scheduler=cosine, warmup_epochs=10, weight_decay=0.01
+2026-04-29 02:48:04,153 [INFO] Starting epoch 0
+2026-04-29 02:49:49,117 [INFO] [Epoch 0] train_loss=9.5773
+2026-04-29 02:50:02,546 [INFO] [Epoch 0] val_loss=9.5590
+2026-04-29 02:50:02,549 [INFO] Epoch 0 | train=9.5773 | val=9.5590 | lr=1.00e-04
+2026-04-29 02:50:02,617 [INFO] Saved checkpoint (val=9.5590)
+2026-04-29 02:50:02,618 [INFO] Starting epoch 1
+2026-04-29 02:51:49,763 [INFO] [Epoch 1] train_loss=7.9206
+2026-04-29 02:52:02,307 [INFO] [Epoch 1] val_loss=7.8265
+2026-04-29 02:52:02,311 [INFO] Epoch 1 | train=7.9206 | val=7.8265 | lr=2.00e-04
+2026-04-29 02:52:02,406 [INFO] Saved checkpoint (val=7.8265)
+2026-04-29 02:52:02,406 [INFO] Starting epoch 2
+2026-04-29 02:53:50,013 [INFO] [Epoch 2] train_loss=7.7484
+2026-04-29 02:54:03,141 [INFO] [Epoch 2] val_loss=7.6634
+2026-04-29 02:54:03,144 [INFO] Epoch 2 | train=7.7484 | val=7.6634 | lr=3.00e-04
+2026-04-29 02:54:03,238 [INFO] Saved checkpoint (val=7.6634)
+2026-04-29 02:54:03,238 [INFO] Starting epoch 3
+2026-04-29 02:55:49,213 [INFO] [Epoch 3] train_loss=7.6419
+2026-04-29 02:56:01,721 [INFO] [Epoch 3] val_loss=7.6026
+2026-04-29 02:56:01,724 [INFO] Epoch 3 | train=7.6419 | val=7.6026 | lr=4.00e-04
+2026-04-29 02:56:01,829 [INFO] Saved checkpoint (val=7.6026)
+2026-04-29 02:56:01,830 [INFO] Starting epoch 4
+2026-04-29 02:57:49,248 [INFO] [Epoch 4] train_loss=7.5863
+2026-04-29 02:58:02,234 [INFO] [Epoch 4] val_loss=7.5554
+2026-04-29 02:58:02,238 [INFO] Epoch 4 | train=7.5863 | val=7.5554 | lr=5.00e-04
+2026-04-29 02:58:02,348 [INFO] Saved checkpoint (val=7.5554)
+2026-04-29 02:58:02,349 [INFO] Starting epoch 5
+2026-04-29 02:59:50,227 [INFO] [Epoch 5] train_loss=7.5461
+2026-04-29 03:00:03,358 [INFO] [Epoch 5] val_loss=7.5256
+2026-04-29 03:00:03,362 [INFO] Epoch 5 | train=7.5461 | val=7.5256 | lr=6.00e-04
+2026-04-29 03:00:03,454 [INFO] Saved checkpoint (val=7.5256)
+2026-04-29 03:00:03,455 [INFO] Starting epoch 6
+2026-04-29 03:01:50,978 [INFO] [Epoch 6] train_loss=7.5139
+2026-04-29 03:02:04,006 [INFO] [Epoch 6] val_loss=7.4989
+2026-04-29 03:02:04,009 [INFO] Epoch 6 | train=7.5139 | val=7.4989 | lr=7.00e-04
+2026-04-29 03:02:04,106 [INFO] Saved checkpoint (val=7.4989)
+2026-04-29 03:02:04,106 [INFO] Starting epoch 7
+2026-04-29 03:03:53,298 [INFO] [Epoch 7] train_loss=7.4871
+2026-04-29 03:04:06,636 [INFO] [Epoch 7] val_loss=7.4766
+2026-04-29 03:04:06,639 [INFO] Epoch 7 | train=7.4871 | val=7.4766 | lr=8.00e-04
+2026-04-29 03:04:06,744 [INFO] Saved checkpoint (val=7.4766)
+2026-04-29 03:04:06,745 [INFO] Starting epoch 8
+2026-04-29 03:05:53,524 [INFO] [Epoch 8] train_loss=7.4642
+2026-04-29 03:06:06,441 [INFO] [Epoch 8] val_loss=7.4590
+2026-04-29 03:06:06,444 [INFO] Epoch 8 | train=7.4642 | val=7.4590 | lr=9.00e-04
+2026-04-29 03:06:06,538 [INFO] Saved checkpoint (val=7.4590)
+2026-04-29 03:06:06,538 [INFO] Starting epoch 9
+2026-04-29 03:07:57,070 [INFO] [Epoch 9] train_loss=7.4444
+2026-04-29 03:08:09,975 [INFO] [Epoch 9] val_loss=7.4426
+2026-04-29 03:08:09,978 [INFO] Epoch 9 | train=7.4444 | val=7.4426 | lr=1.00e-03
+2026-04-29 03:08:10,085 [INFO] Saved checkpoint (val=7.4426)
+2026-04-29 03:08:10,085 [INFO] Starting epoch 10
+2026-04-29 03:09:58,632 [INFO] [Epoch 10] train_loss=7.4275
+2026-04-29 03:10:11,200 [INFO] [Epoch 10] val_loss=7.4278
+2026-04-29 03:10:11,203 [INFO] Epoch 10 | train=7.4275 | val=7.4278 | lr=1.00e-03
+2026-04-29 03:10:11,307 [INFO] Saved checkpoint (val=7.4278)
+2026-04-29 03:10:11,308 [INFO] Starting epoch 11
+2026-04-29 03:11:57,487 [INFO] [Epoch 11] train_loss=7.4054
+2026-04-29 03:12:10,595 [INFO] [Epoch 11] val_loss=7.3964
+2026-04-29 03:12:10,599 [INFO] Epoch 11 | train=7.4054 | val=7.3964 | lr=1.00e-03
+2026-04-29 03:12:10,694 [INFO] Saved checkpoint (val=7.3964)
+2026-04-29 03:12:10,695 [INFO] Starting epoch 12
+2026-04-29 03:14:00,254 [INFO] [Epoch 12] train_loss=7.3877
+2026-04-29 03:14:12,344 [INFO] [Epoch 12] val_loss=7.3876
+2026-04-29 03:14:12,348 [INFO] Epoch 12 | train=7.3877 | val=7.3876 | lr=1.00e-03
+2026-04-29 03:14:12,451 [INFO] Saved checkpoint (val=7.3876)
+2026-04-29 03:14:12,452 [INFO] Starting epoch 13
+2026-04-29 03:16:02,605 [INFO] [Epoch 13] train_loss=7.3732
+2026-04-29 03:16:15,453 [INFO] [Epoch 13] val_loss=7.3720
+2026-04-29 03:16:15,456 [INFO] Epoch 13 | train=7.3732 | val=7.3720 | lr=1.00e-03
+2026-04-29 03:16:15,549 [INFO] Saved checkpoint (val=7.3720)
+2026-04-29 03:16:15,549 [INFO] Starting epoch 14
+2026-04-29 03:18:07,014 [INFO] [Epoch 14] train_loss=7.3604
+2026-04-29 03:18:19,935 [INFO] [Epoch 14] val_loss=7.3805
+2026-04-29 03:18:19,937 [INFO] Epoch 14 | train=7.3604 | val=7.3805 | lr=1.00e-03
+2026-04-29 03:18:19,937 [INFO] Starting epoch 15
+2026-04-29 03:20:17,192 [INFO] [Epoch 15] train_loss=7.3502
+2026-04-29 03:20:29,948 [INFO] [Epoch 15] val_loss=7.3448
+2026-04-29 03:20:29,952 [INFO] Epoch 15 | train=7.3502 | val=7.3448 | lr=1.00e-03
+2026-04-29 03:20:30,050 [INFO] Saved checkpoint (val=7.3448)
+2026-04-29 03:20:30,050 [INFO] Starting epoch 16
+2026-04-29 03:22:20,656 [INFO] [Epoch 16] train_loss=7.3411
+2026-04-29 03:22:33,074 [INFO] [Epoch 16] val_loss=7.3497
+2026-04-29 03:22:33,077 [INFO] Epoch 16 | train=7.3411 | val=7.3497 | lr=9.99e-04
+2026-04-29 03:22:33,078 [INFO] Starting epoch 17
+2026-04-29 03:24:34,063 [INFO] [Epoch 17] train_loss=7.3340
+2026-04-29 03:24:48,415 [INFO] [Epoch 17] val_loss=7.3398
+2026-04-29 03:24:48,419 [INFO] Epoch 17 | train=7.3340 | val=7.3398 | lr=9.99e-04
+2026-04-29 03:24:48,528 [INFO] Saved checkpoint (val=7.3398)
+2026-04-29 03:24:48,529 [INFO] Starting epoch 18
+2026-04-29 03:26:49,156 [INFO] [Epoch 18] train_loss=7.3274
+2026-04-29 03:27:03,456 [INFO] [Epoch 18] val_loss=7.3397
+2026-04-29 03:27:03,458 [INFO] Epoch 18 | train=7.3274 | val=7.3397 | lr=9.99e-04
+2026-04-29 03:27:03,567 [INFO] Saved checkpoint (val=7.3397)
+2026-04-29 03:27:03,567 [INFO] Starting epoch 19
+2026-04-29 03:29:03,748 [INFO] [Epoch 19] train_loss=7.3213
+2026-04-29 03:29:17,929 [INFO] [Epoch 19] val_loss=7.3300
+2026-04-29 03:29:17,932 [INFO] Epoch 19 | train=7.3213 | val=7.3300 | lr=9.99e-04
+2026-04-29 03:29:18,038 [INFO] Saved checkpoint (val=7.3300)
+2026-04-29 03:29:18,038 [INFO] Starting epoch 20
+2026-04-29 03:31:17,135 [INFO] [Epoch 20] train_loss=7.3160
+2026-04-29 03:31:31,805 [INFO] [Epoch 20] val_loss=7.3323
+2026-04-29 03:31:31,808 [INFO] Epoch 20 | train=7.3160 | val=7.3323 | lr=9.99e-04
+2026-04-29 03:31:31,809 [INFO] Starting epoch 21
+2026-04-29 03:33:34,591 [INFO] [Epoch 21] train_loss=7.3115
+2026-04-29 03:33:48,725 [INFO] [Epoch 21] val_loss=7.3236
+2026-04-29 03:33:48,729 [INFO] Epoch 21 | train=7.3115 | val=7.3236 | lr=9.99e-04
+2026-04-29 03:33:48,829 [INFO] Saved checkpoint (val=7.3236)
+2026-04-29 03:33:48,829 [INFO] Starting epoch 22
+2026-04-29 03:35:58,101 [INFO] [Epoch 22] train_loss=7.3077
+2026-04-29 03:36:12,286 [INFO] [Epoch 22] val_loss=7.3152
+2026-04-29 03:36:12,290 [INFO] Epoch 22 | train=7.3077 | val=7.3152 | lr=9.98e-04
+2026-04-29 03:36:12,394 [INFO] Saved checkpoint (val=7.3152)
+2026-04-29 03:36:12,394 [INFO] Starting epoch 23
+2026-04-29 03:38:22,976 [INFO] [Epoch 23] train_loss=7.3045
+2026-04-29 03:38:37,587 [INFO] [Epoch 23] val_loss=7.3231
+2026-04-29 03:38:37,590 [INFO] Epoch 23 | train=7.3045 | val=7.3231 | lr=9.98e-04
+2026-04-29 03:38:37,592 [INFO] Starting epoch 24
+2026-04-29 03:40:40,304 [INFO] [Epoch 24] train_loss=7.3005
+2026-04-29 03:40:55,452 [INFO] [Epoch 24] val_loss=7.3115
+2026-04-29 03:40:55,456 [INFO] Epoch 24 | train=7.3005 | val=7.3115 | lr=9.98e-04
+2026-04-29 03:40:55,583 [INFO] Saved checkpoint (val=7.3115)
+2026-04-29 03:40:55,583 [INFO] Starting epoch 25
+2026-04-29 03:42:59,898 [INFO] [Epoch 25] train_loss=7.2976
+2026-04-29 03:43:14,658 [INFO] [Epoch 25] val_loss=7.3105
+2026-04-29 03:43:14,661 [INFO] Epoch 25 | train=7.2976 | val=7.3105 | lr=9.97e-04
+2026-04-29 03:43:14,775 [INFO] Saved checkpoint (val=7.3105)
+2026-04-29 03:43:14,776 [INFO] Starting epoch 26
+2026-04-29 03:45:15,891 [INFO] [Epoch 26] train_loss=7.2947
+2026-04-29 03:45:30,323 [INFO] [Epoch 26] val_loss=7.3230
+2026-04-29 03:45:30,326 [INFO] Epoch 26 | train=7.2947 | val=7.3230 | lr=9.97e-04
+2026-04-29 03:45:30,327 [INFO] Starting epoch 27
+2026-04-29 03:47:31,862 [INFO] [Epoch 27] train_loss=7.2924
+2026-04-29 03:47:46,444 [INFO] [Epoch 27] val_loss=7.3148
+2026-04-29 03:47:46,448 [INFO] Epoch 27 | train=7.2924 | val=7.3148 | lr=9.97e-04
+2026-04-29 03:47:46,449 [INFO] Starting epoch 28
+2026-04-29 03:49:47,947 [INFO] [Epoch 28] train_loss=7.2899
+2026-04-29 03:50:02,316 [INFO] [Epoch 28] val_loss=7.3237
+2026-04-29 03:50:02,320 [INFO] Epoch 28 | train=7.2899 | val=7.3237 | lr=9.96e-04
+2026-04-29 03:50:02,321 [INFO] Starting epoch 29
+2026-04-29 03:52:04,246 [INFO] [Epoch 29] train_loss=7.2878
+2026-04-29 03:52:18,042 [INFO] [Epoch 29] val_loss=7.3043
+2026-04-29 03:52:18,046 [INFO] Epoch 29 | train=7.2878 | val=7.3043 | lr=9.96e-04
+2026-04-29 03:52:18,141 [INFO] Saved checkpoint (val=7.3043)
+2026-04-29 03:52:18,142 [INFO] Starting epoch 30
+2026-04-29 03:54:19,444 [INFO] [Epoch 30] train_loss=7.2859
+2026-04-29 03:54:34,122 [INFO] [Epoch 30] val_loss=7.2951
+2026-04-29 03:54:34,126 [INFO] Epoch 30 | train=7.2859 | val=7.2951 | lr=9.95e-04
+2026-04-29 03:54:34,243 [INFO] Saved checkpoint (val=7.2951)
+2026-04-29 03:54:34,243 [INFO] Starting epoch 31
+2026-04-29 03:56:27,833 [INFO] [Epoch 31] train_loss=7.2840
+2026-04-29 03:56:42,028 [INFO] [Epoch 31] val_loss=7.2963
+2026-04-29 03:56:42,031 [INFO] Epoch 31 | train=7.2840 | val=7.2963 | lr=9.95e-04
+2026-04-29 03:56:42,033 [INFO] Starting epoch 32
+2026-04-29 03:58:28,921 [INFO] [Epoch 32] train_loss=7.2821
+2026-04-29 03:58:42,034 [INFO] [Epoch 32] val_loss=7.3071
+2026-04-29 03:58:42,038 [INFO] Epoch 32 | train=7.2821 | val=7.3071 | lr=9.95e-04
+2026-04-29 03:58:42,039 [INFO] Starting epoch 33
+2026-04-29 04:00:30,189 [INFO] [Epoch 33] train_loss=7.2806
+2026-04-29 04:00:42,950 [INFO] [Epoch 33] val_loss=7.2884
+2026-04-29 04:00:42,953 [INFO] Epoch 33 | train=7.2806 | val=7.2884 | lr=9.94e-04
+2026-04-29 04:00:43,061 [INFO] Saved checkpoint (val=7.2884)
+2026-04-29 04:00:43,061 [INFO] Starting epoch 34
+2026-04-29 04:02:30,799 [INFO] [Epoch 34] train_loss=7.2791
+2026-04-29 04:02:43,071 [INFO] [Epoch 34] val_loss=7.2960
+2026-04-29 04:02:43,073 [INFO] Epoch 34 | train=7.2791 | val=7.2960 | lr=9.94e-04
+2026-04-29 04:02:43,074 [INFO] Starting epoch 35
+2026-04-29 04:04:30,792 [INFO] [Epoch 35] train_loss=7.2777
+2026-04-29 04:04:44,035 [INFO] [Epoch 35] val_loss=7.2976
+2026-04-29 04:04:44,038 [INFO] Epoch 35 | train=7.2777 | val=7.2976 | lr=9.93e-04
+2026-04-29 04:04:44,039 [INFO] Starting epoch 36
+2026-04-29 04:06:32,065 [INFO] [Epoch 36] train_loss=7.2763
+2026-04-29 04:06:44,534 [INFO] [Epoch 36] val_loss=7.2977
+2026-04-29 04:06:44,536 [INFO] Epoch 36 | train=7.2763 | val=7.2977 | lr=9.93e-04
+2026-04-29 04:06:44,536 [INFO] Starting epoch 37
+2026-04-29 04:08:30,682 [INFO] [Epoch 37] train_loss=7.2750
+2026-04-29 04:08:42,903 [INFO] [Epoch 37] val_loss=7.2940
+2026-04-29 04:08:42,907 [INFO] Epoch 37 | train=7.2750 | val=7.2940 | lr=9.92e-04
+2026-04-29 04:08:42,908 [INFO] Starting epoch 38
+2026-04-29 04:10:30,827 [INFO] [Epoch 38] train_loss=7.2739
+2026-04-29 04:10:43,746 [INFO] [Epoch 38] val_loss=7.2944
+2026-04-29 04:10:43,748 [INFO] Epoch 38 | train=7.2739 | val=7.2944 | lr=9.91e-04
+2026-04-29 04:10:43,749 [INFO] Starting epoch 39

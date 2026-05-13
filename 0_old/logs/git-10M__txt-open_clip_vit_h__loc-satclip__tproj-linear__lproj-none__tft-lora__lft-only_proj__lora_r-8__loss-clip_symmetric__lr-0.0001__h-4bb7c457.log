@@ -1,0 +1,33 @@
+2026-04-29 06:21:32,533 [INFO] Logging to logs/git-10M__txt-open_clip_vit_h__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-4bb7c457.log
+2026-04-29 06:21:32,537 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/git-10M/txt-open_clip_vit_h__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-4bb7c457
+2026-04-29 06:22:57,986 [INFO] Loaded dataset from /home/libe2152/data/git-10M/satclip/open_clip_vit_h/
+2026-04-29 06:22:57,986 [INFO] Train size=5585742, Val size=620638
+2026-04-29 06:22:58,114 [INFO] HTTP Request: HEAD https://huggingface.co/laion/CLIP-ViT-H-14-laion2B-s32B-b79K/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-04-29 06:22:58,123 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/laion/CLIP-ViT-H-14-laion2B-s32B-b79K/1c2b8495b28150b8a4922ee1c8edee224c284c0c/config.json "HTTP/1.1 200 OK"
+2026-04-29 06:22:58,178 [INFO] HTTP Request: HEAD https://huggingface.co/laion/CLIP-ViT-H-14-laion2B-s32B-b79K/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-04-29 06:22:58,179 [WARNING] Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-04-29 06:22:58,188 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/laion/CLIP-ViT-H-14-laion2B-s32B-b79K/1c2b8495b28150b8a4922ee1c8edee224c284c0c/config.json "HTTP/1.1 200 OK"
+2026-04-29 06:22:58,278 [INFO] HTTP Request: HEAD https://huggingface.co/laion/CLIP-ViT-H-14-laion2B-s32B-b79K/resolve/main/model.safetensors "HTTP/1.1 302 Found"
+2026-04-29 06:22:58,595 [INFO] HTTP Request: HEAD https://huggingface.co/laion/CLIP-ViT-H-14-laion2B-s32B-b79K/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-04-29 06:22:58,605 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/laion/CLIP-ViT-H-14-laion2B-s32B-b79K/1c2b8495b28150b8a4922ee1c8edee224c284c0c/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-04-29 06:22:58,661 [INFO] HTTP Request: GET https://huggingface.co/api/models/laion/CLIP-ViT-H-14-laion2B-s32B-b79K/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-04-29 06:22:58,722 [INFO] HTTP Request: GET https://huggingface.co/api/models/laion/CLIP-ViT-H-14-laion2B-s32B-b79K/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-04-29 06:22:58,867 [INFO] Using text encoder=open_clip_vit_h, location encoder=satclip
+2026-04-29 06:22:59,520 [INFO] Loss: clip_symmetric
+2026-04-29 06:22:59,520 [INFO] LR=0.0001, scheduler=cosine, warmup_steps=0, total_steps=341000, weight_decay=0.01
+2026-04-29 06:22:59,520 [INFO] Starting epoch 0
+2026-04-30 02:34:54,168 [INFO] [Epoch 0] train_loss=6.6970
+2026-04-30 03:22:04,608 [INFO] [Epoch 0] val_loss=6.4791
+2026-04-30 03:22:04,612 [INFO] Epoch 0 | train=6.6970 | val=6.4791 | lr=1.00e-04
+2026-04-30 03:22:06,055 [INFO] Saved checkpoint (val=6.4791)
+2026-04-30 03:22:06,055 [INFO] Starting epoch 1
+2026-04-30 23:34:45,971 [INFO] [Epoch 1] train_loss=6.4297
+2026-05-01 00:21:54,662 [INFO] [Epoch 1] val_loss=6.3809
+2026-05-01 00:21:54,681 [INFO] Epoch 1 | train=6.4297 | val=6.3809 | lr=9.99e-05
+2026-05-01 00:21:56,873 [INFO] Saved checkpoint (val=6.3809)
+2026-05-01 00:21:56,874 [INFO] Starting epoch 2
+2026-05-01 20:32:16,994 [INFO] [Epoch 2] train_loss=6.3591
+2026-05-01 21:19:33,675 [INFO] [Epoch 2] val_loss=6.3286
+2026-05-01 21:19:33,694 [INFO] Epoch 2 | train=6.3591 | val=6.3286 | lr=9.99e-05
+2026-05-01 21:19:35,651 [INFO] Saved checkpoint (val=6.3286)
+2026-05-01 21:19:35,651 [INFO] Starting epoch 3

@@ -1,0 +1,101 @@
+2026-05-01 21:29:18,319 [INFO] Logging to logs/git-10M__txt-open_clip_vit_l__loc-climplicit__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-a341ad85.log
+2026-05-01 21:29:18,322 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/git-10M/txt-open_clip_vit_l__loc-climplicit__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-a341ad85
+2026-05-01 21:30:35,722 [INFO] Loaded dataset from /home/libe2152/data/git-10M/climplicit/
+2026-05-01 21:30:35,722 [INFO] Train size=5585742, Val size=620638
+2026-05-01 21:30:35,887 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 21:30:35,895 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/config.json "HTTP/1.1 200 OK"
+2026-05-01 21:30:35,948 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 21:30:35,949 [WARNING] Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-05-01 21:30:35,958 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/config.json "HTTP/1.1 200 OK"
+2026-05-01 21:30:36,015 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/model.safetensors "HTTP/1.1 302 Found"
+2026-05-01 21:30:36,216 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 21:30:36,224 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-05-01 21:30:36,281 [INFO] HTTP Request: GET https://huggingface.co/api/models/openai/clip-vit-large-patch14/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-05-01 21:30:36,338 [INFO] HTTP Request: GET https://huggingface.co/api/models/openai/clip-vit-large-patch14/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-05-01 21:30:36,484 [INFO] Using text encoder=open_clip_vit_l, location encoder=climplicit
+2026-05-01 21:30:36,960 [INFO] Loss: clip_symmetric
+2026-05-01 21:30:36,960 [INFO] LR=0.0001, scheduler=cosine, warmup_steps=0, max_steps=100000, weight_decay=0.01
+2026-05-01 23:00:49,098 [INFO] step=500 val=6.7471
+2026-05-02 06:08:20,822 [INFO] Logging to logs/git-10M__txt-open_clip_vit_l__loc-climplicit__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-a341ad85.log
+2026-05-02 06:08:20,833 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/git-10M/txt-open_clip_vit_l__loc-climplicit__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-a341ad85
+2026-05-02 06:08:41,093 [INFO] Logging to logs/git-10M__txt-open_clip_vit_l__loc-climplicit__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-a341ad85.log
+2026-05-02 06:08:41,096 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/git-10M/txt-open_clip_vit_l__loc-climplicit__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-a341ad85
+2026-05-02 06:10:08,415 [INFO] Loaded dataset from /home/libe2152/data/git-10M/climplicit/
+2026-05-02 06:10:08,416 [INFO] Train size=5585742, Val size=620638
+2026-05-02 06:10:08,581 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-02 06:10:08,590 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/config.json "HTTP/1.1 200 OK"
+2026-05-02 06:10:08,646 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-02 06:10:08,653 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/config.json "HTTP/1.1 200 OK"
+2026-05-02 06:10:08,711 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/model.safetensors "HTTP/1.1 302 Found"
+2026-05-02 06:10:08,896 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-02 06:10:08,897 [WARNING] Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-05-02 06:10:08,905 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-05-02 06:10:08,963 [INFO] HTTP Request: GET https://huggingface.co/api/models/openai/clip-vit-large-patch14/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-05-02 06:10:09,019 [INFO] HTTP Request: GET https://huggingface.co/api/models/openai/clip-vit-large-patch14/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-05-02 06:10:09,166 [INFO] Using text encoder=open_clip_vit_l, location encoder=climplicit
+2026-05-02 06:10:09,663 [INFO] Loss: clip_symmetric
+2026-05-02 06:10:09,664 [INFO] LR=0.0001, scheduler=cosine, warmup_steps=0, max_steps=100000, weight_decay=0.01
+2026-05-02 06:10:09,664 [INFO] Found existing checkpoint without 'done' marker. Auto-resuming from /home/libe2152/outputs/explainable-earth-embeddings/git-10M/txt-open_clip_vit_l__loc-climplicit__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-a341ad85/best.pt
+2026-05-02 06:10:10,180 [INFO] Resumed from step 500
+2026-05-02 08:09:16,998 [INFO] step=1000 val=6.5695
+2026-05-02 10:08:54,854 [INFO] step=1500 val=6.4789
+2026-05-02 12:08:59,363 [INFO] step=2000 val=6.4189
+2026-05-02 14:09:21,889 [INFO] step=2500 val=6.3741
+2026-05-02 16:10:12,147 [INFO] step=3000 val=6.3391
+2026-05-02 18:11:21,380 [INFO] step=3500 val=6.3097
+2026-05-02 20:10:34,165 [INFO] step=4000 val=6.2849
+2026-05-02 22:12:05,206 [INFO] step=4500 val=6.2626
+2026-05-03 00:16:07,661 [INFO] step=5000 val=6.2426
+2026-05-03 02:20:39,709 [INFO] step=5500 val=6.2246
+2026-05-03 04:24:26,319 [INFO] step=6000 val=6.2075
+2026-05-03 06:27:04,686 [INFO] step=6500 val=6.1927
+2026-05-03 08:29:21,024 [INFO] step=7000 val=6.1782
+2026-05-03 10:32:02,811 [INFO] step=7500 val=6.1650
+2026-05-03 12:34:49,342 [INFO] step=8000 val=6.1526
+2026-05-03 14:37:42,203 [INFO] step=8500 val=6.1403
+2026-05-03 16:41:28,292 [INFO] step=9000 val=6.1290
+2026-05-03 18:46:04,684 [INFO] step=9500 val=6.1190
+2026-05-03 20:51:30,648 [INFO] step=10000 val=6.1075
+2026-05-03 23:01:05,387 [INFO] step=10500 val=6.0980
+2026-05-04 01:07:31,655 [INFO] step=11000 val=6.0879
+2026-05-04 03:13:57,934 [INFO] step=11500 val=6.0785
+2026-05-04 05:20:14,416 [INFO] step=12000 val=6.0693
+2026-05-04 07:25:44,756 [INFO] step=12500 val=6.0607
+2026-05-04 09:30:19,581 [INFO] step=13000 val=6.0524
+2026-05-04 11:34:44,953 [INFO] step=13500 val=6.0443
+2026-05-04 13:39:17,280 [INFO] step=14000 val=6.0369
+2026-05-04 15:43:24,437 [INFO] step=14500 val=6.0282
+2026-05-04 17:43:22,777 [INFO] step=15000 val=6.0206
+2026-05-04 19:46:29,473 [INFO] step=15500 val=6.0131
+2026-05-04 21:48:34,211 [INFO] step=16000 val=6.0054
+2026-05-04 23:52:31,634 [INFO] step=16500 val=5.9981
+2026-05-05 01:56:12,041 [INFO] step=17000 val=5.9908
+2026-05-05 03:58:17,232 [INFO] step=17500 val=5.9844
+2026-05-05 05:58:57,033 [INFO] step=18000 val=5.9781
+2026-05-05 07:57:57,533 [INFO] step=18500 val=5.9711
+2026-05-05 09:56:37,744 [INFO] step=19000 val=5.9643
+2026-05-05 11:55:02,357 [INFO] step=19500 val=5.9579
+2026-05-05 13:53:03,505 [INFO] step=20000 val=5.9520
+2026-05-05 15:50:52,995 [INFO] step=20500 val=5.9457
+2026-05-05 17:55:03,345 [INFO] step=21000 val=5.9389
+2026-05-05 19:55:23,760 [INFO] step=21500 val=5.9336
+2026-05-05 21:54:52,849 [INFO] step=22000 val=5.9281
+2026-05-05 23:53:53,780 [INFO] step=22500 val=5.9216
+2026-05-06 01:54:12,414 [INFO] step=23000 val=5.9172
+2026-05-06 03:51:44,781 [INFO] step=23500 val=5.9107
+2026-05-06 05:48:49,180 [INFO] step=24000 val=5.9053
+2026-05-06 07:45:54,683 [INFO] step=24500 val=5.8997
+2026-05-06 09:41:23,306 [INFO] step=25000 val=5.8938
+2026-05-06 11:34:40,374 [INFO] step=25500 val=5.8885
+2026-05-06 13:27:30,021 [INFO] step=26000 val=5.8839
+2026-05-06 15:20:05,065 [INFO] step=26500 val=5.8782
+2026-05-06 17:14:39,420 [INFO] step=27000 val=5.8728
+2026-05-06 19:07:20,070 [INFO] step=27500 val=5.8670
+2026-05-06 21:00:43,133 [INFO] step=28000 val=5.8628
+2026-05-06 22:53:48,117 [INFO] step=28500 val=5.8579
+2026-05-07 00:49:18,292 [INFO] step=29000 val=5.8532
+2026-05-07 02:42:32,274 [INFO] step=29500 val=5.8483
+2026-05-07 04:34:45,038 [INFO] step=30000 val=5.8439
+2026-05-07 06:27:13,465 [INFO] step=30500 val=5.8384
+2026-05-07 08:21:28,625 [INFO] step=31000 val=5.8341
+2026-05-07 10:14:26,512 [INFO] step=31500 val=5.8288
