@@ -1,3 +1,10 @@
+"""
+This file is taken directly from the SpLiCE repository by the AI4LIFE Group.
+
+Source:
+https://github.com/AI4LIFE-GROUP/SpLiCE/tree/main/splice
+"""
+
 import torch
 import torch.nn as nn
 from sklearn import linear_model
