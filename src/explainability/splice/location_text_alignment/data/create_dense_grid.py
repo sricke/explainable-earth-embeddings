@@ -18,6 +18,7 @@ rng = np.random.default_rng(SEED)
 
 land_union = gpd.read_file(args.shapefile).to_crs("EPSG:4326").union_all()
 
+# Sample uniformly in sin(lat) space so points are area-uniform on the sphere
 lat_min_sin = np.sin(np.radians(LAT_RANGE[0]))
 lat_max_sin = np.sin(np.radians(LAT_RANGE[1]))
 

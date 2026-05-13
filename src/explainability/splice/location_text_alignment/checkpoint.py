@@ -66,6 +66,8 @@ def load_checkpoint(path, model, criterion, optimizer, scheduler, device):
         scheduler.load_state_dict(ckpt['scheduler'])
 
     model.to(device)
+    # Optimizer tensors stay on CPU after load_state_dict
+    # move them alongside the model
     for state in optimizer.state.values():
         for k, v in list(state.items()):
             if torch.is_tensor(v):

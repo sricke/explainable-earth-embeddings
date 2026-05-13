@@ -8,6 +8,8 @@
 
 See [`location_text_alignment/README.md`](location_text_alignment/README.md) for how to download Git-10M, precompute location embeddings, and train the alignment model. The output is a checkpoint directory containing `best.pt`.
 
+[TO DO: Upload pretrained location-text aligned model somewhere?]
+
 ### Step 2: Create dense grid
 
 Generates points sampled uniformly at random across land masses. Used to compute the embedding mean for SPLICE decomposition.

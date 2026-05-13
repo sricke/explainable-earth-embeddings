@@ -188,6 +188,7 @@ def build_dataloaders(
     worker_init = lambda wid: set_seed(seed + wid)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=worker_init, generator=g, drop_last=True)
+    # drop_last on val keeps batch size uniform, which matters for CLIPLoss (batch = negative pairs)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, worker_init_fn=worker_init, drop_last=True)
     
     logger.info(f"Loaded dataset from {dataset_path}")

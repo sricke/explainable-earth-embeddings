@@ -65,6 +65,7 @@ def _build_geoclip():
 
         def forward(self, input_ids, attention_mask=None):
             """input_ids: already tokenized, shape [B, L]"""
+            # GeoCLIP's MLP was trained on pooler_output, not text_embeds (no projection head)
             text_features = self.clip_model.get_text_features(
                 input_ids=input_ids,
                 attention_mask=attention_mask
@@ -143,7 +144,7 @@ class TextEncoder(nn.Module):
             from models.lora import apply_lora
             self.text_encoder.requires_grad_(False)
             self.text_encoder = apply_lora(self.text_encoder.m, r=lora_r, alpha=lora_alpha, last_n_layers=lora_last_n_layers)
-            self.text_encoder.gradient_checkpointing_enable()
+            self.text_encoder.gradient_checkpointing_enable()  # recompute activations to save memory
             self.text_encoder.train()
         elif finetune_mode == "only_proj":
             self.text_encoder.requires_grad_(False)
@@ -158,7 +159,8 @@ class TextEncoder(nn.Module):
 
         device = next(self.text_encoder.parameters()).device
 
-        # Tokenize if raw strings; otherwise expect a pre-tokenized dict/BatchEncoding from collate_fn
+        # Tokenize if raw strings
+        # otherwise expect a pre-tokenized dict/BatchEncoding from collate_fn
         if isinstance(texts, (str, list, tuple)):
             if isinstance(texts, tuple):
                 texts = list(texts)
@@ -183,7 +185,6 @@ class TextEncoder(nn.Module):
 
         embed_dim = TEXT_EMBEDDING_DIMENSIONS[self.text_model]
 
-        # If x is already an embedding of the right dimension, just normalize it
         if isinstance(x, torch.Tensor) and x.shape[-1] == embed_dim:
             target_device = self._target_device()
             if target_device is not None and x.device != target_device:
@@ -193,7 +194,7 @@ class TextEncoder(nn.Module):
             assert not self.precomputed, "Precomputed mode expects a float tensor with the correct embedding dimension"
             embedding = self.encode_texts(x)
 
-        # Project into the shared embedding space (e.g. to match location encoder dimension)
+        # Project into the shared embedding space (to match location encoder dimension)
         if self.embed_project is not None:
             embedding = F.normalize(self.embed_project(embedding), dim=-1)
             

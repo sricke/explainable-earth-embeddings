@@ -6,13 +6,15 @@ In this work, we analyze the information content of geographic INRs through thei
 
 [TO DO: Link arXiv]
 
+[TO DO: Add license (@Sebastian I think you have to do this since you own the repo)]
+
 ![Methods](methods-preview.png)
 
 ---
 
 ## Overview
 
-The latent concept embeddings are learned using sparse autoencoders (cite repo?). To recover natural language concepts, we apply Sparse Linear Concept Embeddings (SpLiCE) using the official implementation from the [SpLiCE repository](https://github.com/AI4LIFE-GROUP/SpLiCE). Finally, visual features are extracted using saliency maps derived from CLIP Surgery.
+The latent concept embeddings are learned using sparse autoencoders (cite repo?). To recover natural language concepts, we apply Sparse Linear Concept Embeddings (SpLiCE) using the official implementation from the [SpLiCE repository](https://github.com/AI4LIFE-GROUP/SpLiCE). Finally, visual features are extracted using saliency maps derived from CLIP Surgery (cite repo?).
 
 ---
 

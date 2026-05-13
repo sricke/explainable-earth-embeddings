@@ -67,6 +67,7 @@ class EmbeddingProjection(nn.Module):
                 nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
 
             elif nonlinearity == "sine":
+                # Uniform in [-1/fan_in, 1/fan_in] as prescribed by the SIREN paper (Sitzmann et al. 2020)
                 with torch.no_grad():
                     m.weight.uniform_(-1 / m.weight.size(1), 1 / m.weight.size(1))
 
