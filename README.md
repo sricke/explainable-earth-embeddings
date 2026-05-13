@@ -97,7 +97,7 @@ The following pretrained location encoders are supported:
 |---|---|
 | GeoClip | [VicenteVivan/geo-clip](https://github.com/VicenteVivan/geo-clip) |
 | SatCLIP | [microsoft/satclip](https://github.com/microsoft/satclip) |
-| Climplicit | [princetonvisualai/Climplicit](https://github.com/princetonvisualai/climplicit) |
+| Climplicit | [ecovision-uzh/Climplicit](https://github.com/ecovision-uzh/climplicit) |
 | CSP (FMoW) | [gengchenmai/csp](https://github.com/gengchenmai/csp) |
 | SINR | [elijahcole/sinr](https://github.com/elijahcole/sinr) |
 

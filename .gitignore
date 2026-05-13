@@ -8,7 +8,7 @@ wandb/
 *.txt
 *.parquet
 *.pth
-*.png
+*/*.png
 *.ckpt
 *.pt
 *.pkl
