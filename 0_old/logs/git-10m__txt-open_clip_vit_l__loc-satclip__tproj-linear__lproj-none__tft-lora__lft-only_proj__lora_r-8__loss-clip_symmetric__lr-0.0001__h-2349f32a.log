@@ -1,0 +1,51 @@
+2026-05-01 21:09:02,190 [INFO] Logging to logs/git-10m__txt-open_clip_vit_l__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-2349f32a.log
+2026-05-01 21:09:02,193 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/git-10m/txt-open_clip_vit_l__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-2349f32a
+2026-05-01 21:10:23,506 [INFO] Loaded dataset from /home/libe2152/data/git-10M/climplicit/
+2026-05-01 21:10:23,507 [INFO] Train size=5585742, Val size=620638
+2026-05-01 21:10:23,670 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 21:10:23,678 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/config.json "HTTP/1.1 200 OK"
+2026-05-01 21:10:23,737 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 21:10:23,739 [WARNING] Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-05-01 21:10:23,747 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/config.json "HTTP/1.1 200 OK"
+2026-05-01 21:10:23,807 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/model.safetensors "HTTP/1.1 302 Found"
+2026-05-01 21:10:24,000 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 21:10:24,009 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-05-01 21:10:24,068 [INFO] HTTP Request: GET https://huggingface.co/api/models/openai/clip-vit-large-patch14/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-05-01 21:10:24,123 [INFO] HTTP Request: GET https://huggingface.co/api/models/openai/clip-vit-large-patch14/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-05-01 21:10:24,262 [INFO] Using text encoder=open_clip_vit_l, location encoder=satclip
+2026-05-01 21:10:24,753 [INFO] Loss: clip_symmetric
+2026-05-01 21:10:24,753 [INFO] LR=0.0001, scheduler=cosine, warmup_steps=0, max_steps=10000, weight_decay=0.01
+2026-05-01 21:13:19,664 [INFO] Logging to logs/git-10m__txt-open_clip_vit_l__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-2349f32a.log
+2026-05-01 21:13:19,666 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/git-10m/txt-open_clip_vit_l__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-2349f32a
+2026-05-01 21:14:42,804 [INFO] Loaded dataset from /home/libe2152/data/git-10M/climplicit/
+2026-05-01 21:14:42,818 [INFO] Train size=5585742, Val size=620638
+2026-05-01 21:14:42,994 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 21:14:42,996 [WARNING] Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-05-01 21:14:43,005 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/config.json "HTTP/1.1 200 OK"
+2026-05-01 21:14:43,059 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 21:14:43,068 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/config.json "HTTP/1.1 200 OK"
+2026-05-01 21:14:43,127 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/model.safetensors "HTTP/1.1 302 Found"
+2026-05-01 21:14:43,343 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 21:14:43,352 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-05-01 21:14:43,416 [INFO] HTTP Request: GET https://huggingface.co/api/models/openai/clip-vit-large-patch14/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-05-01 21:14:43,514 [INFO] HTTP Request: GET https://huggingface.co/api/models/openai/clip-vit-large-patch14/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-05-01 21:14:43,684 [INFO] Using text encoder=open_clip_vit_l, location encoder=satclip
+2026-05-01 21:14:44,210 [INFO] Loss: clip_symmetric
+2026-05-01 21:14:44,211 [INFO] LR=0.0001, scheduler=cosine, warmup_steps=0, max_steps=10000, weight_decay=0.01
+2026-05-01 21:17:47,635 [INFO] Logging to logs/git-10m__txt-open_clip_vit_l__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-2349f32a.log
+2026-05-01 21:17:47,641 [INFO] Checkpoints directory: /home/libe2152/outputs/explainable-earth-embeddings/git-10m/txt-open_clip_vit_l__loc-satclip__tproj-linear__lproj-none__tft-lora__lft-only_proj__lora_r-8__loss-clip_symmetric__lr-0.0001__h-2349f32a
+2026-05-01 21:19:08,642 [INFO] Loaded dataset from /home/libe2152/data/git-10M/climplicit/
+2026-05-01 21:19:08,642 [INFO] Train size=5585742, Val size=620638
+2026-05-01 21:19:08,804 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 21:19:08,806 [WARNING] Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-05-01 21:19:08,814 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/config.json "HTTP/1.1 200 OK"
+2026-05-01 21:19:08,867 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 21:19:08,878 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/config.json "HTTP/1.1 200 OK"
+2026-05-01 21:19:08,937 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/model.safetensors "HTTP/1.1 302 Found"
+2026-05-01 21:19:09,176 [INFO] HTTP Request: HEAD https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-05-01 21:19:09,184 [INFO] HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/openai/clip-vit-large-patch14/32bd64288804d66eefd0ccbe215aa642df71cc41/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-05-01 21:19:09,238 [INFO] HTTP Request: GET https://huggingface.co/api/models/openai/clip-vit-large-patch14/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-05-01 21:19:09,297 [INFO] HTTP Request: GET https://huggingface.co/api/models/openai/clip-vit-large-patch14/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-05-01 21:19:09,434 [INFO] Using text encoder=open_clip_vit_l, location encoder=satclip
+2026-05-01 21:19:09,985 [INFO] Loss: clip_symmetric
+2026-05-01 21:19:09,985 [INFO] LR=0.0001, scheduler=cosine, warmup_steps=0, max_steps=10000, weight_decay=0.01

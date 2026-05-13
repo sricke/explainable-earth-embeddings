@@ -1,0 +1,105 @@
+program: main.py
+entity: boulder-rolf-lab
+project: explainable-earth-embeddings
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+method: grid
+metric:
+  name: val_loss
+  goal: minimize
+
+parameters:
+  dataset_name:
+    value: git-10M
+  train_subsample_size:
+    value: None
+  val_subsample_size:
+    value: None
+  precomputed_text_embeddings:
+    value: false
+  precomputed_location_embeddings:
+    value: true
+
+  # --- Loss ---
+  train_loss:
+    values: [clip_symmetric]
+  lambda_alignment:
+    value: 1.0
+  sigma:
+    value: 1.0
+  logit_scale_temp:
+    value: 0.07 # same as geoclip
+
+  # --- Location encoder projection ---
+  location_encoder:
+    values: [csp_fmow, sinr, csp_inat]
+  location_projection:
+    value: none
+  loc_nonlinearity:
+    value: sine
+  loc_proj_hidden_layers: # only used for mlp projection
+    value: 1
+  loc_proj_hidden_features: # only used for mlp projection
+    value: 512
+
+  # --- Text encoder projection ---
+  text_encoder:
+    value: open_clip_vit_l
+  text_projection:
+    values: [linear]
+  text_nonlinearity:
+    value: gelu
+  text_proj_hidden_layers: # only used for mlp projection
+    value: 1
+  text_proj_hidden_features: # only used for mlp projection
+    value: 2048
+
+  # --- Shared ---
+  shared_dim:
+    value: 256
+  text_finetune_mode:
+    value: lora
+  loc_finetune_mode:
+    value: only_proj
+  lora_rank:
+    value: 8
+  lora_layers:
+    value: 8
+
+  # --- Training ---
+  max_steps:
+    value: 100000
+  val_every_n_steps:
+    value: 500
+  num_val_checks_without_improvement:
+    value: 5
+  batch_size:
+    value: 2048
+  accumulation_steps:
+    value: 4 
+  loc_queue_size:
+    value: None 
+  text_queue_size:
+    value: None
+  lr:
+    value: 0.0001
+  scheduler:
+    value: cosine
+  warmup_steps:
+    value: 0
+  weight_decay:
+    value: 0.01
+  num_workers:
+    value: 4
+  seed:
+    value: 42
+  device:
+    value: cuda
+
+  wandb_entity:
+    value: boulder-rolf-lab
+  wandb_project:
+    value: explainable-earth-embeddings

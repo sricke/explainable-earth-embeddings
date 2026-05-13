@@ -1,0 +1,33 @@
+csp_root: "${data_dir}/csp/model_dir"
+
+geoclip:
+  dim: 512
+
+satclip:
+  model_id: microsoft/SatCLIP-ViT16-L40
+  checkpoint: satclip-vit16-l40.ckpt
+  dim: 256
+
+climplicit:
+  model_id: Jobedo/climplicit
+  dim: 1024
+
+gair:
+  model_id: PingL/GAIR
+  checkpoint: checkpoint.pth
+  dim: 768
+
+taxabind:
+  model_id: MVRL/taxabind-config
+
+csp_fmow:
+  checkpoint: "${csp_root}/model_fmow/model_fmow_gridcell_0.0010_32_0.1000000_1_512_gelu_UNSUPER-contsoftmax_0.000050_1.000_1_0.100_TMP1.0000_1.0000_1.0000.pth.tar"
+  dim: 256
+
+csp_inat:
+  checkpoint: "${csp_root}/model_inat/model_inat_2018_gridcell_0.0010_32_0.1000000_1_512_leakyrelu_UNSUPER-contsoftmax_0.000500_1.000_1_1.000_TMP20.0000_1.0000_1.0000.pth.tar"
+  dim: 256
+
+sinr:
+  checkpoint: "${project_dir}/external/sinr/pretrained_models/model_an_full_input_enc_sin_cos_hard_cap_num_per_class_1000.pt"
+  dim: 256
