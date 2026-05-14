@@ -16,4 +16,5 @@ wandb/
 *.jsonl
 
 0_old
+src/eval_data/plot_dense_grid.ipynb
 

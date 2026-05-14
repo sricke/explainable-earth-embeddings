@@ -1,3 +1,7 @@
+"""
+Code adapted from the create_grid_dense code https://codeocean.com/capsule/6456296/tree/v2
+"""
+
 import argparse
 import numpy as np
 import pandas as pd
@@ -18,12 +22,12 @@ rng = np.random.default_rng(SEED)
 
 land_union = gpd.read_file(args.shapefile).to_crs("EPSG:4326").union_all()
 
-# Sample uniformly in sin(lat) space so points are area-uniform on the sphere
+# Sample uniformly in sin(lat) space
 lat_min_sin = np.sin(np.radians(LAT_RANGE[0]))
 lat_max_sin = np.sin(np.radians(LAT_RANGE[1]))
 
 collected = []
-batch = N * 10  # land ≈ 30% of surface, so one pass is almost always enough
+batch = N * 10  # land is approx 30% of surface, so one pass is almost always enough
 
 while sum(len(p) for p in collected) < N:
     lons = rng.uniform(LON_RANGE[0], LON_RANGE[1], batch)
