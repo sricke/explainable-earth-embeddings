@@ -1,0 +1,3 @@
+[submodule "src/explainability/clip_surgery/CLIP_Surgery"]
+	path = src/explainability/clip_surgery/CLIP_Surgery
+	url = https://github.com/xmed-lab/CLIP_Surgery.git
