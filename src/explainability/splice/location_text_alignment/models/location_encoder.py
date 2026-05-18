@@ -9,7 +9,7 @@ from models.layers import EmbeddingProjection
 
 logger = logging.getLogger(__name__)
 
-_SRC_DIR = Path(__file__).parents[4]
+_SRC_DIR = Path(__file__).resolve().parents[4]
 _CSP_MODEL_DIR = _SRC_DIR / "location_encoders" / "csp" / "model_dir"
 
 if str(_SRC_DIR) not in sys.path:

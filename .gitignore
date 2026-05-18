@@ -20,3 +20,7 @@ src/eval_data/plot_dense_grid.ipynb
 src/eval_data/plot_geoyfcc.ipynb
 src/eval_data/plot_im2gps.ipynb
 
+configs/eval_reconstruction.yaml
+src/explainability/splice/scripts/
+src/explainability/splice/outputs/
+notebooks/check_polygons.ipynb
