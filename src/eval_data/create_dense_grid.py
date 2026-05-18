@@ -8,7 +8,7 @@ import pandas as pd
 import geopandas as gpd
 from pathlib import Path
 
-SEED = 0
+SEED = 42
 N = 100_000
 LAT_RANGE = (-90, 90)
 LON_RANGE = (-180, 180)

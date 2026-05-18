@@ -17,4 +17,6 @@ wandb/
 
 0_old
 src/eval_data/plot_dense_grid.ipynb
+src/eval_data/plot_geoyfcc.ipynb
+src/eval_data/plot_im2gps.ipynb
 
