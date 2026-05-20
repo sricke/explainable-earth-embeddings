@@ -6,8 +6,6 @@ In this work, we analyze the information content of geographic INRs through thei
 
 [TO DO: Link arXiv]
 
-[TO DO: Add license (@Sebastian I think you have to do this since you own the repo)]
-
 ![Methods](methods-preview.png)
 
 ---
@@ -85,7 +83,7 @@ Adapts [SPLICE (ai4life-group)](https://github.com/ai4life-group/splice) to geos
 
 > Full details: [`src/explainability/clip_surgery/README.md`](src/explainability/clip_surgery/README.md)
 
-DESCRIPTION OF CLIP SURGERY APPROACH.
+Produces spatial similarity maps that highlight which image regions are most consistent with a given GPS location. The method adapts [CLIP Surgery](https://github.com/xmed-lab/CLIP_Surgery)  for both **GeoCLIP** (HuggingFace Transformers ViT-L/14) and **SatCLIP** (timm ViT-S/16 on Sentinel-2).
 
 Demo: [`notebooks/clip_surgery_demo.ipynb`](notebooks/clip_surgery_demo.ipynb)
 

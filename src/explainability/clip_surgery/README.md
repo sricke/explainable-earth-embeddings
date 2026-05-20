@@ -1,5 +1,163 @@
 # CLIP-Surgery inference (GeoCLIP / SatCLIP)
 
+Produces spatial similarity maps that highlight which image regions are most consistent with a given GPS location. The method adapts CLIP Surgery — replacing standard self-attention with V-V ("consistent") attention in the last 6 encoder layers — for both GeoCLIP (HuggingFace Transformers ViT-L/14) and SatCLIP (timm ViT-S/16 on Sentinel-2). Unlike CAM-style post-hoc methods, the modification is applied at inference time with no retraining, and the CLS token used for location prediction is preserved exactly, so similarity scores are unchanged.
+
+## Directory layout
+
+```
+src/explainability/clip_surgery/
+├── _path_setup.py            # adds repo root and src/ to sys.path
+├── inference_utils.py        # shared helpers (data loading, preprocessing, plotting)
+├── inference_geoclip.py      # batch CLI runner — GeoCLIP
+├── inference_satclip.py      # batch CLI runner — SatCLIP
+│
+├── geoclip_surgery/          # surgery classes for HuggingFace CLIP (GeoCLIP)
+│   ├── load.py               # get_geoclip() factory
+│   ├── modeling_clip_surgery.py
+│   └── layer_utils.py
+│
+├── satclip_surgery/          # surgery classes for timm ViT (SatCLIP)
+│   ├── load.py               # get_satclip() factory
+│   ├── model_surgery.py
+│   ├── main_surgery.py
+│   ├── modified_attention.py
+│   └── surgery_vision_transformer.py
+│
+├── CLIP_Surgery/             # vendored CLIP-Surgery CLIP wrapper
+│   └── clip/
+│
+└── out/                      # inference output (auto-created)
+    ├── geoclip/
+    └── satclip/
+```
+
+---
+
+## Quick start — demo notebook
+
+The interactive demo is at `notebooks/clip_surgery_demo.ipynb`.  
+
+Place your demo images in `notebooks/`:
+
+| File | Description |
+|---|---|
+| `city.png` | Any RGB photo (GeoCLIP input) |
+| `satellite.tif` | Sentinel-2 GeoTIFF, 12 or 13 bands (SatCLIP input) |
+| `satellite.png` | Optional RGB preview of the satellite tile for display |
+
+Edit `QUERY_LON` / `QUERY_LAT` (and the `_SAT` variants) in the config cells to match the real GPS location of each image, then run all cells.
+
+---
+
+## Batch inference — CLI scripts
+
+Both scripts must be run from the `clip_surgery/` directory so that `_path_setup.py` is importable, or with that directory on `PYTHONPATH`.
+
+### GeoCLIP — `inference_geoclip.py`
+
+Computes surgery maps for a collection of RGB images grouped by place.
+
+**Input data layout**
+
+```
+<source_folder>/
+└── <place_name>/
+    ├── index.csv          # columns: id, lon, lat
+    └── images/
+        ├── img_001.jpg
+        └── img_002.jpg
+```
+
+`index.csv` maps each image filename to GPS coordinates:
+
+```csv
+id,lon,lat
+img_001.jpg,2.3522,48.8566
+img_002.jpg,2.3510,48.8540
+```
+
+A second global CSV (`--csv_path`) with columns `IMG_ID`, `LON`, `LAT` provides the full set of candidate locations used to build the location-feature matrix.
+
+**Usage**
+
+```bash
+cd src/explainability/clip_surgery
+
+python inference_geoclip.py \
+    --csv_path /data/im2gps300/im2gps_places365.csv \
+    --source_folder /data/cities_rgb \
+    [--no_surgery]       # disable surgery (plain CLIP similarity)
+    [--no_layer_grid]    # skip per-layer grid; save only the final-layer map
+    [--normalize minmax] # heatmap scaling: "none" | "minmax" (default)
+```
+
+**Output** — written to `out/geoclip/<place_name>/<image_id>/`:
+
+| File | Content |
+|---|---|
+| `layers.png` | Per-layer similarity grid (last 6 encoder layers) |
+| `sum_layers.png` | Sum of last-6-layer heatmaps, normalised |
+
+---
+
+### SatCLIP — `inference_satclip.py`
+
+Computes surgery maps for Sentinel-2 GeoTIFF tiles grouped by place.
+
+**Input data layout**
+
+```
+<source_folder>/
+└── <place_name>/
+    ├── index.csv             # columns: id, lon, lat  (id = .tif filename)
+    ├── data/
+    │   ├── tile_001.tif      # Sentinel-2 GeoTIFF, 12 or 13 bands
+    │   └── tile_002.tif
+    └── images_corr/          # optional RGB previews (used as overlay background)
+        ├── tile_001.png
+        └── tile_002.png
+```
+
+`index.csv` example:
+
+```csv
+id,lon,lat
+tile_001.tif,6.9593,50.3752
+tile_002.tif,6.9610,50.3800
+```
+
+If `images_corr/` is absent the script falls back to `images/`; if neither exists the overlay background is derived from the `.tif` bands directly.
+
+**Usage**
+
+```bash
+cd src/explainability/clip_surgery
+
+python inference_satclip.py \
+    --source_folder /data/cities50 \
+    [--no_surgery]
+    [--no_layer_grid]
+    [--normalize minmax]
+    [--bbox]                        # detect salient regions on the summed heatmap
+    [--bbox_percentile 0.9]         # quantile threshold for the saliency mask
+    [--bbox_min_peak_fraction 0.5]  # min fraction of tile peak to keep
+    [--bbox_max_area 200]           # max connected-component area in pixels
+    [--bbox_open_kernel 3]          # morphological opening kernel size (odd ≥ 3; 0 = off)
+    [--bbox_square_side 32]         # fixed square side for every bounding box
+    [--bbox_line_thickness 2]       # bounding-box line thickness
+```
+
+**Output** — written to `out/satclip/<place_name>/<tile_id>/`:
+
+| File | Content |
+|---|---|
+| `layers.png` | Per-layer similarity grid (last 6 encoder blocks) |
+| `sum_layers.png` | Sum of last-6-layer heatmaps, normalised |
+| `bbox.png` | Overlay with detected bounding boxes (only with `--bbox`) |
+| `mask.png` | Binary saliency mask (only with `--bbox`) |
+
+---
+
 # Surgery Vision Transformer — what changes from a traditional ViT
 
  Concretely, four things differ from a "vanilla" timm ViT for CLIP-Surgery.
