@@ -5,7 +5,7 @@ wandb/
 *.wandb
 
 *.json
-*.txt
+#*.txt
 *.parquet
 *.pth
 */*.png
