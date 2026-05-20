@@ -16,10 +16,13 @@ from sklearn.manifold import TSNE
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
 import argparse
+from pathlib import Path
+
+_THIS_DIR = Path(__file__).resolve().parent
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--place", type=str, default="Eifel")
-parser.add_argument("--output_dir", type=str, default="/home/seri6958/explainable-earth-embeddings/out")
+parser.add_argument("--output_dir", type=str, default=os.path.join(_THIS_DIR, "out"))
 parser.add_argument("--bboxes_subdir", type=str, default="bboxes")
 parser.add_argument("--model", type=str, default="resnet50", choices=["satclip", "resnet50"])
 parser.add_argument("--weights", type=str, default="imagenet", choices=["imagenet", "moco"])

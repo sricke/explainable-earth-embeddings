@@ -144,9 +144,9 @@ def _minmax_normalize(hm: np.ndarray) -> np.ndarray:
 
 
 def plot_similarity_maps(
-    heatmaps: List[np.ndarray],
+    heatmaps: Union[np.ndarray, List[np.ndarray]],
     cv2_bgr_background: np.ndarray,
-    out_path: str,
+    out_path: Optional[str] = None,
     titles: Optional[List[str]] = None,
     suptitle: str = "",
     ncols: int = 4,
@@ -155,6 +155,16 @@ def plot_similarity_maps(
     heatmap_normalize: Literal["none", "minmax"] = "none",
     pad_inches: float = 0.1,
 ) -> None:
+    """Render heatmap overlays on a BGR background image.
+
+    Parameters
+    ----------
+    heatmaps : single (H, W) ndarray or list of (H, W) ndarrays
+    out_path : file path to save the figure, or ``None`` to display inline
+               (useful in notebooks).
+    """
+    if isinstance(heatmaps, np.ndarray):
+        heatmaps = [heatmaps]
     n = len(heatmaps)
     nrows = math.ceil(n / ncols) if n else 1
     if figsize is None:
@@ -178,8 +188,11 @@ def plot_similarity_maps(
     if suptitle:
         fig.suptitle(suptitle, fontsize=10)
     plt.tight_layout()
-    plt.savefig(out_path, bbox_inches="tight", pad_inches=pad_inches, dpi=dpi)
-    plt.close(fig)
+    if out_path is not None:
+        plt.savefig(out_path, bbox_inches="tight", pad_inches=pad_inches, dpi=dpi)
+        plt.close(fig)
+    else:
+        plt.show()
      
 # FOR BBOXES
        

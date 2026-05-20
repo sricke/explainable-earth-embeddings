@@ -31,7 +31,7 @@ def main():
     parser = ArgumentParser(description="GeoCLIP CLIP surgery maps for RGB images.")
     parser.add_argument('--csv_path', type=str, default=IM2GPS_CSV)
 
-    parser.add_argument("--source_folder", type=str, default="/home/seri6958/Places_from_im2gps")
+    parser.add_argument("--source_folder", type=str, default=IMAGES_FOLDER)
     parser.add_argument(
         "--no_surgery",
         action="store_true",
