@@ -103,6 +103,12 @@ The following pretrained location encoders are supported:
 
 ---
 
+## License
+
+This project is released under the [MIT License](LICENSE).
+
+---
+
 ## Citation
 
 ```bibtex
