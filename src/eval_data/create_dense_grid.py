@@ -3,10 +3,11 @@ Code adapted from the create_grid_dense code https://codeocean.com/capsule/64562
 """
 
 import argparse
+from pathlib import Path
+
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-import geopandas as gpd
-from pathlib import Path
 
 SEED = 42
 N = 100_000

@@ -1,15 +1,14 @@
 import logging
-import os
 from pathlib import Path
 
-import torch
 import pandas as pd
-from torch.utils.data import Dataset, DataLoader
-
+import torch
 from matplotlib.pyplot import Figure
+from torch.utils.data import DataLoader, Dataset
 from utils import set_seed
 
 logger = logging.getLogger(__name__)
+
 
 class GeoTextDataset(Dataset):
     """
@@ -20,13 +19,13 @@ class GeoTextDataset(Dataset):
 
     def __init__(
         self,
-        root: Path = 'data',
-        split: str = 'train', # train, val, test
-        subset_size: int = None, 
+        root: Path = "data",
+        split: str = "train",  # train, val, test
+        subset_size: int = None,
         precomputed_text_embeddings: bool = True,
-        precomputed_location_embeddings: bool = True
+        precomputed_location_embeddings: bool = True,
     ) -> None:
-        
+
         super().__init__()
 
         self.root = Path(root).expanduser()
@@ -53,25 +52,39 @@ class GeoTextDataset(Dataset):
                 df = pd.read_csv(data_csv, index_col=False)
                 fmt = "csv"
             else:
-                raise FileNotFoundError(f"Neither split nor data.parquet/csv exists in {data_parquet} or {data_csv}")
+                raise FileNotFoundError(
+                    f"Neither split nor data.parquet/csv exists in {data_parquet} or {data_csv}"
+                )
 
             self._save_train_test_split(df, fmt=fmt)
 
             split_path = self.root / f"{split}.{fmt}"
-            self.df = pd.read_parquet(split_path) if fmt == "parquet" else pd.read_csv(split_path, index_col=False)
+            self.df = (
+                pd.read_parquet(split_path)
+                if fmt == "parquet"
+                else pd.read_csv(split_path, index_col=False)
+            )
 
         # Optionally subsample dataset
         if subset_size is not None:
             self.subsample(subset_size)
 
         # Determine if embeddings are already precomputed
-        self.precomputed_text_embeddings = precomputed_text_embeddings and 'text_embedding' in self.df.columns
-        self.precomputed_location_embeddings = precomputed_location_embeddings and 'location_embedding' in self.df.columns
+        self.precomputed_text_embeddings = (
+            precomputed_text_embeddings and "text_embedding" in self.df.columns
+        )
+        self.precomputed_location_embeddings = (
+            precomputed_location_embeddings and "location_embedding" in self.df.columns
+        )
 
         if not self.precomputed_text_embeddings:
-            assert 'text' in self.df.columns or 'caption' in self.df.columns, "Data should have text or caption column"
+            assert "text" in self.df.columns or "caption" in self.df.columns, (
+                "Data should have text or caption column"
+            )
         if not self.precomputed_location_embeddings:
-            assert all(col in self.df.columns for col in ['lat', 'lon']), f"Data csv does not contain lat lon columns"
+            assert all(col in self.df.columns for col in ["lat", "lon"]), (
+                "Data csv does not contain lat lon columns"
+            )
 
     def __len__(self) -> int:
         return len(self.df)
@@ -94,7 +107,7 @@ class GeoTextDataset(Dataset):
             txt = row[txt_col]
             txt_key = "text"
 
-        # Ensure precomputed embeddings are proper tensors 
+        # Ensure precomputed embeddings are proper tensors
         if self.precomputed_location_embeddings:
             loc = torch.tensor(loc, dtype=torch.float32)
         if self.precomputed_text_embeddings:
@@ -107,14 +120,21 @@ class GeoTextDataset(Dataset):
             }
 
         return loc, txt
- 
+
     def subsample(self, n: int, seed: int = 42):
         """
         Subsample dataset
         """
         self.df = self.df.sample(n=n, random_state=seed).reset_index(drop=True)
-    
-    def _save_train_test_split(self, all_data: pd.DataFrame = None, val_size=0.1, test_size=0.1, random_state=42, fmt="csv"):
+
+    def _save_train_test_split(
+        self,
+        all_data: pd.DataFrame = None,
+        val_size=0.1,
+        test_size=0.1,
+        random_state=42,
+        fmt="csv",
+    ):
         """
         Save train test split
         """
@@ -122,12 +142,22 @@ class GeoTextDataset(Dataset):
 
         assert all_data is not None, "Need data df"
 
-        train_data, test_data = train_test_split(all_data, test_size=test_size, random_state=random_state)
-        train_data, val_data = train_test_split(train_data, test_size=val_size, random_state=42)
+        train_data, test_data = train_test_split(
+            all_data, test_size=test_size, random_state=random_state
+        )
+        train_data, val_data = train_test_split(
+            train_data, test_size=val_size, random_state=42
+        )
 
-        for split_name, df in {'train': train_data, 'val': val_data, 'test': test_data}.items():
+        for split_name, df in {
+            "train": train_data,
+            "val": val_data,
+            "test": test_data,
+        }.items():
             path = Path(self.root) / f"{split_name}.{fmt}"
-            df.to_parquet(path, index=False) if fmt == "parquet" else df.to_csv(path, index=False)
+            df.to_parquet(path, index=False) if fmt == "parquet" else df.to_csv(
+                path, index=False
+            )
             print(f"Saved {split_name} split: {path} ({len(df)} rows)")
 
         return train_data, val_data, test_data
@@ -138,17 +168,16 @@ class GeoTextDataset(Dataset):
         """
         import matplotlib.pyplot as plt
         from mpl_toolkits.basemap import Basemap
-        import numpy as np
 
         title = "Plot of data points"
 
         fig, ax = plt.subplots(1, figsize=(6, 3))
 
-        m = Basemap(projection='cyl', resolution='c', ax=ax)
+        m = Basemap(projection="cyl", resolution="c", ax=ax)
         m.drawcoastlines()
 
-        coords = self.df[['lon', 'lat']].to_numpy()  # lon first
-        ax.scatter(coords[:,0], coords[:,1], c=color, s=s, alpha=0.7)
+        coords = self.df[["lon", "lat"]].to_numpy()  # lon first
+        ax.scatter(coords[:, 0], coords[:, 1], c=color, s=s, alpha=0.7)
         ax.set_title(title)
 
         return fig
@@ -169,7 +198,7 @@ def build_dataloaders(
     """
     train_dataset = GeoTextDataset(
         root=dataset_path,
-        split='train',
+        split="train",
         subset_size=train_subsample_size,
         precomputed_text_embeddings=precomputed_text_embeddings,
         precomputed_location_embeddings=precomputed_location_embeddings,
@@ -177,7 +206,7 @@ def build_dataloaders(
 
     val_dataset = GeoTextDataset(
         root=dataset_path,
-        split='val',
+        split="val",
         subset_size=val_subsample_size,
         precomputed_text_embeddings=precomputed_text_embeddings,
         precomputed_location_embeddings=precomputed_location_embeddings,
@@ -185,13 +214,29 @@ def build_dataloaders(
 
     g = torch.Generator()
     g.manual_seed(seed)
-    worker_init = lambda wid: set_seed(seed + wid)
+    def worker_init(wid):
+        set_seed(seed + wid)
 
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, worker_init_fn=worker_init, generator=g, drop_last=True)
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        worker_init_fn=worker_init,
+        generator=g,
+        drop_last=True,
+    )
     # drop_last on val keeps batch size uniform, which matters for CLIPLoss (batch = negative pairs)
-    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, worker_init_fn=worker_init, drop_last=True)
-    
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        worker_init_fn=worker_init,
+        drop_last=True,
+    )
+
     logger.info(f"Loaded dataset from {dataset_path}")
     logger.info(f"Train size={len(train_dataset)}, Val size={len(val_dataset)}")
-    
+
     return train_dataloader, val_dataloader

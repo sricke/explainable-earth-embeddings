@@ -1,4 +1,5 @@
 import random
+
 import numpy as np
 import torch
 import torch.optim.lr_scheduler as lr_sched
@@ -7,7 +8,7 @@ import torch.optim.lr_scheduler as lr_sched
 def set_seed(seed: int):
     """
     Set global random seed for reproducibility.
-    deterministic=True / benchmark=False 
+    deterministic=True / benchmark=False
     """
     random.seed(seed)
     np.random.seed(seed)
@@ -22,16 +23,18 @@ def build_scheduler(args, optimizer, total_steps: int):
     Build LR scheduler. Returns None if no scheduler is specified in args.
     Warmup if specified yield learning rate that increasing linearly until specified lr.
     """
-    scheduler_type = getattr(args, 'scheduler', None)
-    warmup_steps = getattr(args, 'warmup_steps', 0)
+    scheduler_type = getattr(args, "scheduler", None)
+    warmup_steps = getattr(args, "warmup_steps", 0)
 
     if scheduler_type is None:
         return None
 
     T_after_warmup = total_steps - warmup_steps
 
-    if scheduler_type == 'cosine':
-        main_sched = lr_sched.CosineAnnealingLR(optimizer, T_max=T_after_warmup, eta_min=0)
+    if scheduler_type == "cosine":
+        main_sched = lr_sched.CosineAnnealingLR(
+            optimizer, T_max=T_after_warmup, eta_min=0
+        )
     else:
         raise ValueError(f"Unknown scheduler type: '{scheduler_type}'")
 
@@ -53,12 +56,21 @@ def build_optimizer(args, model, criterion):
     """
     # logit_scale is explicitly excluded
     # it's a scalar and weight decay would shrink the temperature
-    no_decay = lambda n, p: p.ndim < 2 or any(k in n for k in ("bn", "ln", "bias", "logit_scale"))
+    def no_decay(n, p):
+        return p.ndim < 2 or any(k in n for k in ("bn", "ln", "bias", "logit_scale"))
     named = list(model.named_parameters()) + list(criterion.named_parameters())
     return torch.optim.AdamW(
         [
-            {"params": [p for n, p in named if no_decay(n, p) and p.requires_grad], "weight_decay": 0.0},
-            {"params": [p for n, p in named if not no_decay(n, p) and p.requires_grad], "weight_decay": args.weight_decay},
+            {
+                "params": [p for n, p in named if no_decay(n, p) and p.requires_grad],
+                "weight_decay": 0.0,
+            },
+            {
+                "params": [
+                    p for n, p in named if not no_decay(n, p) and p.requires_grad
+                ],
+                "weight_decay": args.weight_decay,
+            },
         ],
         lr=args.lr,
     )

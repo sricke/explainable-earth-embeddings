@@ -1,17 +1,18 @@
-from typing import Final, Optional, Type
+from typing import Final
 
 import torch
-from torch import nn as nn
-from torch.nn import functional as F
-
 from timm.layers._fx import register_notrace_function
 from timm.layers.config import use_fused_attn
-from timm.layers.pos_embed_sincos import apply_rot_embed_cat  # noqa: F401 (kept for parity with source)
+from timm.layers.pos_embed_sincos import (
+    apply_rot_embed_cat,  # noqa: F401 (kept for parity with source)
+)
+from torch import nn as nn
+from torch.nn import functional as F
 
 
 @torch.fx.wrap
 @register_notrace_function
-def maybe_add_mask(scores: torch.Tensor, attn_mask: Optional[torch.Tensor] = None):
+def maybe_add_mask(scores: torch.Tensor, attn_mask: torch.Tensor | None = None):
     return scores if attn_mask is None else scores + attn_mask
 
 
@@ -30,15 +31,15 @@ class ConsistentAttention(nn.Module):
         self,
         dim: int,
         num_heads: int = 8,
-        attn_head_dim: Optional[int] = None,
-        dim_out: Optional[int] = None,
+        attn_head_dim: int | None = None,
+        dim_out: int | None = None,
         qkv_bias: bool = False,
         qk_norm: bool = False,
         scale_norm: bool = False,
         proj_bias: bool = True,
         attn_drop: float = 0.0,
         proj_drop: float = 0.0,
-        norm_layer: Optional[Type[nn.Module]] = None,
+        norm_layer: type[nn.Module] | None = None,
         device=None,
         dtype=None,
     ) -> None:
@@ -50,12 +51,14 @@ class ConsistentAttention(nn.Module):
             assert dim % num_heads == 0, "dim should be divisible by num_heads"
             head_dim = dim // num_heads
         if qk_norm or scale_norm:
-            assert norm_layer is not None, "norm_layer must be provided if qk_norm or scale_norm is True"
+            assert norm_layer is not None, (
+                "norm_layer must be provided if qk_norm or scale_norm is True"
+            )
 
         self.num_heads = num_heads
         self.head_dim = head_dim
         self.attn_dim = num_heads * head_dim
-        self.scale = head_dim ** -0.5
+        self.scale = head_dim**-0.5
         self.fused_attn = use_fused_attn()
 
         self.qkv = nn.Linear(dim, self.attn_dim * 3, bias=qkv_bias, **dd)
@@ -69,10 +72,14 @@ class ConsistentAttention(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        attn_mask: Optional[torch.Tensor] = None,
+        attn_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+        qkv = (
+            self.qkv(x)
+            .reshape(B, N, 3, self.num_heads, self.head_dim)
+            .permute(2, 0, 3, 1, 4)
+        )
         q, k, v = qkv.unbind(0)
         q, k = self.q_norm(q), self.k_norm(k)
 
@@ -122,4 +129,3 @@ class ConsistentAttention(nn.Module):
         x = self.proj(x)
         x = self.proj_drop(x)
         return [x, x_ori]
-

@@ -7,8 +7,8 @@ from lightning.pytorch.cli import LightningCLI
 
 from location_encoders.satclip.datamodules.s2geo_dataset import S2GeoDataModule
 from location_encoders.satclip.loss import SatCLIPLoss
-from .model_surgery import SatCLIPSurgery
 
+from .model_surgery import SatCLIPSurgery
 
 torch.set_float32_matmul_precision("high")
 
@@ -80,18 +80,25 @@ class SatCLIPSurgeryLightningModule(lightning.pytorch.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        exclude = (
-            lambda n, p: p.ndim < 2
-            or "bn" in n
-            or "ln" in n
-            or "bias" in n
-            or "logit_scale" in n
-        )
-        include = lambda n, p: not exclude(n, p)
+        def exclude(n, p):
+            return (
+                p.ndim < 2
+                or "bn" in n
+                or "ln" in n
+                or "bias" in n
+                or "logit_scale" in n
+            )
+
+        def include(n, p):
+            return not exclude(n, p)
 
         named_parameters = list(self.model.named_parameters())
-        gain_or_bias_params = [p for n, p in named_parameters if exclude(n, p) and p.requires_grad]
-        rest_params = [p for n, p in named_parameters if include(n, p) and p.requires_grad]
+        gain_or_bias_params = [
+            p for n, p in named_parameters if exclude(n, p) and p.requires_grad
+        ]
+        rest_params = [
+            p for n, p in named_parameters if include(n, p) and p.requires_grad
+        ]
 
         optimizer = torch.optim.AdamW(
             [
@@ -155,4 +162,3 @@ if __name__ == "__main__":
     else:
         torch.backends.cuda.matmul.allow_tf32 = False
     cli_main(config_fn)
-

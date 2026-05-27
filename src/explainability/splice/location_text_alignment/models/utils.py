@@ -1,6 +1,6 @@
 from models.layers import EmbeddingProjection
-from models.text_encoder import TextEncoder, TEXT_EMBEDDING_DIMENSIONS
-from models.location_encoder import LocationEncoder, LOCATION_EMBEDDING_DIMENSIONS
+from models.location_encoder import LocationEncoder
+from models.text_encoder import TEXT_EMBEDDING_DIMENSIONS, TextEncoder
 
 
 def make_embedding_projection(
@@ -24,7 +24,8 @@ def make_embedding_projection(
 
     if projection_type == "mlp":
         return EmbeddingProjection(
-            in_dim, out_dim,
+            in_dim,
+            out_dim,
             num_hidden_layers=num_hidden_layers,
             num_hidden_features=num_hidden_features,
             nonlinearity=nonlinearity,
@@ -48,8 +49,21 @@ def make_text_encoder(
     Build a TextEncoder with an optional projection into out_dim.
     """
     in_dim = TEXT_EMBEDDING_DIMENSIONS[text_encoder_type]
-    proj = make_embedding_projection(in_dim, out_dim, projection_type, num_hidden_layers, num_hidden_features, nonlinearity)
-    return TextEncoder(text_encoder_type, embed_project=proj, finetune_mode=finetune_mode, precomputed=precomputed, **lora_kwargs)
+    proj = make_embedding_projection(
+        in_dim,
+        out_dim,
+        projection_type,
+        num_hidden_layers,
+        num_hidden_features,
+        nonlinearity,
+    )
+    return TextEncoder(
+        text_encoder_type,
+        embed_project=proj,
+        finetune_mode=finetune_mode,
+        precomputed=precomputed,
+        **lora_kwargs,
+    )
 
 
 def make_location_encoder(
@@ -60,4 +74,9 @@ def make_location_encoder(
     """
     Build a LocationEncoder with no projection (output dim = native embedding dim).
     """
-    return LocationEncoder(location_encoder_type, embed_project=None, finetune_mode=finetune_mode, precomputed=precomputed)
+    return LocationEncoder(
+        location_encoder_type,
+        embed_project=None,
+        finetune_mode=finetune_mode,
+        precomputed=precomputed,
+    )

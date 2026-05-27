@@ -1,17 +1,26 @@
-from typing import Callable, List, Optional, Tuple, Union
+from collections.abc import Callable
 
 import torch
 from torch import nn
-from typing_extensions import Unpack
-
 from transformers.modeling_layers import GradientCheckpointingLayer
 from transformers.modeling_outputs import BaseModelOutput, BaseModelOutputWithPooling
 from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
+from transformers.models.clip.configuration_clip import (
+    CLIPConfig,
+    CLIPTextConfig,
+    CLIPVisionConfig,
+)
+from transformers.models.clip.modeling_clip import (
+    CLIPMLP,
+    CLIPEncoderLayer,
+    CLIPPreTrainedModel,
+    CLIPVisionEmbeddings,
+    eager_attention_forward,
+)
+from transformers.utils import TransformersKwargs, auto_docstring
 from transformers.utils.generic import merge_with_config_defaults
 from transformers.utils.output_capturing import capture_outputs
-from transformers.models.clip.configuration_clip import CLIPConfig, CLIPTextConfig, CLIPVisionConfig
-from transformers.models.clip.modeling_clip import CLIPEncoderLayer, CLIPMLP, eager_attention_forward, CLIPPreTrainedModel, CLIPVisionEmbeddings
-from transformers.utils import TransformersKwargs, auto_docstring
+from typing_extensions import Unpack
 
 
 class CLIPSurgeryAttention(nn.Module):
@@ -51,7 +60,9 @@ class CLIPSurgeryAttention(nn.Module):
         keys = self.k_proj(hidden_states)
         values = self.v_proj(hidden_states)
 
-        queries = queries.view(batch_size, seq_length, -1, self.head_dim).transpose(1, 2)
+        queries = queries.view(batch_size, seq_length, -1, self.head_dim).transpose(
+            1, 2
+        )
         keys = keys.view(batch_size, seq_length, -1, self.head_dim).transpose(1, 2)
         values = values.view(batch_size, seq_length, -1, self.head_dim).transpose(1, 2)
 
@@ -69,11 +80,11 @@ class CLIPSurgeryAttention(nn.Module):
             dropout=0.0 if not self.training else self.dropout,
             **kwargs,
         )
-        
+
         # Dual path, replace q & k by v
         keys = values
-        queries = keys 
-        
+        queries = keys
+
         attn_output, attn_weights = attention_interface(
             self,
             queries,
@@ -84,10 +95,12 @@ class CLIPSurgeryAttention(nn.Module):
             dropout=0.0 if not self.training else self.dropout,
             **kwargs,
         )
-        
-        attn_output_ori = attn_output_ori.reshape(batch_size, seq_length, -1).contiguous()
+
+        attn_output_ori = attn_output_ori.reshape(
+            batch_size, seq_length, -1
+        ).contiguous()
         attn_output_ori = self.out_proj(attn_output_ori)
-        
+
         attn_output = attn_output.reshape(batch_size, seq_length, -1).contiguous()
         attn_output = self.out_proj(attn_output)
 
@@ -95,8 +108,8 @@ class CLIPSurgeryAttention(nn.Module):
 
 
 def _feature_take_indices(
-    num_features: int, indices: Optional[Union[int, List[int]]] = None
-) -> Tuple[List[int], int]:
+    num_features: int, indices: int | list[int] | None = None
+) -> tuple[list[int], int]:
     """Which encoder layer indices to record (same convention as timm). ``None`` → all layers."""
     if indices is None:
         indices = num_features
@@ -107,12 +120,14 @@ def _feature_take_indices(
         take_indices = []
         for i in indices:
             idx = num_features + i if i < 0 else i
-            assert 0 <= idx < num_features, f"layer index {idx} out of range [0, {num_features})"
+            assert 0 <= idx < num_features, (
+                f"layer index {idx} out of range [0, {num_features})"
+            )
             take_indices.append(idx)
     return take_indices, max(take_indices) if take_indices else 0
 
 
-def _merge_surgery_dual_path(hidden_states: Union[torch.Tensor, list]) -> torch.Tensor:
+def _merge_surgery_dual_path(hidden_states: torch.Tensor | list) -> torch.Tensor:
     """CLS from original path, patch tokens from surgery path (NLD)."""
     if isinstance(hidden_states, list) and len(hidden_states) == 2:
         h, h_ori = hidden_states
@@ -154,9 +169,11 @@ class CLIPSurgeryEncoderLayer(GradientCheckpointingLayer):
                 hidden_states_ori = self.layer_norm2(hidden_states_ori)
                 hidden_states_ori = self.mlp(hidden_states_ori)
                 hidden_states_ori = residual_ori + hidden_states_ori
-                hidden_states = residual_surgery + hidden_states  # skip ffn for the new path
+                hidden_states = (
+                    residual_surgery + hidden_states
+                )  # skip ffn for the new path
                 return [hidden_states, hidden_states_ori]
-                
+
             # start of dual path
             else:
                 residual = hidden_states
@@ -173,9 +190,9 @@ class CLIPSurgeryEncoderLayer(GradientCheckpointingLayer):
                 hidden_states_ori = self.layer_norm2(hidden_states_ori)
                 hidden_states_ori = self.mlp(hidden_states_ori)
                 hidden_states_ori = residual_ori + hidden_states_ori
-                hidden_states = hidden_states + residual# skip ffn for the new path
+                hidden_states = hidden_states + residual  # skip ffn for the new path
                 return [hidden_states, hidden_states_ori]
-            
+
         else:
             # default behavior
             residual = hidden_states
@@ -193,7 +210,8 @@ class CLIPSurgeryEncoderLayer(GradientCheckpointingLayer):
             hidden_states = residual + hidden_states
 
             return hidden_states
-    
+
+
 class CLIPSurgeryEncoder(nn.Module):
     """
     Transformer encoder consisting of `config.num_hidden_layers` self attention layers. Each layer is a
@@ -212,7 +230,9 @@ class CLIPSurgeryEncoder(nn.Module):
             # apply architecture surgery on the last 6 blocks
             start_index = max(0, depth - 6)
             apply_surgery = i >= start_index
-            attn_layer_i = CLIPSurgeryEncoderLayer if apply_surgery else CLIPEncoderLayer
+            attn_layer_i = (
+                CLIPSurgeryEncoderLayer if apply_surgery else CLIPEncoderLayer
+            )
             layers.append(attn_layer_i(config))
         self.layers = nn.ModuleList(layers)
         self.gradient_checkpointing = False
@@ -238,7 +258,7 @@ class CLIPSurgeryEncoder(nn.Module):
                 [What are attention masks?](../glossary#attention-mask)
         """
         hidden_states = inputs_embeds
-        
+
         for encoder_layer in self.layers:
             hidden_states = encoder_layer(
                 hidden_states,
@@ -248,12 +268,14 @@ class CLIPSurgeryEncoder(nn.Module):
         # hidden_states is a list [hidden_states, hidden_states_ori] because last blocks use CLIPSurgeryAttention
         if isinstance(hidden_states, list) and len(hidden_states) == 2:
             hidden_states, hidden_states_ori = hidden_states
-            hidden_states[:, 0, :] = hidden_states_ori[:, 0, :] # cls token from the original path, img tokens from the new path
+            hidden_states[:, 0, :] = hidden_states_ori[
+                :, 0, :
+            ]  # cls token from the original path, img tokens from the new path
             # in CLIP, BaseModelOutputWithPooling is returned after this forward pass
             #    BaseModelOutputWithPooling(
-                #    last_hidden_state=last_hidden_state,
-                #    pooler_output=pooled_output,
-                #)
+            #    last_hidden_state=last_hidden_state,
+            #    pooler_output=pooled_output,
+            # )
             # where pooled_output is the cls  token -> pooled_output = last_hidden_state[:, 0, :]
             # so since CLIPSurgery leaves cls token unchanged the output of GeoCLIP with surgery is same as original GeoCLIP
             # we only modify the hidden states with image patch tokens for visualization
@@ -265,14 +287,14 @@ class CLIPSurgeryEncoder(nn.Module):
         self,
         inputs_embeds: torch.Tensor,
         attention_mask: torch.Tensor | None = None,
-        indices: Optional[Union[int, List[int]]] = None,
+        indices: int | list[int] | None = None,
         **kwargs: Unpack[TransformersKwargs],
-    ) -> Tuple[BaseModelOutput, List[torch.Tensor]]:
+    ) -> tuple[BaseModelOutput, list[torch.Tensor]]:
         """Single pass through layers; returns final encoder output + list of merged NLD states (pre merge-at-end)."""
         take_indices, _ = _feature_take_indices(len(self.layers), indices)
         take_set = set(take_indices)
         hidden_states = inputs_embeds
-        intermediates: List[torch.Tensor] = []
+        intermediates: list[torch.Tensor] = []
 
         for i, encoder_layer in enumerate(self.layers):
             hidden_states = encoder_layer(
@@ -311,9 +333,9 @@ class CLIPSurgeryVisionTransformer(CLIPPreTrainedModel):
         self,
         pixel_values: torch.FloatTensor | None = None,
         interpolate_pos_encoding: bool | None = False,
-        indices: Optional[Union[int, List[int]]] = None,
+        indices: int | list[int] | None = None,
         **kwargs: Unpack[TransformersKwargs],
-    ) -> Tuple[BaseModelOutputWithPooling, List[torch.Tensor]]:
+    ) -> tuple[BaseModelOutputWithPooling, list[torch.Tensor]]:
         """One vision forward: same first return as :meth:`forward` + per-layer encoder hiddens (pre ``post_layernorm``).
 
         Returns
@@ -327,7 +349,9 @@ class CLIPSurgeryVisionTransformer(CLIPPreTrainedModel):
         if pixel_values is None:
             raise ValueError("You have to specify pixel_values")
 
-        hidden_states = self.embeddings(pixel_values, interpolate_pos_encoding=interpolate_pos_encoding)
+        hidden_states = self.embeddings(
+            pixel_values, interpolate_pos_encoding=interpolate_pos_encoding
+        )
         hidden_states = self.pre_layrnorm(hidden_states)
 
         encoder_outputs, intermediates = self.encoder.forward_intermediates(
@@ -352,9 +376,9 @@ class CLIPSurgeryVisionTransformer(CLIPPreTrainedModel):
         self,
         pixel_values: torch.FloatTensor,
         interpolate_pos_encoding: bool | None = False,
-        n: Optional[Union[int, List[int], Tuple[int, ...]]] = None,
+        n: int | list[int] | tuple[int, ...] | None = None,
         **kwargs: Unpack[TransformersKwargs],
-    ) -> List[torch.Tensor]:
+    ) -> list[torch.Tensor]:
         """Pre–post_layernorm merged hiddens; ``n=None`` → all layers."""
         _, inter = self.forward_intermediates(
             pixel_values=pixel_values,
@@ -376,7 +400,9 @@ class CLIPSurgeryVisionTransformer(CLIPPreTrainedModel):
         if pixel_values is None:
             raise ValueError("You have to specify pixel_values")
 
-        hidden_states = self.embeddings(pixel_values, interpolate_pos_encoding=interpolate_pos_encoding)
+        hidden_states = self.embeddings(
+            pixel_values, interpolate_pos_encoding=interpolate_pos_encoding
+        )
         hidden_states = self.pre_layrnorm(hidden_states)
 
         encoder_outputs: BaseModelOutput = self.encoder(
@@ -385,8 +411,8 @@ class CLIPSurgeryVisionTransformer(CLIPPreTrainedModel):
         )
 
         last_hidden_state = encoder_outputs.last_hidden_state
-        pooled_output = last_hidden_state[:, 0, :] #pooled_output is the cls token
-        #pooled_output = last_hidden_state # for visualization, return all tokens, no pooling
+        pooled_output = last_hidden_state[:, 0, :]  # pooled_output is the cls token
+        # pooled_output = last_hidden_state # for visualization, return all tokens, no pooling
         pooled_output = self.post_layernorm(pooled_output)
 
         return BaseModelOutputWithPooling(

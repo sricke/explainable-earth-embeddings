@@ -8,6 +8,7 @@ if _SATCLIP_PY_ROOT.is_dir() and str(_SATCLIP_PY_ROOT) not in sys.path:
     sys.path.insert(0, str(_SATCLIP_PY_ROOT))
 
 from location_encoders.satclip.main import SatCLIPLightningModule
+
 from .main_surgery import SatCLIPSurgeryLightningModule
 
 
@@ -29,4 +30,3 @@ def get_satclip(ckpt_path, device, surgery: bool = False, return_all: bool = Fal
         return geo_model
     else:
         return geo_model.location
-

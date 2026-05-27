@@ -1,6 +1,6 @@
-
 import sys
 from pathlib import Path
+
 _root = Path(__file__).resolve().parents[3]
 _inner = _root / "geoclip" / "geoclip"
 for p in (_inner, _root):

@@ -1,14 +1,12 @@
 import math
 
 import torch
-import torch.nn.functional as F
 import torch.nn as nn
+import torch.nn.functional as F
+
 
 class CLIPLoss(nn.Module):
-    def __init__(
-        self,
-        logit_scale_init: float = math.log(1 / 0.07)
-    ):
+    def __init__(self, logit_scale_init: float = math.log(1 / 0.07)):
         super().__init__()
         # Initial temperature of 0.07 matches GeoCLIP
         self.logit_scale = nn.Parameter(torch.tensor(logit_scale_init))

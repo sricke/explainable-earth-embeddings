@@ -43,12 +43,17 @@ class EmbeddingProjection(nn.Module):
 
             activation_cls = _ACTIVATIONS.get(nonlinearity)
             if activation_cls is None:
-                raise NotImplementedError(f"Nonlinearity '{nonlinearity}' is not implemented")
+                raise NotImplementedError(
+                    f"Nonlinearity '{nonlinearity}' is not implemented"
+                )
 
             # Construct MLP layers
             layers = [nn.Linear(in_features, num_hidden_features), activation_cls()]
             for _ in range(num_hidden_layers - 1):
-                layers += [nn.Linear(num_hidden_features, num_hidden_features), activation_cls()]
+                layers += [
+                    nn.Linear(num_hidden_features, num_hidden_features),
+                    activation_cls(),
+                ]
             layers.append(nn.Linear(num_hidden_features, out_features))
 
             self.net = nn.Sequential(*layers)
@@ -58,7 +63,6 @@ class EmbeddingProjection(nn.Module):
 
     def _init_weights(self, nonlinearity: str):
         for m in self.modules():
-
             if not isinstance(m, nn.Linear):
                 continue
 
@@ -73,7 +77,7 @@ class EmbeddingProjection(nn.Module):
 
             else:
                 nn.init.xavier_uniform_(m.weight)
-                
+
             if m.bias is not None:
                 nn.init.zeros_(m.bias)
 

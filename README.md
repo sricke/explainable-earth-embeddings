@@ -103,6 +103,17 @@ The following pretrained location encoders are supported:
 
 ---
 
+### Lint and format
+
+This repo uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting. Configuration lives in `pyproject.toml`. Lint/format targets project code under `src/explainability` and `src/eval_data` (external submodules and `src/location_encoders` are excluded).
+
+```bash
+ruff check .          # lint
+ruff check . --fix    # lint with auto-fixes
+ruff format .         # format
+ruff format --check . # verify formatting (CI-friendly)
+```
+
 ## License
 
 This project is released under the [MIT License](LICENSE).

@@ -1,7 +1,10 @@
 import torch.nn as nn
-from peft import get_peft_model, LoraConfig
+from peft import LoraConfig, get_peft_model
 
-def apply_lora(model: nn.Module, r: int = 4, alpha: float = 1.0, last_n_layers: int | None = None) -> nn.Module:
+
+def apply_lora(
+    model: nn.Module, r: int = 4, alpha: float = 1.0, last_n_layers: int | None = None
+) -> nn.Module:
     """
     Apply LoRA (Low-Rank Adaptation) to a model's attention projections (q_proj, v_proj).
     See https://arxiv.org/abs/2106.09685.

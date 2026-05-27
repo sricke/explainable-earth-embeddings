@@ -17,4 +17,3 @@ for p in (_root, _inner):
 from .load import get_satclip
 from .main_surgery import SatCLIPSurgeryLightningModule
 from .model_surgery import SatCLIPSurgery
-

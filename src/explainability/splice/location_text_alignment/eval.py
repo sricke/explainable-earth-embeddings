@@ -1,6 +1,7 @@
 import torch
 import wandb
 
+
 @torch.no_grad()
 def run_eval(val_dataloader, model, criterion, global_step, device, epoch=0):
     """
@@ -9,7 +10,7 @@ def run_eval(val_dataloader, model, criterion, global_step, device, epoch=0):
     model.eval()
     total_loss = 0.0
 
-    for i, batch in enumerate(val_dataloader):
+    for _, batch in enumerate(val_dataloader):
         batch_loss = val_step(batch, model, criterion, device)
 
         if wandb.run is not None:
@@ -23,6 +24,7 @@ def run_eval(val_dataloader, model, criterion, global_step, device, epoch=0):
 
     return epoch_loss
 
+
 @torch.no_grad()
 def val_step(batch, model, criterion, device) -> float:
     """
@@ -33,7 +35,9 @@ def val_step(batch, model, criterion, device) -> float:
     if not isinstance(locs, torch.Tensor):
         raise TypeError(f"Expected locs to be a torch.Tensor, got {type(locs)}")
     if not isinstance(texts, (torch.Tensor, list, tuple)):
-        raise TypeError(f"Expected texts to be a torch.Tensor, list, or tuple, got {type(texts)}")
+        raise TypeError(
+            f"Expected texts to be a torch.Tensor, list, or tuple, got {type(texts)}"
+        )
     locs = locs.to(device)
     if isinstance(texts, torch.Tensor):
         texts = texts.to(device)

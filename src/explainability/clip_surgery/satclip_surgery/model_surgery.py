@@ -1,40 +1,38 @@
-from collections import OrderedDict
-from typing import Tuple, Union
-
 import numpy as np
+import timm
 import torch
 from torch import nn
-
-import timm
 from torch.nn import Identity
 from torchgeo.models import ResNet18_Weights, ResNet50_Weights, ViTSmall16_Weights
 
 from location_encoders.satclip.location_encoder import (
-    get_positional_encoding,
-    get_neural_network,
     LocationEncoder,
+    get_neural_network,
+    get_positional_encoding,
 )
+
 from .surgery_vision_transformer import VisionTransformer
 
 
 class ModifiedResNet(nn.Module):
-
-    def __init__(self, layers, output_dim, heads, input_resolution=224, width=64, in_channels=3):
+    def __init__(
+        self, layers, output_dim, heads, input_resolution=224, width=64, in_channels=3
+    ):
         super().__init__()
-        raise NotImplementedError("ModifiedResNet path is not implemented for SatCLIP surgery in this repo.")
+        raise NotImplementedError(
+            "ModifiedResNet path is not implemented for SatCLIP surgery in this repo."
+        )
 
 
 class SatCLIPSurgery(nn.Module):
-    """SatCLIP model with CLIP-Surgery vision encoder.
-
-    """
+    """SatCLIP model with CLIP-Surgery vision encoder."""
 
     def __init__(
         self,
         embed_dim: int,
         # vision
         image_resolution: int,
-        vision_layers: Union[Tuple[int, int, int, int], int, str],
+        vision_layers: tuple[int, int, int, int] | int | str,
         vision_width: int,
         vision_patch_size: int,
         in_channels: int,
@@ -72,8 +70,12 @@ class SatCLIPSurgery(nn.Module):
             print("using pretrained moco resnet18 (surgery)")
             weights = ResNet18_Weights.SENTINEL2_ALL_MOCO
             in_chans = weights.meta["in_chans"]
-            self.visual = timm.create_model("resnet18", in_chans=in_chans, num_classes=embed_dim)
-            self.visual.load_state_dict(weights.get_state_dict(progress=True), strict=False)
+            self.visual = timm.create_model(
+                "resnet18", in_chans=in_chans, num_classes=embed_dim
+            )
+            self.visual.load_state_dict(
+                weights.get_state_dict(progress=True), strict=False
+            )
             self.visual.requires_grad_(False)
             self.visual.fc.requires_grad_(True)
 
@@ -81,8 +83,12 @@ class SatCLIPSurgery(nn.Module):
             print("using pretrained moco resnet50 (surgery)")
             weights = ResNet50_Weights.SENTINEL2_ALL_MOCO
             in_chans = weights.meta["in_chans"]
-            self.visual = timm.create_model("resnet50", in_chans=in_chans, num_classes=embed_dim)
-            self.visual.load_state_dict(weights.get_state_dict(progress=True), strict=False)
+            self.visual = timm.create_model(
+                "resnet50", in_chans=in_chans, num_classes=embed_dim
+            )
+            self.visual.load_state_dict(
+                weights.get_state_dict(progress=True), strict=False
+            )
             self.visual.requires_grad_(False)
             self.visual.fc.requires_grad_(True)
 
@@ -98,7 +104,9 @@ class SatCLIPSurgery(nn.Module):
                 depth=12,
                 num_heads=6,
             )
-            self.visual.load_state_dict(weights.get_state_dict(progress=True), strict=False)
+            self.visual.load_state_dict(
+                weights.get_state_dict(progress=True), strict=False
+            )
             self.visual.requires_grad_(False)
             self.visual.head.requires_grad_(True)
             self.visual.attn_pool = Identity()  # no pooling
@@ -144,20 +152,28 @@ class SatCLIPSurgery(nn.Module):
     def initialize_parameters(self):
         if isinstance(self.visual, ModifiedResNet):
             if getattr(self.visual, "attnpool", None) is not None:
-                std = self.visual.attnpool.c_proj.in_features ** -0.5
+                std = self.visual.attnpool.c_proj.in_features**-0.5
                 nn.init.normal_(self.visual.attnpool.q_proj.weight, std=std)
                 nn.init.normal_(self.visual.attnpool.k_proj.weight, std=std)
                 nn.init.normal_(self.visual.attnpool.v_proj.weight, std=std)
                 nn.init.normal_(self.visual.attnpool.c_proj.weight, std=std)
 
-            for resnet_block in [self.visual.layer1, self.visual.layer2, self.visual.layer3, self.visual.layer4]:
+            for resnet_block in [
+                self.visual.layer1,
+                self.visual.layer2,
+                self.visual.layer3,
+                self.visual.layer4,
+            ]:
                 for name, param in resnet_block.named_parameters():
                     if name.endswith("bn3.weight"):
                         nn.init.zeros_(param)
 
     @property
     def dtype(self):
-        if isinstance(self.visual, (timm.models.vision_transformer.VisionTransformer, VisionTransformer)):
+        if isinstance(
+            self.visual,
+            (timm.models.vision_transformer.VisionTransformer, VisionTransformer),
+        ):
             return self.visual.patch_embed.proj.weight.dtype
         else:
             return self.visual.conv1.weight.dtype
@@ -173,7 +189,9 @@ class SatCLIPSurgery(nn.Module):
         location_features = self.encode_location(coords).float()
         # normalized features
         image_features = image_features / image_features.norm(dim=1, keepdim=True)
-        location_features = location_features / location_features.norm(dim=1, keepdim=True)
+        location_features = location_features / location_features.norm(
+            dim=1, keepdim=True
+        )
 
         # cosine similarity as logits
         logit_scale = self.logit_scale.exp()
@@ -187,28 +205,27 @@ class SatCLIPSurgery(nn.Module):
 def convert_weights(model: nn.Module):
     """Convert applicable model parameters to fp16."""
 
-    def _convert_weights_to_fp16(l):
-        if isinstance(l, (nn.Conv1d, nn.Conv2d, nn.Linear)):
-            l.weight.data = l.weight.data.half()
-            if l.bias is not None:
-                l.bias.data = l.bias.data.half()
+    def _convert_weights_to_fp16(module):
+        if isinstance(module, (nn.Conv1d, nn.Conv2d, nn.Linear)):
+            module.weight.data = module.weight.data.half()
+            if module.bias is not None:
+                module.bias.data = module.bias.data.half()
 
-        if isinstance(l, nn.MultiheadAttention):
+        if isinstance(module, nn.MultiheadAttention):
             for attr in [
                 *[f"{s}_proj_weight" for s in ["in", "q", "k", "v"]],
                 "in_proj_bias",
                 "bias_k",
                 "bias_v",
             ]:
-                tensor = getattr(l, attr, None)
+                tensor = getattr(module, attr, None)
                 if tensor is not None:
                     tensor.data = tensor.data.half()
 
         for name in ["text_projection", "proj"]:
-            if hasattr(l, name):
-                attr = getattr(l, name)
+            if hasattr(module, name):
+                attr = getattr(module, name)
                 if attr is not None:
                     attr.data = attr.data.half()
 
     model.apply(_convert_weights_to_fp16)
-

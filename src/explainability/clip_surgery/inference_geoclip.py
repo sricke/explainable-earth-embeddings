@@ -7,29 +7,30 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
-from tqdm import tqdm
-from PIL import Image
 from CLIP_Surgery import clip
 from geoclip_surgery import get_geoclip
 from inference_utils import (
     Location,
-    seed_everything,
     encode_locations,
     load_image_geoclip,
     load_locations,
     plot_similarity_maps,
+    seed_everything,
     surgery_similarity_patch_rows,
 )
+from PIL import Image
+from tqdm import tqdm
 
 IM2GPS_CSV = "/data/im2gps300/im2gps_places365.csv"
 IMAGES_FOLDER = "/data/im2gps300/Places_from_im2gps"
 SEED = 42
 _THIS_DIR = Path(__file__).resolve().parent
 
+
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     parser = ArgumentParser(description="GeoCLIP CLIP surgery maps for RGB images.")
-    parser.add_argument('--csv_path', type=str, default=IM2GPS_CSV)
+    parser.add_argument("--csv_path", type=str, default=IM2GPS_CSV)
 
     parser.add_argument("--source_folder", type=str, default=IMAGES_FOLDER)
     parser.add_argument(
@@ -60,14 +61,18 @@ def main():
     geo_model.eval()
     encode_location = geo_model.location_encoder.forward
 
-    all_locations = load_locations(args.csv_path, lon_column="LON", lat_column="LAT", id_column="IMG_ID")
+    all_locations = load_locations(
+        args.csv_path, lon_column="LON", lat_column="LAT", id_column="IMG_ID"
+    )
     all_location_features = encode_locations(
         all_locations, encode_location, device, satclip=False
     )
     id_to_idx = {loc.id: idx for idx, loc in enumerate(all_locations)}
-    
-    NORTH_POLE_LOCATION = Location(id='north_pole', lon=0, lat=90)
-    redundant_feats = encode_locations([NORTH_POLE_LOCATION], encode_location, device, satclip=False)
+
+    NORTH_POLE_LOCATION = Location(id="north_pole", lon=0, lat=90)
+    redundant_feats = encode_locations(
+        [NORTH_POLE_LOCATION], encode_location, device, satclip=False
+    )
     places_folder = args.source_folder
     data_folder = "images"
 
@@ -79,7 +84,9 @@ def main():
 
     for place in places:
         index_path = os.path.join(place, "index.csv")
-        all_locations_place = load_locations(index_path, lon_column="lon", lat_column="lat", id_column="id")
+        all_locations_place = load_locations(
+            index_path, lon_column="lon", lat_column="lat", id_column="id"
+        )
         place_name = Path(place).name
         results_dir = _THIS_DIR / "out" / "geoclip" / place_name
         results_dir.mkdir(parents=True, exist_ok=True)
@@ -95,7 +102,7 @@ def main():
             n = id_to_idx.get(location.id)
             if n is None:
                 continue
-            
+
             data_path = os.path.join(place, data_folder, location.id)
 
             image = load_image_geoclip(data_path, device=device)
@@ -108,7 +115,6 @@ def main():
             h, w = rgb_img.shape[:2]
 
             with torch.no_grad():
-    
                 vision_out, layer_hiddens = vm.forward_intermediates(
                     pixel_values=image,
                     interpolate_pos_encoding=False,
@@ -116,17 +122,21 @@ def main():
                 patch_tokens = vproj(vm.post_layernorm(vision_out.last_hidden_state))
                 image_features = mlp(patch_tokens)
 
-                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+                image_features = image_features / image_features.norm(
+                    dim=-1, keepdim=True
+                )
                 # here we compute the similarity between the image features and all the locations
                 similarity = clip.clip_feature_surgery(
-                    image_features, all_location_features, redundant_feats=redundant_feats
-                ) # (1, # vis patch tokens, # num_locations)
-                
+                    image_features,
+                    all_location_features,
+                    redundant_feats=redundant_feats,
+                )  # (1, # vis patch tokens, # num_locations)
+
                 # reshape to (1, h, w, # num_locations)
                 similarity_map = clip.get_similarity_map(
                     surgery_similarity_patch_rows(similarity), (h, w)
                 )
-                
+
             if not layer_grid:
                 plot_similarity_maps(
                     similarity_map[0, :, :, n].cpu().numpy(),
@@ -164,7 +174,7 @@ def main():
                         smin, smax = float(sum_hm.min()), float(sum_hm.max())
                         sum_display = (sum_hm - smin) / (smax - smin + 1e-8)
                         sum_display = sum_display.astype(np.float32)
-                
+
                 # plot per layer similarity maps
                 plot_similarity_maps(
                     heatmaps,
@@ -175,7 +185,7 @@ def main():
                     ncols=4,
                     heatmap_normalize=norm,
                 )
-                
+
                 # plot summed similarity map
                 plot_similarity_maps(
                     [sum_display],
@@ -187,6 +197,7 @@ def main():
                     figsize=(8.0, 8.0),
                     heatmap_normalize=norm,
                 )
+
 
 if __name__ == "__main__":
     main()

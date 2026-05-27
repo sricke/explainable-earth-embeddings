@@ -2,32 +2,29 @@ import os
 import shutil
 from argparse import ArgumentParser
 from pathlib import Path
-from PIL import Image
-
-from _path_setup import _THIS_DIR
 
 import cv2
 import numpy as np
 import torch
-from huggingface_hub import hf_hub_download
-from tqdm import tqdm
-
+from _path_setup import _THIS_DIR
 from CLIP_Surgery import clip
-from satclip_surgery.load import get_satclip
+from huggingface_hub import hf_hub_download
 from inference_utils import (
     Location,
-    seed_everything,
+    _minmax_normalize,
+    boxes_from_saliency,
+    draw_boxes_on_rgb,
     encode_locations,
+    get_saliency_mask,
     load_image_sentinel,
     load_locations,
-    plot_similarity_maps,
-    surgery_similarity_patch_rows,
-    get_saliency_mask,
     load_rgb_from_images_corr,
-    draw_boxes_on_rgb,
-    boxes_from_saliency,
-    _minmax_normalize,
+    plot_similarity_maps,
+    seed_everything,
+    surgery_similarity_patch_rows,
 )
+from satclip_surgery.load import get_satclip
+from tqdm import tqdm
 
 SEED = 42
 
@@ -37,23 +34,26 @@ SUPPORTED_MODELS = {
 
 PLACES_FOLDER = "/data/cities50"
 
+
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    parser = ArgumentParser(description="SatCLIP CLIP surgery maps for Sentinel-2 tiles.")
-    
+    parser = ArgumentParser(
+        description="SatCLIP CLIP surgery maps for Sentinel-2 tiles."
+    )
+
     parser.add_argument("--source_folder", type=str, default=PLACES_FOLDER)
     parser.add_argument(
         "--no_surgery",
         action="store_true",
         help="Disable surgery (per-layer similarity disabled).",
     )
-    
+
     parser.add_argument(
         "--no_layer_grid",
         action="store_true",
         help="Skip per-layer similarity grid; defaults to original surgery",
     )
-    
+
     parser.add_argument(
         "--normalize",
         choices=["none", "minmax"],
@@ -110,7 +110,7 @@ def main():
         default=2,
         help="Bounding-box line thickness (default: 2).",
     )
-    
+
     args = parser.parse_args()
     seed_everything(SEED)
 
@@ -142,19 +142,22 @@ def main():
         for place in os.listdir(places_folder)
         if os.path.isdir(os.path.join(places_folder, place))
     )
-    
+
     # to emulate noise
     NORTH_POLE_LOCATION = Location(id="north_pole", lon=0, lat=90)
 
     for place in places:
-        
         index_path = os.path.join(place, "index.csv")
-        all_locations = load_locations(index_path, lon_column="lon", lat_column="lat", id_column="id")
+        all_locations = load_locations(
+            index_path, lon_column="lon", lat_column="lat", id_column="id"
+        )
         all_location_features = encode_locations(
             all_locations, encode_location, device, satclip=True
         )
         id_to_idx = {loc.id: idx for idx, loc in enumerate(all_locations)}
-        redundant_feats = encode_locations([NORTH_POLE_LOCATION], encode_location, device, satclip=True)
+        redundant_feats = encode_locations(
+            [NORTH_POLE_LOCATION], encode_location, device, satclip=True
+        )
 
         place_name = Path(place).name
         results_dir = _THIS_DIR / "out" / "satclip" / place_name
@@ -178,7 +181,7 @@ def main():
 
             with torch.no_grad():
                 vm = model.visual
-            
+
                 final_tokens, layer_hiddens = vm.forward_intermediates(
                     image,
                     indices=None,
@@ -187,15 +190,19 @@ def main():
                 )
                 image_features = vm.forward_head(final_tokens, pre_logits=False)
 
-                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+                image_features = image_features / image_features.norm(
+                    dim=-1, keepdim=True
+                )
                 similarity = clip.clip_feature_surgery(
-                    image_features, all_location_features, redundant_feats=redundant_feats
+                    image_features,
+                    all_location_features,
+                    redundant_feats=redundant_feats,
                 )
                 similarity_map = clip.get_similarity_map(
                     surgery_similarity_patch_rows(similarity), (h, w)
                 )
-                
-            if not layer_grid: # original surgery map
+
+            if not layer_grid:  # original surgery map
                 plot_similarity_maps(
                     similarity_map[0, :, :, n].cpu().numpy(),
                     cv2_img_bgr,
@@ -250,7 +257,7 @@ def main():
                     ncols=4,
                     heatmap_normalize=norm,
                 )
-    
+
                 # plot summed similarity map
                 plot_similarity_maps(
                     [sum_display],
@@ -270,7 +277,9 @@ def main():
                         max_area=int(args.bbox_max_area),
                         img_h=h,
                         img_w=w,
-                        square_side=int(args.bbox_square_side) if args.bbox_square_side is not None else None,
+                        square_side=int(args.bbox_square_side)
+                        if args.bbox_square_side is not None
+                        else None,
                     )
 
                     boxed_rgb = draw_boxes_on_rgb(
@@ -284,12 +293,14 @@ def main():
                     )
                     # Binary foreground mask after threshold + opening (0 / 255).
                     cv2.imwrite(os.path.join(out_dir, "mask.png"), eroded_mask)
-                    cv2.imwrite(os.path.join(out_dir, "original_mask.png"), saliency_mask)
+                    cv2.imwrite(
+                        os.path.join(out_dir, "original_mask.png"), saliency_mask
+                    )
                     # Crop each bbox from RGB and save under <out_dir>/bboxes/.
                     crops_dir = os.path.join(out_dir, "bboxes")
-                    
+
                     if os.path.exists(crops_dir):
-                        shutil.rmtree(crops_dir) # delete last results
+                        shutil.rmtree(crops_dir)  # delete last results
 
                     os.makedirs(crops_dir)
                     sorted_boxes = sorted(
@@ -308,6 +319,7 @@ def main():
                             os.path.join(crops_dir, crop_name),
                             cv2.cvtColor(crop_rgb, cv2.COLOR_RGB2BGR),
                         )
+
 
 if __name__ == "__main__":
     main()

@@ -7,8 +7,6 @@ Use ``CLIPSurgeryVisionTransformer.forward_intermediates`` then project with
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple, Union
-
 import torch
 from transformers.modeling_outputs import BaseModelOutputWithPooling
 
@@ -26,9 +24,9 @@ def geoclip_encode_image_and_layer_hiddens(
     vision_model,
     pixel_values: torch.Tensor,
     interpolate_pos_encoding: bool = False,
-    indices: Optional[Union[int, List[int]]] = None,
+    indices: int | list[int] | None = None,
     **kwargs,
-) -> Tuple[BaseModelOutputWithPooling, List[torch.Tensor]]:
+) -> tuple[BaseModelOutputWithPooling, list[torch.Tensor]]:
     """Single ``forward_intermediates`` call: same first return as :meth:`CLIPSurgeryVisionTransformer.forward`
     plus per-layer merged hiddens (pre ``post_layernorm``).
 

@@ -6,62 +6,53 @@ is otherwise kept identical so that pretrained weights and checkpoints from the
 original SatCLIP models remain compatible while changing only the inference behavior.
 """
 
-import copy
 import logging
 import math
-import os
 from collections import OrderedDict
+from collections.abc import Callable
 from functools import partial
-from typing import Any, Callable, Dict, Optional, Set, Tuple, Type, Union, List
+from typing import Any
 
 try:
     from typing import Literal
 except ImportError:
-    from typing_extensions import Literal
+    from typing import Literal
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.jit import Final
-
-from timm.data import (
-    IMAGENET_DEFAULT_MEAN,
-    IMAGENET_DEFAULT_STD,
-    IMAGENET_INCEPTION_MEAN,
-    IMAGENET_INCEPTION_STD,
-    OPENAI_CLIP_MEAN,
-    OPENAI_CLIP_STD,
-)
-
-from .modified_attention import ConsistentAttention
 from timm.layers import (
     Attention,
-    DiffAttention,
     AttentionPoolLatent,
-    PatchEmbed,
-    Mlp,
-    SwiGLUPacked,
-    SwiGLU,
-    LayerNorm,
-    RmsNorm,
+    DiffAttention,
     DropPath,
-    calculate_drop_path_rates,
+    LayerNorm,
+    LayerScale,
+    LayerType,
+    Mlp,
     PatchDropout,
-    trunc_normal_,
-    lecun_normal_,
-    resample_patch_embed,
-    resample_abs_pos_embed,
-    use_fused_attn,
+    PatchEmbed,
+    RmsNorm,
+    calculate_drop_path_rates,
     get_act_layer,
     get_norm_layer,
+    lecun_normal_,
     maybe_add_mask,
-    LayerType,
-    LayerScale,
+    resample_abs_pos_embed,
+    resample_patch_embed,
+    trunc_normal_,
+    use_fused_attn,
 )
-from timm.models._builder import build_model_with_cfg
 from timm.models._features import feature_take_indices
-from timm.models._manipulate import named_apply, checkpoint, checkpoint_seq, adapt_input_conv
-from timm.models._registry import generate_default_cfgs, register_model, register_model_deprecations
+from timm.models._manipulate import (
+    adapt_input_conv,
+    checkpoint,
+    checkpoint_seq,
+    named_apply,
+)
+from torch.jit import Final
+
+from .modified_attention import ConsistentAttention
 
 __all__ = ["VisionTransformer"]  # model_registry will add each entrypoint fn to this
 
@@ -87,12 +78,12 @@ def _create_attn(
     proj_bias: bool = True,
     attn_drop: float = 0.0,
     proj_drop: float = 0.0,
-    norm_layer: Optional[Type[nn.Module]] = None,
+    norm_layer: type[nn.Module] | None = None,
     depth: int = 0,
     **kwargs,
 ) -> nn.Module:
     if isinstance(attn_layer, str):
-        attn_layer = ATTN_LAYERS.get(attn_layer, None)
+        attn_layer = ATTN_LAYERS.get(attn_layer)
         assert attn_layer is not None, f"Unknown attn_layer: {attn_layer}"
 
     # Only pass depth to attention layers that use it
@@ -128,11 +119,11 @@ class Block(nn.Module):
         proj_bias: bool = True,
         proj_drop: float = 0.0,
         attn_drop: float = 0.0,
-        init_values: Optional[float] = None,
+        init_values: float | None = None,
         drop_path: float = 0.0,
-        act_layer: Type[nn.Module] = nn.GELU,
-        norm_layer: Type[nn.Module] = LayerNorm,
-        mlp_layer: Type[nn.Module] = Mlp,
+        act_layer: type[nn.Module] = nn.GELU,
+        norm_layer: type[nn.Module] = LayerNorm,
+        mlp_layer: type[nn.Module] = Mlp,
         attn_layer: LayerType = Attention,
         depth: int = 0,
         device=None,
@@ -156,7 +147,11 @@ class Block(nn.Module):
             depth=depth,
             **dd,
         )
-        self.ls1 = LayerScale(dim, init_values=init_values, **dd) if init_values else nn.Identity()
+        self.ls1 = (
+            LayerScale(dim, init_values=init_values, **dd)
+            if init_values
+            else nn.Identity()
+        )
         self.drop_path1 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
 
         self.norm2 = norm_layer(dim, **dd)
@@ -169,17 +164,25 @@ class Block(nn.Module):
             drop=proj_drop,
             **dd,
         )
-        self.ls2 = LayerScale(dim, init_values=init_values, **dd) if init_values else nn.Identity()
+        self.ls2 = (
+            LayerScale(dim, init_values=init_values, **dd)
+            if init_values
+            else nn.Identity()
+        )
         self.drop_path2 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, attn_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
         if isinstance(self.attn, ConsistentAttention):
             # custom dual path behavior
             # dual paths for blocks deeper than "d"
             if isinstance(x, list):
                 x, x_ori = x
                 # LS1 and DROP 1 are not needed for inference and dont know
-                x_attn, x_ori_attn = self.drop_path1(self.ls1(self.attn(self.norm1(x_ori), attn_mask=attn_mask)))
+                x_attn, x_ori_attn = self.drop_path1(
+                    self.ls1(self.attn(self.norm1(x_ori), attn_mask=attn_mask))
+                )
                 x_ori += x_ori_attn
                 x_ori_ffn = self.drop_path2(self.ls2(self.mlp(self.norm2(x_ori))))
                 x_ori += x_ori_ffn
@@ -189,7 +192,9 @@ class Block(nn.Module):
 
             # start of dual path
             else:
-                x_attn, x_ori_attn = self.drop_path1(self.ls1(self.attn(self.norm1(x), attn_mask=attn_mask)))
+                x_attn, x_ori_attn = self.drop_path1(
+                    self.ls1(self.attn(self.norm1(x), attn_mask=attn_mask))
+                )
                 x_ori = x + x_ori_attn
                 x_ori_ffn = self.drop_path2(self.ls2(self.mlp(self.norm2(x_ori))))
                 x_ori += x_ori_ffn
@@ -197,7 +202,9 @@ class Block(nn.Module):
                 return [x, x_ori]
         else:
             # default behavior
-            x = x + self.drop_path1(self.ls1(self.attn(self.norm1(x), attn_mask=attn_mask)))
+            x = x + self.drop_path1(
+                self.ls1(self.attn(self.norm1(x), attn_mask=attn_mask))
+            )
             x = x + self.drop_path2(self.ls2(self.mlp(self.norm2(x))))
         return x
 
@@ -215,11 +222,11 @@ class ResPostBlock(nn.Module):
         proj_bias: bool = True,
         proj_drop: float = 0.0,
         attn_drop: float = 0.0,
-        init_values: Optional[float] = None,
+        init_values: float | None = None,
         drop_path: float = 0.0,
-        act_layer: Type[nn.Module] = nn.GELU,
-        norm_layer: Type[nn.Module] = LayerNorm,
-        mlp_layer: Type[nn.Module] = Mlp,
+        act_layer: type[nn.Module] = nn.GELU,
+        norm_layer: type[nn.Module] = LayerNorm,
+        mlp_layer: type[nn.Module] = Mlp,
         attn_layer: LayerType = Attention,
         depth: int = 0,
         device=None,
@@ -266,7 +273,9 @@ class ResPostBlock(nn.Module):
             nn.init.constant_(self.norm1.weight, self.init_values)
             nn.init.constant_(self.norm2.weight, self.init_values)
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, attn_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
         x = x + self.drop_path1(self.norm1(self.attn(x, attn_mask=attn_mask)))
         x = x + self.drop_path2(self.norm2(self.mlp(x)))
         return x
@@ -293,12 +302,12 @@ class ParallelScalingBlock(nn.Module):
         proj_bias: bool = True,
         proj_drop: float = 0.0,
         attn_drop: float = 0.0,
-        init_values: Optional[float] = None,
+        init_values: float | None = None,
         drop_path: float = 0.0,
-        act_layer: Type[nn.Module] = nn.GELU,
-        norm_layer: Type[nn.Module] = LayerNorm,
-        mlp_layer: Optional[Type[nn.Module]] = None,  # not used
-        attn_layer: Optional[LayerType] = None,  # not used
+        act_layer: type[nn.Module] = nn.GELU,
+        norm_layer: type[nn.Module] = LayerNorm,
+        mlp_layer: type[nn.Module] | None = None,  # not used
+        attn_layer: LayerType | None = None,  # not used
         depth: int = 0,  # not used
         fuse_out_proj: bool = False,
         device=None,
@@ -310,7 +319,7 @@ class ParallelScalingBlock(nn.Module):
         assert not scale_attn_norm and not scale_mlp_norm, "Scale norms not supported"
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
-        self.scale = self.head_dim ** -0.5
+        self.scale = self.head_dim**-0.5
         self.fused_attn = use_fused_attn()
         mlp_hidden_dim = int(mlp_ratio * dim)
         in_proj_out_dim = mlp_hidden_dim + 3 * dim
@@ -342,7 +351,11 @@ class ParallelScalingBlock(nn.Module):
             self.attn_out_proj = nn.Linear(dim, dim, bias=proj_bias, **dd)
             self.mlp_out_proj = nn.Linear(mlp_hidden_dim, dim, bias=proj_bias, **dd)
 
-        self.ls = LayerScale(dim, init_values=init_values, **dd) if init_values is not None else nn.Identity()
+        self.ls = (
+            LayerScale(dim, init_values=init_values, **dd)
+            if init_values is not None
+            else nn.Identity()
+        )
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
 
         # TODO: skip init when on meta device when safe to do so
@@ -353,7 +366,9 @@ class ParallelScalingBlock(nn.Module):
         if getattr(self, "mlp_bias", None) is not None:
             nn.init.zeros_(self.mlp_bias)
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, attn_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
         B, N, C = x.shape
 
         # Combined MLP fc1 & qkv projections
@@ -422,12 +437,12 @@ class DiffParallelScalingBlock(nn.Module):
         proj_bias: bool = True,
         proj_drop: float = 0.0,
         attn_drop: float = 0.0,
-        init_values: Optional[float] = None,
+        init_values: float | None = None,
         drop_path: float = 0.0,
-        act_layer: Type[nn.Module] = nn.GELU,
-        norm_layer: Type[nn.Module] = LayerNorm,
-        mlp_layer: Optional[Type[nn.Module]] = None,
-        attn_layer: Optional[LayerType] = None,
+        act_layer: type[nn.Module] = nn.GELU,
+        norm_layer: type[nn.Module] = LayerNorm,
+        mlp_layer: type[nn.Module] | None = None,
+        attn_layer: LayerType | None = None,
         depth: int = 0,
         dual_lambda: bool = False,
         device=None,
@@ -439,7 +454,7 @@ class DiffParallelScalingBlock(nn.Module):
         assert not scale_attn_norm and not scale_mlp_norm, "Scale norms not supported"
         self.num_heads = num_heads
         self.head_dim = dim // num_heads // 2  # Half head_dim for diff attention
-        self.scale = self.head_dim ** -0.5
+        self.scale = self.head_dim**-0.5
         self.fused_attn = use_fused_attn()
         mlp_hidden_dim = int(mlp_ratio * dim)
         in_proj_out_dim = mlp_hidden_dim + 3 * dim
@@ -462,15 +477,27 @@ class DiffParallelScalingBlock(nn.Module):
         self.sub_norm = RmsNorm(2 * self.head_dim, eps=1e-5, **dd)
         self.dual_lambda = dual_lambda
         if dual_lambda:
-            self.lambda_a = nn.Parameter(torch.empty((), dtype=torch.float32, device=device))
-            self.lambda_b = nn.Parameter(torch.empty((), dtype=torch.float32, device=device))
+            self.lambda_a = nn.Parameter(
+                torch.empty((), dtype=torch.float32, device=device)
+            )
+            self.lambda_b = nn.Parameter(
+                torch.empty((), dtype=torch.float32, device=device)
+            )
             self.lambda_q1 = self.lambda_k1 = self.lambda_q2 = self.lambda_k2 = None
         else:
             self.lambda_a = self.lambda_b = None
-            self.lambda_q1 = nn.Parameter(torch.empty(self.head_dim, dtype=torch.float32, device=device))
-            self.lambda_k1 = nn.Parameter(torch.empty(self.head_dim, dtype=torch.float32, device=device))
-            self.lambda_q2 = nn.Parameter(torch.empty(self.head_dim, dtype=torch.float32, device=device))
-            self.lambda_k2 = nn.Parameter(torch.empty(self.head_dim, dtype=torch.float32, device=device))
+            self.lambda_q1 = nn.Parameter(
+                torch.empty(self.head_dim, dtype=torch.float32, device=device)
+            )
+            self.lambda_k1 = nn.Parameter(
+                torch.empty(self.head_dim, dtype=torch.float32, device=device)
+            )
+            self.lambda_q2 = nn.Parameter(
+                torch.empty(self.head_dim, dtype=torch.float32, device=device)
+            )
+            self.lambda_k2 = nn.Parameter(
+                torch.empty(self.head_dim, dtype=torch.float32, device=device)
+            )
 
         self.mlp_drop = nn.Dropout(proj_drop)
         self.mlp_act = act_layer()
@@ -478,7 +505,11 @@ class DiffParallelScalingBlock(nn.Module):
         # Fused output projection for both attention and MLP
         self.out_proj = nn.Linear(dim + mlp_hidden_dim, dim, bias=proj_bias, **dd)
 
-        self.ls = LayerScale(dim, init_values=init_values, **dd) if init_values is not None else nn.Identity()
+        self.ls = (
+            LayerScale(dim, init_values=init_values, **dd)
+            if init_values is not None
+            else nn.Identity()
+        )
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
 
         self.lambda_init = 0.8
@@ -508,11 +539,17 @@ class DiffParallelScalingBlock(nn.Module):
             lambda_1 = torch.exp(self.lambda_a)
             lambda_2 = torch.exp(self.lambda_b)
         else:
-            lambda_1 = torch.exp(torch.sum(self.lambda_q1 * self.lambda_k1, dim=-1).float())
-            lambda_2 = torch.exp(torch.sum(self.lambda_q2 * self.lambda_k2, dim=-1).float())
+            lambda_1 = torch.exp(
+                torch.sum(self.lambda_q1 * self.lambda_k1, dim=-1).float()
+            )
+            lambda_2 = torch.exp(
+                torch.sum(self.lambda_q2 * self.lambda_k2, dim=-1).float()
+            )
         return lambda_1 - lambda_2 + self.lambda_init
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, attn_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
         B, N, C = x.shape
 
         # Combined MLP fc1 & qkv projections
@@ -538,8 +575,12 @@ class DiffParallelScalingBlock(nn.Module):
             k1, k2 = k.unbind(2)
 
             dropout_p = self.attn_drop_p if self.training else 0.0
-            attn1 = F.scaled_dot_product_attention(q1, k1, v, attn_mask=attn_mask, dropout_p=dropout_p)
-            attn2 = F.scaled_dot_product_attention(q2, k2, v, attn_mask=attn_mask, dropout_p=dropout_p)
+            attn1 = F.scaled_dot_product_attention(
+                q1, k1, v, attn_mask=attn_mask, dropout_p=dropout_p
+            )
+            attn2 = F.scaled_dot_product_attention(
+                q2, k2, v, attn_mask=attn_mask, dropout_p=dropout_p
+            )
 
             x_attn = attn1 - lambda_full * attn2
         else:
@@ -587,13 +628,13 @@ class ParallelThingsBlock(nn.Module):
         scale_attn_norm: bool = False,
         scale_mlp_norm: bool = False,
         proj_bias: bool = True,
-        init_values: Optional[float] = None,
+        init_values: float | None = None,
         proj_drop: float = 0.0,
         attn_drop: float = 0.0,
         drop_path: float = 0.0,
-        act_layer: Type[nn.Module] = nn.GELU,
-        norm_layer: Type[nn.Module] = LayerNorm,
-        mlp_layer: Type[nn.Module] = Mlp,
+        act_layer: type[nn.Module] = nn.GELU,
+        norm_layer: type[nn.Module] = LayerNorm,
+        mlp_layer: type[nn.Module] = Mlp,
         attn_layer: LayerType = Attention,
         depth: int = 0,
         device=None,
@@ -627,8 +668,18 @@ class ParallelThingsBlock(nn.Module):
                                     **dd,
                                 ),
                             ),
-                            ("ls", LayerScale(dim, init_values=init_values, **dd) if init_values else nn.Identity()),
-                            ("drop_path", DropPath(drop_path) if drop_path > 0.0 else nn.Identity()),
+                            (
+                                "ls",
+                                LayerScale(dim, init_values=init_values, **dd)
+                                if init_values
+                                else nn.Identity(),
+                            ),
+                            (
+                                "drop_path",
+                                DropPath(drop_path)
+                                if drop_path > 0.0
+                                else nn.Identity(),
+                            ),
                         ]
                     )
                 )
@@ -650,14 +701,26 @@ class ParallelThingsBlock(nn.Module):
                                     **dd,
                                 ),
                             ),
-                            ("ls", LayerScale(dim, init_values=init_values, **dd) if init_values else nn.Identity()),
-                            ("drop_path", DropPath(drop_path) if drop_path > 0.0 else nn.Identity()),
+                            (
+                                "ls",
+                                LayerScale(dim, init_values=init_values, **dd)
+                                if init_values
+                                else nn.Identity(),
+                            ),
+                            (
+                                "drop_path",
+                                DropPath(drop_path)
+                                if drop_path > 0.0
+                                else nn.Identity(),
+                            ),
                         ]
                     )
                 )
             )
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, attn_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
         if attn_mask is not None:
             attn_out = []
             for attn in self.attns:
@@ -699,7 +762,7 @@ def global_pool_nlc(
 
 
 def _merge_satclip_dual_path_nlc(
-    x: Union[torch.Tensor, List[torch.Tensor]],
+    x: torch.Tensor | list[torch.Tensor],
 ) -> torch.Tensor:
     """Merge ``[x_new, x_ori]`` from ConsistentAttention blocks into one NLC tensor.
 
@@ -725,8 +788,8 @@ class VisionTransformer(nn.Module):
 
     def __init__(
         self,
-        img_size: Union[int, Tuple[int, int]] = 224,
-        patch_size: Union[int, Tuple[int, int]] = 16,
+        img_size: int | tuple[int, int] = 224,
+        patch_size: int | tuple[int, int] = 16,
         in_chans: int = 3,
         num_classes: int = 1000,
         global_pool: Literal["", "avg", "avgmax", "max", "token", "map"] = "token",
@@ -739,14 +802,14 @@ class VisionTransformer(nn.Module):
         scale_attn_norm: bool = False,
         scale_mlp_norm: bool = False,
         proj_bias: bool = True,
-        init_values: Optional[float] = None,
+        init_values: float | None = None,
         class_token: bool = True,
         pos_embed: str = "learn",
         no_embed_class: bool = False,
         reg_tokens: int = 0,
         pre_norm: bool = False,
         final_norm: bool = True,
-        fc_norm: Optional[bool] = None,
+        fc_norm: bool | None = None,
         pool_include_prefix: bool = False,
         dynamic_img_size: bool = False,
         dynamic_img_pad: bool = False,
@@ -759,11 +822,11 @@ class VisionTransformer(nn.Module):
         weight_init: Literal["skip", "reset", "jax", "jax_nlhb", "moco", ""] = "",
         fix_init: bool = False,
         embed_layer: Callable = PatchEmbed,
-        embed_norm_layer: Optional[LayerType] = None,
-        norm_layer: Optional[LayerType] = None,
-        act_layer: Optional[LayerType] = None,
-        block_fn: Type[nn.Module] = Block,
-        mlp_layer: Type[nn.Module] = Mlp,
+        embed_norm_layer: LayerType | None = None,
+        norm_layer: LayerType | None = None,
+        act_layer: LayerType | None = None,
+        block_fn: type[nn.Module] = Block,
+        mlp_layer: type[nn.Module] = Mlp,
         attn_layer: LayerType = Attention,
         device=None,
         dtype=None,
@@ -773,7 +836,9 @@ class VisionTransformer(nn.Module):
         assert global_pool in ("", "avg", "avgmax", "max", "token", "map")
         assert class_token or global_pool != "token"
         assert pos_embed in ("", "none", "learn")
-        use_fc_norm = global_pool in ("avg", "avgmax", "max") if fc_norm is None else fc_norm
+        use_fc_norm = (
+            global_pool in ("avg", "avgmax", "max") if fc_norm is None else fc_norm
+        )
         norm_layer = get_norm_layer(norm_layer) or LayerNorm
         embed_norm_layer = get_norm_layer(embed_norm_layer)
         act_layer = get_act_layer(act_layer) or nn.GELU
@@ -808,11 +873,23 @@ class VisionTransformer(nn.Module):
             **dd,
         )
         num_patches = self.patch_embed.num_patches
-        reduction = self.patch_embed.feat_ratio() if hasattr(self.patch_embed, "feat_ratio") else patch_size
+        reduction = (
+            self.patch_embed.feat_ratio()
+            if hasattr(self.patch_embed, "feat_ratio")
+            else patch_size
+        )
 
-        self.cls_token = nn.Parameter(torch.empty(1, 1, embed_dim, **dd)) if class_token else None
-        self.reg_token = nn.Parameter(torch.empty(1, reg_tokens, embed_dim, **dd)) if reg_tokens else None
-        embed_len = num_patches if no_embed_class else num_patches + self.num_prefix_tokens
+        self.cls_token = (
+            nn.Parameter(torch.empty(1, 1, embed_dim, **dd)) if class_token else None
+        )
+        self.reg_token = (
+            nn.Parameter(torch.empty(1, reg_tokens, embed_dim, **dd))
+            if reg_tokens
+            else None
+        )
+        embed_len = (
+            num_patches if no_embed_class else num_patches + self.num_prefix_tokens
+        )
         if not pos_embed or pos_embed == "none":
             self.pos_embed = None
         else:
@@ -827,7 +904,9 @@ class VisionTransformer(nn.Module):
             self.patch_drop = nn.Identity()
         self.norm_pre = norm_layer(embed_dim, **dd) if pre_norm else nn.Identity()
 
-        dpr = calculate_drop_path_rates(drop_path_rate, depth)  # stochastic depth decay rule
+        dpr = calculate_drop_path_rates(
+            drop_path_rate, depth
+        )  # stochastic depth decay rule
         self.blocks = nn.ModuleList()
         for i in range(depth):
             # apply architecture surgery on the last 6 blocks
@@ -857,8 +936,15 @@ class VisionTransformer(nn.Module):
                 )
             )
         self.blocks = nn.Sequential(*self.blocks)
-        self.feature_info = [dict(module=f"blocks.{i}", num_chs=embed_dim, reduction=reduction) for i in range(depth)]
-        self.norm = norm_layer(embed_dim, **dd) if final_norm and not use_fc_norm else nn.Identity()
+        self.feature_info = [
+            dict(module=f"blocks.{i}", num_chs=embed_dim, reduction=reduction)
+            for i in range(depth)
+        ]
+        self.norm = (
+            norm_layer(embed_dim, **dd)
+            if final_norm and not use_fc_norm
+            else nn.Identity()
+        )
 
         # Classifier Head
         if global_pool == "map":
@@ -872,9 +958,15 @@ class VisionTransformer(nn.Module):
             )
         else:
             self.attn_pool = None
-        self.fc_norm = norm_layer(embed_dim, **dd) if final_norm and use_fc_norm else nn.Identity()
+        self.fc_norm = (
+            norm_layer(embed_dim, **dd) if final_norm and use_fc_norm else nn.Identity()
+        )
         self.head_drop = nn.Dropout(drop_rate)
-        self.head = nn.Linear(self.embed_dim, num_classes, **dd) if num_classes > 0 else nn.Identity()
+        self.head = (
+            nn.Linear(self.embed_dim, num_classes, **dd)
+            if num_classes > 0
+            else nn.Identity()
+        )
 
         self.weight_init_mode = "reset" if weight_init == "skip" else weight_init
         self.fix_init = fix_init
@@ -902,7 +994,9 @@ class VisionTransformer(nn.Module):
         if self.reg_token is not None:
             nn.init.normal_(self.reg_token, std=1e-6)
 
-        named_apply(get_init_weights_vit(mode, head_bias, needs_reset=needs_reset), self)
+        named_apply(
+            get_init_weights_vit(mode, head_bias, needs_reset=needs_reset), self
+        )
 
         if self.fix_init:
             self.fix_init_weight()
@@ -917,12 +1011,12 @@ class VisionTransformer(nn.Module):
         _load_weights(self, checkpoint_path, prefix)
 
     @torch.jit.ignore
-    def no_weight_decay(self) -> Set[str]:
+    def no_weight_decay(self) -> set[str]:
         """Set of parameters that should not use weight decay."""
         return {"pos_embed", "cls_token", "dist_token"}
 
     @torch.jit.ignore
-    def group_matcher(self, coarse: bool = False) -> Dict[str, Union[str, List]]:
+    def group_matcher(self, coarse: bool = False) -> dict[str, str | list]:
         """Create regex patterns for parameter grouping."""
         return dict(
             stem=r"^cls_token|pos_embed|patch_embed",  # stem and embed
@@ -941,22 +1035,28 @@ class VisionTransformer(nn.Module):
         """Get the classifier head."""
         return self.head
 
-    def reset_classifier(self, num_classes: int, global_pool: Optional[str] = None) -> None:
+    def reset_classifier(
+        self, num_classes: int, global_pool: str | None = None
+    ) -> None:
         """Reset the classifier head."""
         self.num_classes = num_classes
         if global_pool is not None:
             assert global_pool in ("", "avg", "avgmax", "max", "token", "map")
             if global_pool == "map" and self.attn_pool is None:
-                assert False, "Cannot currently add attention pooling in reset_classifier()."
+                raise AssertionError(
+                    "Cannot currently add attention pooling in reset_classifier()."
+                )
             elif global_pool != "map" and self.attn_pool is not None:
                 self.attn_pool = None  # remove attention pooling
             self.global_pool = global_pool
-        self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+        self.head = (
+            nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+        )
 
     def set_input_size(
         self,
-        img_size: Optional[Tuple[int, int]] = None,
-        patch_size: Optional[Tuple[int, int]] = None,
+        img_size: tuple[int, int] | None = None,
+        patch_size: tuple[int, int] | None = None,
     ) -> None:
         """Update the input image resolution and patch size."""
         prev_grid_size = self.patch_embed.grid_size
@@ -1017,17 +1117,19 @@ class VisionTransformer(nn.Module):
     def forward_intermediates(
         self,
         x: torch.Tensor,
-        indices: Optional[Union[int, List[int]]] = None,
+        indices: int | list[int] | None = None,
         return_prefix_tokens: bool = False,
         norm: bool = False,
         stop_early: bool = False,
         output_fmt: str = "NCHW",
         intermediates_only: bool = False,
         output_dict: bool = False,
-        attn_mask: Optional[torch.Tensor] = None,
-    ) -> Union[List[torch.Tensor], Tuple[torch.Tensor, List[torch.Tensor]], Dict[str, Any]]:
+        attn_mask: torch.Tensor | None = None,
+    ) -> list[torch.Tensor] | tuple[torch.Tensor, list[torch.Tensor]] | dict[str, Any]:
         """Forward features that returns intermediates."""
-        assert output_fmt in ("NCHW", "NLC"), "Output format must be one of NCHW or NLC."
+        assert output_fmt in ("NCHW", "NLC"), (
+            "Output format must be one of NCHW or NLC."
+        )
         reshape = output_fmt == "NCHW"
         intermediates = []
         take_indices, max_index = feature_take_indices(len(self.blocks), indices)
@@ -1039,7 +1141,9 @@ class VisionTransformer(nn.Module):
         x = self.patch_drop(x)
         x = self.norm_pre(x)
 
-        if torch.jit.is_scripting() or not stop_early:  # can't slice blocks in torchscript
+        if (
+            torch.jit.is_scripting() or not stop_early
+        ):  # can't slice blocks in torchscript
             blocks = self.blocks
         else:
             blocks = self.blocks[: max_index + 1]
@@ -1069,7 +1173,10 @@ class VisionTransformer(nn.Module):
         if reshape:
             # reshape to BCHW output format
             H, W = self.patch_embed.dynamic_feat_size((height, width))
-            intermediates = [y.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous() for y in intermediates]
+            intermediates = [
+                y.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
+                for y in intermediates
+            ]
 
         # For dictionary output, handle prefix tokens separately
         if output_dict:
@@ -1087,9 +1194,13 @@ class VisionTransformer(nn.Module):
             return result_dict
 
         # For non-dictionary output, maintain the original behavior
-        if not torch.jit.is_scripting() and return_prefix_tokens and prefix_tokens is not None:
+        if (
+            not torch.jit.is_scripting()
+            and return_prefix_tokens
+            and prefix_tokens is not None
+        ):
             # return_prefix not support in torchscript due to poor type handling
-            intermediates = list(zip(intermediates, prefix_tokens))
+            intermediates = list(zip(intermediates, prefix_tokens, strict=False))
 
         if intermediates_only:
             return intermediates
@@ -1100,10 +1211,10 @@ class VisionTransformer(nn.Module):
 
     def prune_intermediate_layers(
         self,
-        indices: Union[int, List[int]] = 1,
+        indices: int | list[int] = 1,
         prune_norm: bool = False,
         prune_head: bool = True,
-    ) -> List[int]:
+    ) -> list[int]:
         """Prune layers not required for specified intermediates."""
         take_indices, max_index = feature_take_indices(len(self.blocks), indices)
         self.blocks = self.blocks[: max_index + 1]  # truncate blocks
@@ -1117,12 +1228,12 @@ class VisionTransformer(nn.Module):
     def get_intermediate_layers(
         self,
         x: torch.Tensor,
-        n: Union[int, List[int], Tuple[int]] = 1,
+        n: int | list[int] | tuple[int] = 1,
         reshape: bool = False,
         return_prefix_tokens: bool = False,
         norm: bool = False,
-        attn_mask: Optional[torch.Tensor] = None,
-    ) -> List[torch.Tensor]:
+        attn_mask: torch.Tensor | None = None,
+    ) -> list[torch.Tensor]:
         """Get intermediate layer outputs (DINO interface compatibility)."""
         return self.forward_intermediates(
             x,
@@ -1134,7 +1245,9 @@ class VisionTransformer(nn.Module):
             attn_mask=attn_mask,
         )
 
-    def forward_features(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward_features(
+        self, x: torch.Tensor, attn_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
         """Forward pass through feature layers (embeddings, transformer blocks, post-transformer norm)."""
         x = self.patch_embed(x)
         x = self._pos_embed(x)
@@ -1153,13 +1266,15 @@ class VisionTransformer(nn.Module):
         # x is a list [x_new, x_ori] because last blocks use ConsistentAttention
         if isinstance(x, list) and len(x) == 2:
             x_new, x_ori = x
-            x_new[:, 0, :] = x_ori[:, 0, :]  # cls token from the original path, img tokens from the new path
+            x_new[:, 0, :] = x_ori[
+                :, 0, :
+            ]  # cls token from the original path, img tokens from the new path
             x = x_new
 
         x = self.norm(x)
         return x
 
-    def pool(self, x: torch.Tensor, pool_type: Optional[str] = None) -> torch.Tensor:
+    def pool(self, x: torch.Tensor, pool_type: str | None = None) -> torch.Tensor:
         """Apply pooling to feature tokens."""
         if self.attn_pool is not None:
             if not self.pool_include_prefix:
@@ -1182,13 +1297,17 @@ class VisionTransformer(nn.Module):
         x = self.head_drop(x)
         return x if pre_logits else self.head(x)
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, attn_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
         x = self.forward_features(x, attn_mask=attn_mask)
         x = self.forward_head(x)
         return x
 
 
-def init_weights_vit_timm(module: nn.Module, name: str = "", needs_reset: bool = True) -> None:
+def init_weights_vit_timm(
+    module: nn.Module, name: str = "", needs_reset: bool = True
+) -> None:
     """ViT weight initialization, original timm impl (for reproducibility)."""
     if isinstance(module, nn.Linear):
         trunc_normal_(module.weight, std=0.02)
@@ -1214,7 +1333,9 @@ def init_weights_vit_jax(
         else:
             nn.init.xavier_uniform_(module.weight)
             if module.bias is not None:
-                nn.init.normal_(module.bias, std=1e-6) if "mlp" in name else nn.init.zeros_(module.bias)
+                nn.init.normal_(
+                    module.bias, std=1e-6
+                ) if "mlp" in name else nn.init.zeros_(module.bias)
     elif isinstance(module, nn.Conv2d):
         lecun_normal_(module.weight)
         if module.bias is not None:
@@ -1225,12 +1346,16 @@ def init_weights_vit_jax(
         module.reset_parameters()
 
 
-def init_weights_vit_moco(module: nn.Module, name: str = "", needs_reset: bool = True) -> None:
+def init_weights_vit_moco(
+    module: nn.Module, name: str = "", needs_reset: bool = True
+) -> None:
     """ViT weight initialization, matching moco-v3 impl minus fixed PatchEmbed."""
     if isinstance(module, nn.Linear):
         if "qkv" in name:
             # treat the weights of Q, K, V separately
-            val = math.sqrt(6.0 / float(module.weight.shape[0] // 3 + module.weight.shape[1]))
+            val = math.sqrt(
+                6.0 / float(module.weight.shape[0] // 3 + module.weight.shape[1])
+            )
             nn.init.uniform_(module.weight, -val, val)
         else:
             nn.init.xavier_uniform_(module.weight)
@@ -1242,14 +1367,20 @@ def init_weights_vit_moco(module: nn.Module, name: str = "", needs_reset: bool =
         module.reset_parameters()
 
 
-def init_weights_reset_parameters(module: nn.Module, name: str = "", needs_reset: bool = True) -> None:
+def init_weights_reset_parameters(
+    module: nn.Module, name: str = "", needs_reset: bool = True
+) -> None:
     if needs_reset and hasattr(module, "reset_parameters"):
         module.reset_parameters()
 
 
-def get_init_weights_vit(mode: str = "jax", head_bias: float = 0.0, needs_reset: bool = True) -> Callable:
+def get_init_weights_vit(
+    mode: str = "jax", head_bias: float = 0.0, needs_reset: bool = True
+) -> Callable:
     if mode.startswith("jax"):
-        return partial(init_weights_vit_jax, head_bias=head_bias, needs_reset=needs_reset)
+        return partial(
+            init_weights_vit_jax, head_bias=head_bias, needs_reset=needs_reset
+        )
     elif mode.startswith("moco"):
         return partial(init_weights_vit_moco, needs_reset=needs_reset)
     elif mode == "reset":
@@ -1264,7 +1395,7 @@ def resize_pos_embed(
     posemb: torch.Tensor,
     posemb_new: torch.Tensor,
     num_prefix_tokens: int = 1,
-    gs_new: Tuple[int, int] = (),
+    gs_new: tuple[int, int] = (),
     interpolation: str = "bicubic",
     antialias: bool = False,
 ) -> torch.Tensor:
@@ -1289,7 +1420,12 @@ def resize_pos_embed(
 
 
 @torch.no_grad()
-def _load_weights(model: VisionTransformer, checkpoint_path: str, prefix: str = "", load_bfloat16: bool = False) -> None:
+def _load_weights(
+    model: VisionTransformer,
+    checkpoint_path: str,
+    prefix: str = "",
+    load_bfloat16: bool = False,
+) -> None:
     """Load weights from .npz checkpoints for official Google Brain Flax implementation."""
     import numpy as np
 
@@ -1318,10 +1454,7 @@ def _load_weights(model: VisionTransformer, checkpoint_path: str, prefix: str = 
         _w = torch.from_numpy(_w)
         return _w
 
-    if load_bfloat16:
-        w = jnp.load(checkpoint_path)
-    else:
-        w = np.load(checkpoint_path)
+    w = jnp.load(checkpoint_path) if load_bfloat16 else np.load(checkpoint_path)
 
     interpolation = "bilinear"
     antialias = False
@@ -1341,7 +1474,11 @@ def _load_weights(model: VisionTransformer, checkpoint_path: str, prefix: str = 
         backbone = model.patch_embed.backbone
         stem_only = not hasattr(backbone, "stem")
         stem = backbone if stem_only else backbone.stem
-        stem.conv.weight.copy_(adapt_input_conv(stem.conv.weight.shape[1], _n2p(w[f"{prefix}conv_root/kernel"])))
+        stem.conv.weight.copy_(
+            adapt_input_conv(
+                stem.conv.weight.shape[1], _n2p(w[f"{prefix}conv_root/kernel"])
+            )
+        )
         stem.norm.weight.copy_(_n2p(w[f"{prefix}gn_root/scale"]))
         stem.norm.bias.copy_(_n2p(w[f"{prefix}gn_root/bias"]))
         if not stem_only:
@@ -1349,12 +1486,22 @@ def _load_weights(model: VisionTransformer, checkpoint_path: str, prefix: str = 
                 for j, block in enumerate(stage.blocks):
                     bp = f"{prefix}block{i + 1}/unit{j + 1}/"
                     for r in range(3):
-                        getattr(block, f"conv{r + 1}").weight.copy_(_n2p(w[f"{bp}conv{r + 1}/kernel"]))
-                        getattr(block, f"norm{r + 1}").weight.copy_(_n2p(w[f"{bp}gn{r + 1}/scale"]))
-                        getattr(block, f"norm{r + 1}").bias.copy_(_n2p(w[f"{bp}gn{r + 1}/bias"]))
+                        getattr(block, f"conv{r + 1}").weight.copy_(
+                            _n2p(w[f"{bp}conv{r + 1}/kernel"])
+                        )
+                        getattr(block, f"norm{r + 1}").weight.copy_(
+                            _n2p(w[f"{bp}gn{r + 1}/scale"])
+                        )
+                        getattr(block, f"norm{r + 1}").bias.copy_(
+                            _n2p(w[f"{bp}gn{r + 1}/bias"])
+                        )
                     if block.downsample is not None:
-                        block.downsample.conv.weight.copy_(_n2p(w[f"{bp}conv_proj/kernel"]))
-                        block.downsample.norm.weight.copy_(_n2p(w[f"{bp}gn_proj/scale"]))
+                        block.downsample.conv.weight.copy_(
+                            _n2p(w[f"{bp}conv_proj/kernel"])
+                        )
+                        block.downsample.norm.weight.copy_(
+                            _n2p(w[f"{bp}gn_proj/scale"])
+                        )
                         block.downsample.norm.bias.copy_(_n2p(w[f"{bp}gn_proj/bias"]))
         embed_conv_w = _n2p(w[f"{prefix}embedding/kernel"])
     else:
@@ -1377,9 +1524,15 @@ def _load_weights(model: VisionTransformer, checkpoint_path: str, prefix: str = 
     if big_vision:
         pos_embed_w = _n2p(w[f"{prefix}pos_embedding"], t=False)
     else:
-        pos_embed_w = _n2p(w[f"{prefix}Transformer/posembed_input/pos_embedding"], t=False)
+        pos_embed_w = _n2p(
+            w[f"{prefix}Transformer/posembed_input/pos_embedding"], t=False
+        )
     if pos_embed_w.shape != model.pos_embed.shape:
-        num_prefix_tokens = 0 if getattr(model, "no_embed_class", False) else getattr(model, "num_prefix_tokens", 1)
+        num_prefix_tokens = (
+            0
+            if getattr(model, "no_embed_class", False)
+            else getattr(model, "num_prefix_tokens", 1)
+        )
         pos_embed_w = resample_abs_pos_embed(  # resize pos embedding when different size from pretrained weights
             pos_embed_w,
             new_size=model.patch_embed.grid_size,
@@ -1404,14 +1557,26 @@ def _load_weights(model: VisionTransformer, checkpoint_path: str, prefix: str = 
         model.attn_pool.latent.copy_(_n2p(w[f"{block_prefix}probe"], t=False))
         model.attn_pool.kv.weight.copy_(
             torch.cat(
-                [_n2p(w[f"{mha_prefix}{n}/kernel"], t=False).flatten(1).T for n in ("key", "value")]
+                [
+                    _n2p(w[f"{mha_prefix}{n}/kernel"], t=False).flatten(1).T
+                    for n in ("key", "value")
+                ]
             )
         )
         model.attn_pool.kv.bias.copy_(
-            torch.cat([_n2p(w[f"{mha_prefix}{n}/bias"], t=False).reshape(-1) for n in ("key", "value")])
+            torch.cat(
+                [
+                    _n2p(w[f"{mha_prefix}{n}/bias"], t=False).reshape(-1)
+                    for n in ("key", "value")
+                ]
+            )
         )
-        model.attn_pool.q.weight.copy_(_n2p(w[f"{mha_prefix}query/kernel"], t=False).flatten(1).T)
-        model.attn_pool.q.bias.copy_(_n2p(w[f"{mha_prefix}query/bias"], t=False).reshape(-1))
+        model.attn_pool.q.weight.copy_(
+            _n2p(w[f"{mha_prefix}query/kernel"], t=False).flatten(1).T
+        )
+        model.attn_pool.q.bias.copy_(
+            _n2p(w[f"{mha_prefix}query/bias"], t=False).reshape(-1)
+        )
         model.attn_pool.proj.weight.copy_(_n2p(w[f"{mha_prefix}out/kernel"]).flatten(1))
         model.attn_pool.proj.bias.copy_(_n2p(w[f"{mha_prefix}out/bias"]))
         model.attn_pool.norm.weight.copy_(_n2p(w[f"{block_prefix}LayerNorm_0/scale"]))
@@ -1445,13 +1610,22 @@ def _load_weights(model: VisionTransformer, checkpoint_path: str, prefix: str = 
         )
         block.attn.qkv.bias.copy_(
             torch.cat(
-                [_n2p(w[f"{mha_prefix}{n}/bias"], t=False, idx=idx).reshape(-1) for n in ("query", "key", "value")]
+                [
+                    _n2p(w[f"{mha_prefix}{n}/bias"], t=False, idx=idx).reshape(-1)
+                    for n in ("query", "key", "value")
+                ]
             )
         )
-        block.attn.proj.weight.copy_(_n2p(w[f"{mha_prefix}out/kernel"], idx=idx).flatten(1))
+        block.attn.proj.weight.copy_(
+            _n2p(w[f"{mha_prefix}out/kernel"], idx=idx).flatten(1)
+        )
         block.attn.proj.bias.copy_(_n2p(w[f"{mha_prefix}out/bias"], idx=idx))
-        block.norm2.weight.copy_(_n2p(w[f"{block_prefix}LayerNorm_{ln1_sub}/scale"], idx=idx))
-        block.norm2.bias.copy_(_n2p(w[f"{block_prefix}LayerNorm_{ln1_sub}/bias"], idx=idx))
+        block.norm2.weight.copy_(
+            _n2p(w[f"{block_prefix}LayerNorm_{ln1_sub}/scale"], idx=idx)
+        )
+        block.norm2.bias.copy_(
+            _n2p(w[f"{block_prefix}LayerNorm_{ln1_sub}/bias"], idx=idx)
+        )
         for r in range(2):
             getattr(block.mlp, f"fc{r + 1}").weight.copy_(
                 _n2p(w[f"{block_prefix}MlpBlock_{b_sub}/Dense_{r}/kernel"], idx=idx)
@@ -1462,10 +1636,10 @@ def _load_weights(model: VisionTransformer, checkpoint_path: str, prefix: str = 
 
 
 def _convert_openai_clip(
-    state_dict: Dict[str, torch.Tensor],
+    state_dict: dict[str, torch.Tensor],
     model: VisionTransformer,
     prefix: str = "visual.",
-) -> Dict[str, torch.Tensor]:
+) -> dict[str, torch.Tensor]:
     out_dict = {}
     swaps = [
         ("conv1", "patch_embed.proj"),
@@ -1500,9 +1674,9 @@ def _convert_openai_clip(
 
 
 def _convert_dinov2(
-    state_dict: Dict[str, torch.Tensor],
+    state_dict: dict[str, torch.Tensor],
     model: VisionTransformer,
-) -> Dict[str, torch.Tensor]:
+) -> dict[str, torch.Tensor]:
     import re
 
     out_dict = {}
@@ -1510,7 +1684,9 @@ def _convert_dinov2(
     if "register_tokens" in state_dict:
         # convert dinov2 w/ registers to no_embed_class timm model (neither cls or reg tokens overlap pos embed)
         out_dict["reg_token"] = state_dict.pop("register_tokens")
-        out_dict["cls_token"] = state_dict.pop("cls_token") + state_dict["pos_embed"][:, 0]
+        out_dict["cls_token"] = (
+            state_dict.pop("cls_token") + state_dict["pos_embed"][:, 0]
+        )
         out_dict["pos_embed"] = state_dict.pop("pos_embed")[:, 1:]
     for k, v in state_dict.items():
         if re.match(r"blocks\.(\d+)\.mlp\.w12\.(?:weight|bias)", k):
@@ -1524,9 +1700,9 @@ def _convert_dinov2(
 
 
 def _convert_aimv2(
-    state_dict: Dict[str, torch.Tensor],
+    state_dict: dict[str, torch.Tensor],
     model: VisionTransformer,
-) -> Dict[str, torch.Tensor]:
+) -> dict[str, torch.Tensor]:
     out_dict = {}
     for k, v in state_dict.items():
         k = k.replace("norm_1", "norm1")
@@ -1605,12 +1781,12 @@ def _convert_beit3(state_dict: dict, model):
 
 
 def checkpoint_filter_fn(
-    state_dict: Dict[str, torch.Tensor],
+    state_dict: dict[str, torch.Tensor],
     model: VisionTransformer,
     adapt_layer_scale: bool = False,
     interpolation: str = "bicubic",
     antialias: bool = True,
-) -> Dict[str, torch.Tensor]:
+) -> dict[str, torch.Tensor]:
     """Convert patch embedding weight from manual patchify + linear proj to conv."""
     import re
 
@@ -1625,20 +1801,27 @@ def checkpoint_filter_fn(
         state_dict = _convert_openai_clip(state_dict, model, prefix="module.visual.")
     elif "mask_token" in state_dict:
         state_dict = _convert_dinov2(state_dict, model)
-    elif any("beit3." in k for k in state_dict.keys()):
+    elif any("beit3." in k for k in state_dict):
         # BEiT3 model - multimodal checkpoint with beit3.* prefix
         state_dict = _convert_beit3(state_dict, model)
     elif "encoder" in state_dict:
         # IJEPA, vit in an "encoder" submodule
         state_dict = state_dict["encoder"]
         prefix = "module."
-    elif "visual.trunk.pos_embed" in state_dict or "visual.trunk.blocks.0.norm1.weight" in state_dict:
+    elif (
+        "visual.trunk.pos_embed" in state_dict
+        or "visual.trunk.blocks.0.norm1.weight" in state_dict
+    ):
         # OpenCLIP model with timm vision encoder
         prefix = "visual.trunk."
-        if "visual.head.proj.weight" in state_dict and isinstance(model.head, nn.Linear):
+        if "visual.head.proj.weight" in state_dict and isinstance(
+            model.head, nn.Linear
+        ):
             # remap final nn.Linear if it exists outside of the timm .trunk (ie in visual.head.proj)
             out_dict["head.weight"] = state_dict["visual.head.proj.weight"]
-            out_dict["head.bias"] = torch.zeros(state_dict["visual.head.proj.weight"].shape[0])
+            out_dict["head.bias"] = torch.zeros(
+                state_dict["visual.head.proj.weight"].shape[0]
+            )
     elif "module.visual.trunk.pos_embed" in state_dict:
         prefix = "module.visual.trunk."
     elif "preprocessor.patchifier.proj.weight" in state_dict:
@@ -1646,26 +1829,30 @@ def checkpoint_filter_fn(
 
     if prefix:
         # filter on & remove prefix string from keys
-        state_dict = {k[len(prefix) :]: v for k, v in state_dict.items() if k.startswith(prefix)}
+        state_dict = {
+            k[len(prefix) :]: v for k, v in state_dict.items() if k.startswith(prefix)
+        }
 
     for k, v in state_dict.items():
         if "patch_embed.proj.weight" in k:
-            O, I, H, W = model.patch_embed.proj.weight.shape
+            out_ch, in_ch, h, w = model.patch_embed.proj.weight.shape
             if len(v.shape) < 4:
                 # For old models that I trained prior to conv based patchification
-                v = v.reshape(O, -1, H, W)
-            if v.shape[-1] != W or v.shape[-2] != H:
+                v = v.reshape(out_ch, -1, h, w)
+            if v.shape[-1] != w or v.shape[-2] != h:
                 v = resample_patch_embed(
                     v,
-                    (H, W),
+                    (h, w),
                     interpolation=interpolation,
                     antialias=antialias,
                     verbose=True,
                 )
         elif k == "pos_embed" and v.shape[1] != model.pos_embed.shape[1]:
             # To resize pos embedding when using model at different size from pretrained weights
-            num_prefix_tokens = 0 if getattr(model, "no_embed_class", False) else getattr(
-                model, "num_prefix_tokens", 1
+            num_prefix_tokens = (
+                0
+                if getattr(model, "no_embed_class", False)
+                else getattr(model, "num_prefix_tokens", 1)
             )
             v = resample_abs_pos_embed(
                 v,
@@ -1683,4 +1870,3 @@ def checkpoint_filter_fn(
             continue
         out_dict[k] = v
     return out_dict
-

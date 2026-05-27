@@ -1,12 +1,13 @@
+import logging
+
 import torch
 import wandb
-import logging
+from checkpoint import save_checkpoint
+from eval import run_eval
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
-from eval import run_eval
-from checkpoint import save_checkpoint
 
 def run_train(
     train_dataloader,
@@ -43,7 +44,6 @@ def run_train(
     data_iter = iter(train_dataloader)
 
     while global_step < max_steps:
-
         # Try to load next batch
         try:
             batch = next(data_iter)
@@ -59,7 +59,7 @@ def run_train(
         (loss / accumulation_steps).backward()
 
         if (global_step + 1) % accumulation_steps == 0:
-            optimizer.step() # step the optimizer after accumulation steps
+            optimizer.step()  # step the optimizer after accumulation steps
             optimizer.zero_grad()
             if scheduler:
                 scheduler.step()
@@ -67,45 +67,55 @@ def run_train(
         global_step += 1
         pbar.update(1)
 
-        pbar.set_postfix({
-            "loss": f"{loss.item():.4f}",
-            "epoch": epoch,
-        })
+        pbar.set_postfix(
+            {
+                "loss": f"{loss.item():.4f}",
+                "epoch": epoch,
+            }
+        )
 
         # logging
         if wandb.run is not None:
-            wandb.log({
-                "train/loss_step": loss.item(),
-                "step": global_step,
-                "epoch": epoch,
-            })
+            wandb.log(
+                {
+                    "train/loss_step": loss.item(),
+                    "step": global_step,
+                    "epoch": epoch,
+                }
+            )
 
         # Validation
         if global_step % val_every_n_steps == 0:
             val_loss = run_eval(
-                val_dataloader,
-                model,
-                criterion,
-                global_step,
-                device,
-                epoch=epoch
+                val_dataloader, model, criterion, global_step, device, epoch=epoch
             )
 
             print(f"Step={global_step}, Val Loss={val_loss}")
             logger.info(f"step={global_step} val={val_loss:.4f}")
 
             if wandb.run is not None:
-                wandb.log({
-                    "val/loss": val_loss,
-                    "step": global_step,
-                })
+                wandb.log(
+                    {
+                        "val/loss": val_loss,
+                        "step": global_step,
+                    }
+                )
 
             model.train()
 
             # Record best checkpoint
             if val_loss < best_val:
                 best_val = val_loss
-                save_checkpoint(save_path, global_step, model, criterion, optimizer, scheduler, best_val, args)
+                save_checkpoint(
+                    save_path,
+                    global_step,
+                    model,
+                    criterion,
+                    optimizer,
+                    scheduler,
+                    best_val,
+                    args,
+                )
 
             # Check for early stopping
             if early_stopper is not None and early_stopper(val_loss):
@@ -131,7 +141,9 @@ def train_step(batch, model, criterion, device) -> tuple:
         raise TypeError(f"Expected locs to be a torch.Tensor, got {type(locs)}")
 
     if not isinstance(texts, (torch.Tensor, list, tuple)):
-        raise TypeError(f"Expected texts to be a torch.Tensor, list, or tuple, got {type(texts)}")
+        raise TypeError(
+            f"Expected texts to be a torch.Tensor, list, or tuple, got {type(texts)}"
+        )
 
     locs = locs.to(device)
     if isinstance(texts, torch.Tensor):

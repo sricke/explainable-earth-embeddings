@@ -3,7 +3,6 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from models.layers import EmbeddingProjection
 
 TEXT_MODEL_IDS = {
@@ -37,7 +36,9 @@ def _build_openclip(variant: str = "open_clip"):
             self.m = m
 
         def forward(self, input_ids, attention_mask=None):
-            return self.m(input_ids=input_ids, attention_mask=attention_mask).text_embeds
+            return self.m(
+                input_ids=input_ids, attention_mask=attention_mask
+            ).text_embeds
 
     tokenizer = CLIPTokenizer.from_pretrained(model_id)
     return CLIPText(clip), tokenizer, output_dim
@@ -67,8 +68,7 @@ def _build_geoclip():
             """input_ids: already tokenized, shape [B, L]"""
             # GeoCLIP's MLP was trained on pooler_output, not text_embeds (no projection head)
             text_features = self.clip_model.get_text_features(
-                input_ids=input_ids,
-                attention_mask=attention_mask
+                input_ids=input_ids, attention_mask=attention_mask
             ).pooler_output
             text_proj = self.mlp(text_features)
             return F.normalize(text_proj, dim=-1)
@@ -104,9 +104,13 @@ class TextEncoder(nn.Module):
 
         # Precomputed mode is incompatible with finetuning the base model
         if precomputed:
-            assert finetune_mode not in ['all', 'lora'], "Cannot finetune all with finetune_mode with precomputed=True"
+            assert finetune_mode not in ["all", "lora"], (
+                "Cannot finetune all with finetune_mode with precomputed=True"
+            )
         else:
-            self.text_encoder, self.tokenizer, self.output_dim = self._build_model(text_model)
+            self.text_encoder, self.tokenizer, self.output_dim = self._build_model(
+                text_model
+            )
             self._set_finetune_mode(finetune_mode, **lora_kwargs)
 
         # Always need to train the embedding projection since it's not initialized with pretrained weights
@@ -131,19 +135,33 @@ class TextEncoder(nn.Module):
         else:
             raise NotImplementedError(f"Text model '{text_model}' is not implemented")
 
-    def _set_finetune_mode(self, finetune_mode: str, lora_r: int = 4, lora_alpha: float = 1.0, lora_last_n_layers: int = None):
+    def _set_finetune_mode(
+        self,
+        finetune_mode: str,
+        lora_r: int = 4,
+        lora_alpha: float = 1.0,
+        lora_last_n_layers: int = None,
+    ):
         """
         Set finetune mode
         """
-        assert finetune_mode in ['all', 'lora', 'only_proj'], f"Finetune mode {finetune_mode} not accepted"
+        assert finetune_mode in ["all", "lora", "only_proj"], (
+            f"Finetune mode {finetune_mode} not accepted"
+        )
         if finetune_mode == "all":
             self.text_encoder.requires_grad_(True)
             self.text_encoder.train()
             self.text_encoder.m.gradient_checkpointing_enable()
         elif finetune_mode == "lora":
             from models.lora import apply_lora
+
             self.text_encoder.requires_grad_(False)
-            self.text_encoder = apply_lora(self.text_encoder.m, r=lora_r, alpha=lora_alpha, last_n_layers=lora_last_n_layers)
+            self.text_encoder = apply_lora(
+                self.text_encoder.m,
+                r=lora_r,
+                alpha=lora_alpha,
+                last_n_layers=lora_last_n_layers,
+            )
             self.text_encoder.gradient_checkpointing_enable()  # recompute activations to save memory
             self.text_encoder.train()
         elif finetune_mode == "only_proj":
@@ -152,7 +170,7 @@ class TextEncoder(nn.Module):
 
     def encode_texts(self, texts) -> torch.Tensor:
         """
-        Tokenize and encode raw text into normalized embeddings. 
+        Tokenize and encode raw text into normalized embeddings.
         Does not apply embed_project.
         """
         assert not self.precomputed, "Cannot call encode_texts in precomputed mode"
@@ -164,12 +182,22 @@ class TextEncoder(nn.Module):
         if isinstance(texts, (str, list, tuple)):
             if isinstance(texts, tuple):
                 texts = list(texts)
-            tokens = self.tokenizer(texts, padding=True, truncation=True, max_length=77, return_tensors="pt")
+            tokens = self.tokenizer(
+                texts, padding=True, truncation=True, max_length=77, return_tensors="pt"
+            )
             input_ids = tokens.input_ids.to(device)
-            attention_mask = tokens.attention_mask.to(device) if hasattr(tokens, "attention_mask") else None
+            attention_mask = (
+                tokens.attention_mask.to(device)
+                if hasattr(tokens, "attention_mask")
+                else None
+            )
         else:
             input_ids = texts["input_ids"].to(device)
-            attention_mask = texts["attention_mask"].to(device) if "attention_mask" in texts else None
+            attention_mask = (
+                texts["attention_mask"].to(device)
+                if "attention_mask" in texts
+                else None
+            )
 
         text_embeddings = self.text_encoder(input_ids, attention_mask)
         if isinstance(text_embeddings, dict):
@@ -191,11 +219,13 @@ class TextEncoder(nn.Module):
                 x = x.to(target_device, non_blocking=True)
             embedding = F.normalize(x.to(dtype=torch.float32), dim=-1)
         else:
-            assert not self.precomputed, "Precomputed mode expects a float tensor with the correct embedding dimension"
+            assert not self.precomputed, (
+                "Precomputed mode expects a float tensor with the correct embedding dimension"
+            )
             embedding = self.encode_texts(x)
 
         # Project into the shared embedding space (to match location encoder dimension)
         if self.embed_project is not None:
             embedding = F.normalize(self.embed_project(embedding), dim=-1)
-            
+
         return embedding
