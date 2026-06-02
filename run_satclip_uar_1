@@ -2638,3 +2638,179 @@ Loss function, input shape is:  torch.Size([1024, 256])
 Loss function, input shape is:  torch.Size([1024, 256])
 Loss function, input shape is:  torch.Size([1024, 256])
 Loss function, input shape is:  torch.Size([1024, 256])
+ 26%|██▋       | 2626/10000 [54:59<51:37:55, 25.21s/it] 26%|██▋       | 2627/10000 [55:03<38:22:45, 18.74s/it] 26%|██▋       | 2628/10000 [55:06<29:06:24, 14.21s/it] 26%|██▋       | 2629/10000 [55:10<22:37:37, 11.05s/it] 26%|██▋       | 2630/10000 [55:14<18:06:30,  8.85s/it] 26%|██▋       | 2631/10000 [55:17<14:56:50,  7.30s/it] 26%|██▋       | 2632/10000 [55:21<12:42:54,  6.21s/it] 26%|██▋       | 2633/10000 [55:25<11:09:24,  5.45s/it] 26%|██▋       | 2634/10000 [55:28<10:01:55,  4.90s/it] 26%|██▋       | 2635/10000 [55:32<9:15:52,  4.53s/it]  26%|██▋       | 2636/10000 [55:36<8:44:06,  4.27s/it] 26%|██▋       | 2637/10000 [55:39<8:22:53,  4.10s/it] 26%|██▋       | 2638/10000 [55:43<8:06:27,  3.96s/it] 26%|██▋       | 2639/10000 [55:47<7:56:14,  3.88s/it] 26%|██▋       | 2640/10000 [55:50<7:46:56,  3.81s/it] 26%|██▋       | 2641/10000 [55:54<7:41:11,  3.76s/it] 26%|██▋       | 2642/10000 [55:58<7:36:16,  3.72s/it] 26%|██▋       | 2643/10000 [56:01<7:32:55,  3.69s/it] 26%|██▋       | 2644/10000 [56:05<7:30:37,  3.68s/it] 26%|██▋       | 2645/10000 [56:09<7:29:20,  3.67s/it] 26%|██▋       | 2646/10000 [56:12<7:28:37,  3.66s/it] 26%|██▋       | 2647/10000 [56:16<7:28:15,  3.66s/it] 26%|██▋       | 2648/10000 [56:20<7:27:33,  3.65s/it] 26%|██▋       | 2649/10000 [56:23<7:27:13,  3.65s/it] 26%|██▋       | 2650/10000 [56:27<7:26:54,  3.65s/it] 27%|██▋       | 2651/10000 [56:30<7:26:43,  3.65s/it] 27%|██▋       | 2652/10000 [56:34<7:26:39,  3.65s/it] 27%|██▋       | 2653/10000 [56:38<7:27:28,  3.65s/it] 27%|██▋       | 2654/10000 [56:41<7:27:51,  3.66s/it] 27%|██▋       | 2655/10000 [56:45<7:27:15,  3.65s/it] 27%|██▋       | 2656/10000 [56:49<7:29:28,  3.67s/it] 27%|██▋       | 2657/10000 [56:52<7:28:06,  3.66s/it] 27%|██▋       | 2658/10000 [56:56<7:30:34,  3.68s/it] 27%|██▋       | 2659/10000 [57:00<7:28:39,  3.67s/it] 27%|██▋       | 2660/10000 [57:03<7:29:18,  3.67s/it] 27%|██▋       | 2661/10000 [57:07<7:28:47,  3.67s/it] 27%|██▋       | 2662/10000 [57:11<7:27:53,  3.66s/it] 27%|██▋       | 2663/10000 [57:14<7:27:08,  3.66s/it] 27%|██▋       | 2664/10000 [57:18<7:26:20,  3.65s/it] 27%|██▋       | 2665/10000 [57:22<7:25:17,  3.64s/it] 27%|██▋       | 2666/10000 [57:25<7:25:02,  3.64s/it] 27%|██▋       | 2667/10000 [57:29<7:24:54,  3.64s/it] 27%|██▋       | 2668/10000 [57:33<7:25:42,  3.65s/it] 27%|██▋       | 2669/10000 [57:36<7:26:12,  3.65s/it] 27%|██▋       | 2670/10000 [57:40<7:26:17,  3.65s/it] 27%|██▋       | 2671/10000 [57:44<7:26:38,  3.66s/it] 27%|██▋       | 2672/10000 [57:47<7:26:44,  3.66s/it] 27%|██▋       | 2673/10000 [57:51<7:27:21,  3.66s/it] 27%|██▋       | 2674/10000 [57:55<7:27:19,  3.66s/it] 27%|██▋       | 2675/10000 [57:58<7:28:48,  3.68s/it] 27%|██▋       | 2676/10000 [58:02<7:28:17,  3.67s/it] 27%|██▋       | 2677/10000 [58:06<7:28:38,  3.68s/it] 27%|██▋       | 2678/10000 [58:09<7:27:17,  3.67s/it] 27%|██▋       | 2679/10000 [58:13<7:26:39,  3.66s/it] 27%|██▋       | 2680/10000 [58:17<7:25:51,  3.65s/it] 27%|██▋       | 2681/10000 [58:20<7:25:18,  3.65s/it] 27%|██▋       | 2682/10000 [58:24<7:25:16,  3.65s/it] 27%|██▋       | 2683/10000 [58:28<7:25:18,  3.65s/it] 27%|██▋       | 2684/10000 [58:31<7:24:44,  3.65s/it] 27%|██▋       | 2685/10000 [58:35<7:24:32,  3.65s/it] 27%|██▋       | 2686/10000 [58:38<7:24:17,  3.64s/it] 27%|██▋       | 2687/10000 [58:42<7:23:47,  3.64s/it] 27%|██▋       | 2688/10000 [58:46<7:23:39,  3.64s/it] 27%|██▋       | 2689/10000 [58:49<7:23:25,  3.64s/it] 27%|██▋       | 2690/10000 [58:53<7:23:23,  3.64s/it] 27%|██▋       | 2691/10000 [58:57<7:23:36,  3.64s/it] 27%|██▋       | 2692/10000 [59:00<7:25:04,  3.65s/it] 27%|██▋       | 2693/10000 [59:04<7:24:53,  3.65s/it] 27%|██▋       | 2694/10000 [59:08<7:26:17,  3.67s/it] 27%|██▋       | 2695/10000 [59:11<7:25:52,  3.66s/it] 27%|██▋       | 2696/10000 [59:15<7:28:11,  3.68s/it] 27%|██▋       | 2697/10000 [59:19<7:26:31,  3.67s/it] 27%|██▋       | 2698/10000 [59:22<7:27:48,  3.68s/it] 27%|██▋       | 2699/10000 [59:26<7:26:02,  3.67s/it] 27%|██▋       | 2700/10000 [59:30<7:24:24,  3.65s/it] 27%|██▋       | 2701/10000 [59:33<7:23:53,  3.65s/it] 27%|██▋       | 2702/10000 [59:37<7:23:37,  3.65s/it] 27%|██▋       | 2703/10000 [59:41<7:23:34,  3.65s/it] 27%|██▋       | 2704/10000 [59:44<7:23:27,  3.65s/it] 27%|██▋       | 2705/10000 [59:48<7:23:12,  3.65s/it] 27%|██▋       | 2706/10000 [59:52<7:24:33,  3.66s/it] 27%|██▋       | 2707/10000 [59:55<7:23:57,  3.65s/it] 27%|██▋       | 2708/10000 [59:59<7:25:23,  3.66s/it] 27%|██▋       | 2709/10000 [1:00:03<7:24:50,  3.66s/it] 27%|██▋       | 2710/10000 [1:00:06<7:23:47,  3.65s/it] 27%|██▋       | 2711/10000 [1:00:10<7:24:20,  3.66s/it] 27%|██▋       | 2712/10000 [1:00:14<7:24:06,  3.66s/it] 27%|██▋       | 2713/10000 [1:00:17<7:25:44,  3.67s/it] 27%|██▋       | 2714/10000 [1:00:21<7:24:42,  3.66s/it] 27%|██▋       | 2715/10000 [1:00:25<7:24:45,  3.66s/it] 27%|██▋       | 2716/10000 [1:00:28<7:24:10,  3.66s/it] 27%|██▋       | 2717/10000 [1:00:32<7:23:54,  3.66s/it] 27%|██▋       | 2718/10000 [1:00:35<7:23:22,  3.65s/it] 27%|██▋       | 2719/10000 [1:00:39<7:23:05,  3.65s/it] 27%|██▋       | 2720/10000 [1:00:43<7:24:01,  3.66s/it] 27%|██▋       | 2721/10000 [1:00:46<7:23:26,  3.66s/it] 27%|██▋       | 2722/10000 [1:00:50<7:22:58,  3.65s/it] 27%|██▋       | 2723/10000 [1:00:54<7:22:42,  3.65s/it] 27%|██▋       | 2724/10000 [1:00:57<7:22:31,  3.65s/it] 27%|██▋       | 2725/10000 [1:01:01<7:22:27,  3.65s/it] 27%|██▋       | 2726/10000 [1:01:05<7:21:48,  3.64s/it] 27%|██▋       | 2727/10000 [1:01:08<7:21:40,  3.64s/it] 27%|██▋       | 2728/10000 [1:01:12<7:21:46,  3.65s/it] 27%|██▋       | 2729/10000 [1:01:16<7:22:34,  3.65s/it] 27%|██▋       | 2730/10000 [1:01:19<7:22:45,  3.65s/it] 27%|██▋       | 2731/10000 [1:01:23<7:24:06,  3.67s/it] 27%|██▋       | 2732/10000 [1:01:27<7:24:38,  3.67s/it] 27%|██▋       | 2733/10000 [1:01:30<7:24:00,  3.67s/it] 27%|██▋       | 2734/10000 [1:01:34<7:24:29,  3.67s/it] 27%|██▋       | 2735/10000 [1:01:38<7:23:43,  3.66s/it] 27%|██▋       | 2736/10000 [1:01:41<7:24:31,  3.67s/it] 27%|██▋       | 2737/10000 [1:01:45<7:23:20,  3.66s/it] 27%|██▋       | 2738/10000 [1:01:49<7:22:06,  3.65s/it] 27%|██▋       | 2739/10000 [1:01:52<7:21:35,  3.65s/it] 27%|██▋       | 2740/10000 [1:01:56<7:21:22,  3.65s/it] 27%|██▋       | 2741/10000 [1:02:00<7:21:23,  3.65s/it] 27%|██▋       | 2742/10000 [1:02:03<7:21:33,  3.65s/it] 27%|██▋       | 2743/10000 [1:02:07<7:22:05,  3.66s/it] 27%|██▋       | 2744/10000 [1:02:11<7:22:54,  3.66s/it] 27%|██▋       | 2745/10000 [1:02:14<7:21:58,  3.66s/it] 27%|██▋       | 2746/10000 [1:02:18<7:23:18,  3.67s/it] 27%|██▋       | 2747/10000 [1:02:22<7:22:34,  3.66s/it] 27%|██▋       | 2748/10000 [1:02:25<7:22:26,  3.66s/it] 27%|██▋       | 2749/10000 [1:02:29<7:22:32,  3.66s/it] 28%|██▊       | 2750/10000 [1:02:33<7:22:39,  3.66s/it] 28%|██▊       | 2751/10000 [1:02:36<7:23:08,  3.67s/it] 28%|██▊       | 2752/10000 [1:02:40<7:22:21,  3.66s/it] 28%|██▊       | 2753/10000 [1:02:44<7:22:18,  3.66s/it] 28%|██▊       | 2754/10000 [1:02:47<7:21:40,  3.66s/it] 28%|██▊       | 2755/10000 [1:02:51<7:20:52,  3.65s/it] 28%|██▊       | 2756/10000 [1:02:54<7:20:26,  3.65s/it] 28%|██▊       | 2757/10000 [1:02:58<7:20:26,  3.65s/it] 28%|██▊       | 2758/10000 [1:03:02<7:20:26,  3.65s/it] 28%|██▊       | 2759/10000 [1:03:05<7:20:17,  3.65s/it] 28%|██▊       | 2760/10000 [1:03:09<7:20:13,  3.65s/it] 28%|██▊       | 2761/10000 [1:03:13<7:19:46,  3.65s/it] 28%|██▊       | 2762/10000 [1:03:16<7:19:32,  3.64s/it] 28%|██▊       | 2763/10000 [1:03:20<7:19:34,  3.64s/it] 28%|██▊       | 2764/10000 [1:03:24<7:19:44,  3.65s/it] 28%|██▊       | 2765/10000 [1:03:27<7:18:46,  3.64s/it] 28%|██▊       | 2766/10000 [1:03:31<7:18:43,  3.64s/it] 28%|██▊       | 2767/10000 [1:03:35<7:19:09,  3.64s/it] 28%|██▊       | 2768/10000 [1:03:38<7:18:45,  3.64s/it] 28%|██▊       | 2769/10000 [1:03:42<7:22:05,  3.67s/it] 28%|██▊       | 2770/10000 [1:03:45<7:20:14,  3.65s/it] 28%|██▊       | 2771/10000 [1:03:49<7:22:02,  3.67s/it]Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([912, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([912, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  28%|██▊       | 2772/10000 [1:03:53<7:22:59,  3.68s/it] 28%|██▊       | 2773/10000 [1:03:57<7:22:28,  3.67s/it] 28%|██▊       | 2774/10000 [1:04:00<7:22:34,  3.67s/it] 28%|██▊       | 2775/10000 [1:04:04<7:21:46,  3.67s/it] 28%|██▊       | 2776/10000 [1:04:08<7:21:11,  3.66s/it] 28%|██▊       | 2777/10000 [1:04:11<7:19:25,  3.65s/it] 28%|██▊       | 2778/10000 [1:04:15<7:18:09,  3.64s/it] 28%|██▊       | 2779/10000 [1:04:18<7:18:43,  3.65s/it] 28%|██▊       | 2780/10000 [1:04:22<7:17:07,  3.63s/it] 28%|██▊       | 2781/10000 [1:04:26<7:18:54,  3.65s/it] 28%|██▊       | 2782/10000 [1:04:29<7:20:56,  3.67s/it] 28%|██▊       | 2783/10000 [1:04:33<7:20:02,  3.66s/it] 28%|██▊       | 2784/10000 [1:04:37<7:21:54,  3.67s/it] 28%|██▊       | 2785/10000 [1:04:40<7:21:06,  3.67s/it] 28%|██▊       | 2786/10000 [1:04:44<7:21:27,  3.67s/it] 28%|██▊       | 2787/10000 [1:04:48<7:22:46,  3.68s/it] 28%|██▊       | 2788/10000 [1:04:52<7:22:33,  3.68s/it] 28%|██▊       | 2789/10000 [1:04:55<7:21:38,  3.67s/it] 28%|██▊       | 2790/10000 [1:04:59<7:21:16,  3.67s/it] 28%|██▊       | 2791/10000 [1:05:02<7:19:42,  3.66s/it] 28%|██▊       | 2792/10000 [1:05:06<7:18:54,  3.65s/it] 28%|██▊       | 2793/10000 [1:05:10<7:18:12,  3.65s/it] 28%|██▊       | 2794/10000 [1:05:13<7:18:17,  3.65s/it] 28%|██▊       | 2795/10000 [1:05:17<7:18:10,  3.65s/it] 28%|██▊       | 2796/10000 [1:05:21<7:18:03,  3.65s/it] 28%|██▊       | 2797/10000 [1:05:24<7:17:50,  3.65s/it] 28%|██▊       | 2798/10000 [1:05:28<7:17:21,  3.64s/it] 28%|██▊       | 2799/10000 [1:05:32<7:17:25,  3.64s/it] 28%|██▊       | 2800/10000 [1:05:35<7:17:16,  3.64s/it] torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+Loss function, input shape is:  torch.Size([1024, 256])
+ 28%|██▊       | 2801/10000 [1:06:51<50:21:42, 25.18s/it] 28%|██▊       | 2802/10000 [1:06:54<37:28:34, 18.74s/it] 28%|██▊       | 2803/10000 [1:06:58<28:25:51, 14.22s/it] 28%|██▊       | 2804/10000 [1:07:02<22:06:41, 11.06s/it] 28%|██▊       | 2805/10000 [1:07:05<17:40:41,  8.85s/it] 28%|██▊       | 2806/10000 [1:07:09<14:34:29,  7.29s/it] 28%|██▊       | 2807/10000 [1:07:13<12:24:47,  6.21s/it] 28%|██▊       | 2808/10000 [1:07:16<10:53:36,  5.45s/it] 28%|██▊       | 2809/10000 [1:07:20<9:48:31,  4.91s/it]  28%|██▊       | 2810/10000 [1:07:24<9:01:21,  4.52s/it] 28%|██▊       | 2811/10000 [1:07:27<8:29:41,  4.25s/it] 28%|██▊       | 2812/10000 [1:07:31<8:07:53,  4.07s/it] 28%|██▊       | 2813/10000 [1:07:35<7:52:39,  3.95s/it] 28%|██▊       | 2814/10000 [1:07:38<7:42:12,  3.86s/it] 28%|██▊       | 2815/10000 [1:07:42<7:34:36,  3.80s/it] 28%|██▊       | 2816/10000 [1:07:46<7:28:33,  3.75s/it] 28%|██▊       | 2817/10000 [1:07:49<7:24:32,  3.71s/it] 28%|██▊       | 2818/10000 [1:07:53<7:21:44,  3.69s/it] 28%|██▊       | 2819/10000 [1:07:57<7:19:50,  3.68s/it] 28%|██▊       | 2820/10000 [1:08:00<7:18:21,  3.66s/it] 28%|██▊       | 2821/10000 [1:08:04<7:17:25,  3.66s/it] 28%|██▊       | 2822/10000 [1:08:07<7:15:51,  3.64s/it] 28%|██▊       | 2823/10000 [1:08:11<7:17:17,  3.66s/it] 28%|██▊       | 2824/10000 [1:08:15<7:17:14,  3.66s/it] 28%|██▊       | 2825/10000 [1:08:18<7:19:35,  3.68s/it] 28%|██▊       | 2826/10000 [1:08:22<7:18:33,  3.67s/it] 28%|██▊       | 2827/10000 [1:08:26<7:20:01,  3.68s/it] 28%|██▊       | 2828/10000 [1:08:30<7:20:03,  3.68s/it] 28%|██▊       | 2829/10000 [1:08:33<7:19:38,  3.68s/it] 28%|██▊       | 2830/10000 [1:08:37<7:19:14,  3.68s/it] 28%|██▊       | 2831/10000 [1:08:41<7:18:18,  3.67s/it] 28%|██▊       | 2832/10000 [1:08:44<7:17:33,  3.66s/it] 28%|██▊       | 2833/10000 [1:08:48<7:16:25,  3.65s/it] 28%|██▊       | 2834/10000 [1:08:51<7:15:43,  3.65s/it]

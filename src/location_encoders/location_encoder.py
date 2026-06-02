@@ -124,19 +124,20 @@ def _load_model(location_model: str, device: str = "cuda:0"):
                 LOCATION_MODEL_IDS["satclip"], LOCATION_MODEL_CHECKPOINTS["satclip"]
             ),
             device=device,
-        )
+        ).eval()
 
     elif location_model == "geoclip":
         from geoclip import GeoCLIP
 
-        return GeoCLIP().location_encoder
+        return GeoCLIP().location_encoder.to(device).double().eval()
+
 
     elif location_model == "climplicit":
         from rshf.climplicit import Climplicit
 
         return Climplicit.from_pretrained(
             LOCATION_MODEL_IDS["climplicit"], config={"return_chelsa": False}
-        )
+        ).to(device).eval()
 
     elif location_model.startswith("csp"):
         variant = location_model[len("csp_") :]
