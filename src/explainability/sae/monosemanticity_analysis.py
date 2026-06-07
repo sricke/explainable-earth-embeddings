@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import argparse
 import csv
 import os
@@ -11,11 +14,11 @@ from huggingface_hub import hf_hub_download
 
 from saes import BatchTopKSAE
 
-from satclip.satclip.load import get_satclip
-from satclip.satclip.datamodules.s2geo_dataset import S2GeoDataModule
+from location_encoders.location_encoder import _load_model, LOCATION_EMBEDDING_DIMENSIONS
+from location_encoders.satclip.datamodules.s2geo_dataset import S2GeoDataModule
 
 from training import get_norm_factor
-from util import *
+from monosemanticity import monosemanticity
 
 device = "cuda" if t.cuda.is_available() else "cpu"
 
@@ -35,7 +38,7 @@ def parse_args():
     parser.add_argument(
         "--data-dir",
         required=True,
-        help="Root folder of the S2Geo dataset containing index.csv and sen2_images/.",
+        help="Root folder of the dataset containing index.csv and satellite imagery.",
     )
     parser.add_argument(
         "--location_encoder",
@@ -45,7 +48,7 @@ def parse_args():
     parser.add_argument(
         "--sae-path",
         required=True,
-        help="Path to the pretrained SAE checkpoint file (.pt) to load with from_pretrained().",
+        help="Path to the pretrained SAE checkpoint file (.pt).",
     )
     return parser.parse_args()
 
@@ -55,11 +58,11 @@ def build_csv_header(dict_size):
 
 def export_activations(data_dir, sae_path, location_encoder):
     sae_model_path = os.path.join(sae_path, "best_ae.pt")
-    output_csv = os.path.join(sae_path, "xAI/" "sparse_activations.csv")
-    print(f"Output CSV will be saved to: {output_csv}")
-    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
+    sparse_activations_output_path = os.path.join(sae_path, "xAI", "sparse_activations.csv")
+    print(f"Output CSV will be saved to: {sparse_activations_output_path}")
+    os.makedirs(os.path.dirname(sparse_activations_output_path), exist_ok=True)
 
-    visual_embeddings_path = os.path.join(sae_path, "xAI/visual_embeddings.pt")
+    visual_embeddings_path = os.path.join(sae_path, "xAI", "visual_embeddings.pt")
 
     print(f"Using device: {device}")
     print(f"Loading pretrained SAE from: {sae_model_path}")
@@ -67,24 +70,22 @@ def export_activations(data_dir, sae_path, location_encoder):
     autoencoder.eval()
 
     print("Initializing geo and image encoder...")
-    location_encoder, image_encoder = get_location_and_image_encoders(location_encoder, device=device)
+    location_encoder, image_encoder = _load_model(location_encoder, device=device, return_image_encoder=True)
 
     print(f"Loading dataset from: {data_dir}")
-    dataset = S2GeoDataModule(data_dir=data_dir, mode="both", batch_size=256, crop_size=224)
+    dataset = S2GeoDataModule(data_dir=data_dir, mode="both", batch_size=1024, crop_size=224)
     dataset.setup()
     train_loader = dataset.val_dataloader()
-    #norm_factor = get_norm_factor(train_loader)
 
     global_idx = 0
 
     header = build_csv_header(autoencoder.dict_size)
-    with open(output_csv, "w", newline="") as csv_file:
+    with open(sparse_activations_output_path, "w", newline="") as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(header)
         visual_embeddings = []
         for batch in tqdm(train_loader, desc="Encoding points", unit="batch"):
             points = batch["point"].to(device=device).double()
-            print(batch.keys())
             filenames = batch["filename"] 
             image = batch["image"].to(device=device).float()
             with t.no_grad():
@@ -105,10 +106,15 @@ def export_activations(data_dir, sae_path, location_encoder):
         t.save(visual_embeddings, visual_embeddings_path)
 
 
-    print(f"Saved sparse activations to: {output_csv}")
+    print(f"Saved sparse activations to: {sparse_activations_output_path}")
     print(f"Saved visual embeddings to: {visual_embeddings_path}")
+    return sparse_activations_output_path, visual_embeddings_path
 
 
 if __name__ == "__main__":
     args = parse_args()
-    export_activations(data_dir=args.data_dir, sae_path=args.sae_path, location_encoder=args.location_encoder)
+    sparse_activations_path, visual_embeddings_path = export_activations(
+        data_dir=args.data_dir,
+        sae_path=args.sae_path,
+        location_encoder=args.location_encoder)
+    monosemanticity(visual_embeddings_path, sparse_activations_path)

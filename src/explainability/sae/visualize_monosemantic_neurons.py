@@ -41,12 +41,10 @@ def save_top_neuron_images(
     for rank, neuron_idx in enumerate(top_neuron_indices):
         n_idx = neuron_idx.item()
         print(f"Rank {rank+1}: Neuron {n_idx} with score {top_scores[rank].item():.4f}")
-        # Determine column name (assumes neuron_0, neuron_1, etc.)
+        
         column_name = f"act{n_idx + 1}"
 
-        # Get the top N highest activations for this neuron
         top_samples = activations_df.nlargest(images_per_neuron, column_name)
-        #print(top_samples[['lat', 'lon']])
         
         neuron_dir = os.path.join(output_dir, f"rank_{rank+1}_neuron_{n_idx}")
         os.makedirs(neuron_dir, exist_ok=True)
@@ -86,15 +84,14 @@ def save_top_neuron_images(
     print(f"Done! Visuals saved in {output_dir}")
 
 if __name__ == "__main__":
-    base_dir = "/home//results/sae_geo_embeddings/S2100k/climplicit/BatchTopKTrainer/dict_size=1024,k=20/20260505_125832/xAI/"
+    base_dir = "/home/results/sae_geo_embeddings/S2100k/climplicit/BatchTopKTrainer/dict_size=1024,k=20/20260602_210907/xAI/"
     monosemanticity_scores_path = os.path.join(base_dir, "visual_monosemanticity/all_neurons_scores.pth")
     output_dir = os.path.join(base_dir, "visual_monosemanticity", "top_neurons_visuals")
     activations_csv_path = os.path.join(base_dir, "sparse_activations.csv")
-    index_csv_path = "/home/datasets/s2-100k/index.csv"
+    index_csv_path = "/home/datasets/earth_embeddings/s2-100k/index.csv"
     save_top_neuron_images(
         scores_path=monosemanticity_scores_path,
         activations_path=activations_csv_path,
         index_path=index_csv_path,
         output_dir=output_dir,
-        largest=False,  # Set to False to get least monosemantic neurons
-    )
+        largest=False)

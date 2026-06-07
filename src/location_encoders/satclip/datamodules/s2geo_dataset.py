@@ -147,6 +147,7 @@ class S2Geo(NonGeoDataset):
                 data = f.read().astype(np.float32)
             #img = torch.tensor(data)
             sample["image"] = data
+            sample["filename"] = self.filenames[index]
             
         if self.transform is not None:
             sample = self.transform(sample)

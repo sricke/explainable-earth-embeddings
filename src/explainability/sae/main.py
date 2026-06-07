@@ -56,5 +56,5 @@ if __name__ == "__main__":
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     wandb.init(project='SAE_{}_{}'.format(location_encoder_name, dataset_name), config={timestamp: timestamp})
-    save_dir = "/home/results/sae_geo_embeddings/{}/{}/{}/dict_size={},k={}/{}".format("S2100k",trainer_cfg["lm_name"], trainer_cfg["trainer"].__name__, trainer_cfg["dict_size"], trainer_cfg["k"], timestamp)
+    save_dir = "/home/results/sae_geo_embeddings/{}/{}/{}/dict_size={},k={}/{}".format(dataset_name, trainer_cfg["lm_name"], trainer_cfg["trainer"].__name__, trainer_cfg["dict_size"], trainer_cfg["k"], timestamp)
     trainSAE(location_encoder_model, train_loader, validation_loader, trainer_cfg, steps, use_wandb=True, log_steps=175, save_steps=[1000, 5000, 9999, 14999], save_dir=save_dir)

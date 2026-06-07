@@ -11,6 +11,8 @@ from tqdm import tqdm
 
 import wandb
 
+## Code modified from github.com/ExplainableML/sae-for-vlm
+
 def get_norm_factor(data, steps: int, device) -> float:
     """Per Section 3.1, find a fixed scalar factor so activation vectors have unit mean squared norm.
     This is very helpful for hyperparameter transfer between different layers and models.
@@ -105,7 +107,7 @@ def trainSAE(
     transcoder:bool=False,
     run_cfg:dict={},
     normalize_activations:bool=True,
-    verbose:bool=False,
+    verbose:bool=True,
     device:str="cuda",
     autocast_dtype: t.dtype = t.float32,
 ):
@@ -191,10 +193,7 @@ def trainSAE(
                 trainer.ae.scale_biases(norm_factor)
 
             checkpoint = {k: v.cpu() for k, v in trainer.ae.state_dict().items()}
-            t.save(
-                checkpoint,
-                os.path.join(checkpoint_dir, f"ae_{step}.pt"),
-            )
+            t.save(checkpoint,os.path.join(checkpoint_dir, f"ae_{step}.pt"))
 
             if normalize_activations:
                 trainer.ae.scale_biases(1 / norm_factor)
