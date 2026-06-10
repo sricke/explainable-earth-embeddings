@@ -110,7 +110,21 @@ def _load_csp(variant: str, device: str):
     return wrapper.loc_enc.eval()
 
 
-def _load_model(location_model: str, device: str = "cuda:0"):
+def _get_visual_encoder(device):
+    from huggingface_hub import hf_hub_download
+    from location_encoders.satclip.load import get_satclip
+
+    satclip_model = get_satclip(
+        hf_hub_download(
+            LOCATION_MODEL_IDS["satclip"], LOCATION_MODEL_CHECKPOINTS["satclip"]
+        ),
+        device=device,
+        return_all=True)
+    
+    image_encoder = satclip_model.visual.eval()
+    return image_encoder
+
+def _load_model(location_model: str, device: str = "cuda:0", return_image_encoder=False):
     """
     Load a pretrained location encoder by name.
     """
@@ -119,34 +133,44 @@ def _load_model(location_model: str, device: str = "cuda:0"):
 
         from location_encoders.satclip.load import get_satclip
 
-        return get_satclip(
+        satclip_model = get_satclip(
             hf_hub_download(
                 LOCATION_MODEL_IDS["satclip"], LOCATION_MODEL_CHECKPOINTS["satclip"]
             ),
             device=device,
-        )
+            return_all=True)
+        
+        location_encoder = satclip_model.location
 
     elif location_model == "geoclip":
         from geoclip import GeoCLIP
 
-        return GeoCLIP().location_encoder
+        location_encoder = GeoCLIP().location_encoder.to(device).double()
+
 
     elif location_model == "climplicit":
         from rshf.climplicit import Climplicit
 
-        return Climplicit.from_pretrained(
+        location_encoder = Climplicit.from_pretrained(
             LOCATION_MODEL_IDS["climplicit"], config={"return_chelsa": False}
-        )
+        ).to(device)
 
     elif location_model.startswith("csp"):
         variant = location_model[len("csp_") :]
-        return _load_csp(variant, device)
+        location_encoder = _load_csp(variant, device)
 
     elif location_model == "sinr":
-        return _load_sinr(LOCATION_MODEL_CHECKPOINTS["sinr"], device)
+        location_encoder = _load_sinr(LOCATION_MODEL_CHECKPOINTS["sinr"], device)
 
     else:
         raise ValueError(f"Location model '{location_model}' is not supported")
+    
+    location_encoder.eval()
+    if return_image_encoder:
+        image_encoder = _get_visual_encoder(device)
+        return location_encoder, image_encoder
+    else:
+        return location_encoder
 
 
 class LocationEncoder(nn.Module):

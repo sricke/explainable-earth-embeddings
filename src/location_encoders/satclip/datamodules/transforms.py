@@ -63,6 +63,7 @@ def get_pretrained_s2_train_transform(resize_crop_size = 256):
     def transform(sample):
         image = sample["image"] / 10000.0
         point = sample["point"]
+        filename = sample["filename"]
 
         B10 = np.zeros((1, *image.shape[1:]), dtype=image.dtype)
         image = np.concatenate([image[:10], B10, image[10:]], axis=0)
@@ -72,7 +73,7 @@ def get_pretrained_s2_train_transform(resize_crop_size = 256):
 
         point = coordinate_jitter(point)
 
-        return dict(image=image, point=point)
+        return dict(image=image, point=point, filename=filename)
 
     return transform
 
