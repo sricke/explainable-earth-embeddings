@@ -2,17 +2,9 @@
 
 In this work, we analyze the information content of geographic INRs through their location embeddings. We decompose these embeddings into human-interpretable features---namely, (i) sparse latent concepts, (ii) natural language concepts, and (iii) visual features.
 
-[TO DO: maybe rephrase. Currently taken from abstract]
-
-[TO DO: Link arXiv]
+The latent concept embeddings are learned using sparse autoencoders ([SAE repo](https://github.com/HoagyC/sparse_coding)). To recover natural language concepts, we apply Sparse Linear Concept Embeddings (SpLiCE) using the official implementation from the [SpLiCE repository](https://github.com/AI4LIFE-GROUP/SpLiCE). Finally, visual features are extracted using saliency maps derived from [CLIP Surgery](https://github.com/xmed-lab/clip_surgery).
 
 ![Methods](methods-preview.png)
-
----
-
-## Overview
-
-The latent concept embeddings are learned using sparse autoencoders (cite repo?). To recover natural language concepts, we apply Sparse Linear Concept Embeddings (SpLiCE) using the official implementation from the [SpLiCE repository](https://github.com/AI4LIFE-GROUP/SpLiCE). Finally, visual features are extracted using saliency maps derived from CLIP Surgery (cite repo?).
 
 ---
 
@@ -40,9 +32,9 @@ configs/
 
 | Method | Description |
 |---|---|
-| **SAE** | DESCRIPTION |
+| **SAE** | Learns a dictionary of concepts used to decompose location embeddings |
 | **SPLICE** | Decomposes location embeddings into sparse combinations of natural language concepts |
-| **CLIP Surgery** | DESCRIPTION |
+| **CLIP Surgery** | Uses modifications to CLIP during inference to produce saliency maps |
 
 ---
 
@@ -59,8 +51,6 @@ See other setup details in specific explainability methods.
 ## SAE
 
 > Full details: [`src/explainability/sae/README.md`](src/explainability/sae/README.md)
-
-DESCRIPTION OF SAE APPROACH.
 
 Demo: [`notebooks/sae_demo.ipynb`](notebooks/sae_demo.ipynb)
 
@@ -117,11 +107,3 @@ ruff format --check . # verify formatting (CI-friendly)
 ## License
 
 This project is released under the [MIT License](LICENSE).
-
----
-
-## Citation
-
-```bibtex
-Add citation if and when we have one!
-```
