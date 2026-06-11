@@ -233,7 +233,7 @@ class LocationEncoder(nn.Module):
             ):
                 x = x[:, [1, 0]]
 
-            x = x.double() if self.location_model == "satclip" else x.float()
+            x = x.double() if self.location_model in ("satclip", "geoclip") else x.float()
 
             enc_device = next(self.location_encoder.parameters()).device
             if x.device != enc_device:

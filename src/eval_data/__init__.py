@@ -1,1 +1,1 @@
-from .eval_datataset import CoordinatesDataModule
+from .eval_dataset import CoordinatesDataModule

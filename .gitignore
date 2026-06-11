@@ -26,6 +26,9 @@ src/eval_data/plot_im2gps.ipynb
 configs/eval_reconstruction.yaml
 src/explainability/splice/scripts/
 src/explainability/splice/outputs/
+
+saved_eval_data/
+
 notebooks/check_polygons.ipynb
 run_climplicit_uar_1
 run_climplicit_uar_2

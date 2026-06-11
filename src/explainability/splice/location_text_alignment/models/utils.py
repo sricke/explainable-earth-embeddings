@@ -75,7 +75,7 @@ def make_location_encoder(
     Build a LocationEncoder with no projection (output dim = native embedding dim).
     """
     return LocationEncoder(
-        location_encoder_type,
+        location_model=location_encoder_type,
         embed_project=None,
         finetune_mode=finetune_mode,
         precomputed=precomputed,
