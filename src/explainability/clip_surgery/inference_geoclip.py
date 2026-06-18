@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import os
 from argparse import ArgumentParser
 from pathlib import Path
@@ -16,12 +14,10 @@ from inference_utils import (
     load_locations,
     plot_similarity_maps,
     seed_everything,
-    surgery_similarity_patch_rows,
 )
 from PIL import Image
 from tqdm import tqdm
 
-IM2GPS_CSV = "/data/im2gps300/im2gps_places365.csv"
 IMAGES_FOLDER = "/data/im2gps300/Places_from_im2gps"
 SEED = 42
 _THIS_DIR = Path(__file__).resolve().parent
@@ -30,8 +26,9 @@ _THIS_DIR = Path(__file__).resolve().parent
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     parser = ArgumentParser(description="GeoCLIP CLIP surgery maps for RGB images.")
-    parser.add_argument("--csv_path", type=str, default=IM2GPS_CSV)
-
+    parser.add_argument("--lon_column", type=str, default="lon")
+    parser.add_argument("--lat_column", type=str, default="lat")
+    parser.add_argument("--id_column", type=str, default="id")
     parser.add_argument("--source_folder", type=str, default=IMAGES_FOLDER)
     parser.add_argument(
         "--no_surgery",
@@ -61,18 +58,14 @@ def main():
     geo_model.eval()
     encode_location = geo_model.location_encoder.forward
 
-    all_locations = load_locations(
-        args.csv_path, lon_column="LON", lat_column="LAT", id_column="IMG_ID"
-    )
-    all_location_features = encode_locations(
-        all_locations, encode_location, device, satclip=False
-    )
-    id_to_idx = {loc.id: idx for idx, loc in enumerate(all_locations)}
-
-    NORTH_POLE_LOCATION = Location(id="north_pole", lon=0, lat=90)
-    redundant_feats = encode_locations(
-        [NORTH_POLE_LOCATION], encode_location, device, satclip=False
-    )
+    redundant_feats = None
+    if use_surgery:
+        redundant_feats = encode_locations(
+            [Location(id="north_pole", lon=0, lat=90)],
+            encode_location,
+            device,
+            satclip=False,
+        )
     places_folder = args.source_folder
     data_folder = "images"
 
@@ -85,12 +78,19 @@ def main():
     for place in places:
         index_path = os.path.join(place, "index.csv")
         all_locations_place = load_locations(
-            index_path, lon_column="lon", lat_column="lat", id_column="id"
+            index_path,
+            lon_column=args.lon_column,
+            lat_column=args.lat_column,
+            id_column=args.id_column,
         )
         place_name = Path(place).name
-        results_dir = _THIS_DIR / "out" / "geoclip" / place_name
+        results_dir = (
+            _THIS_DIR
+            / "out"
+            / ("geoclip_no_surgery" if not use_surgery else "geoclip_surgery")
+            / place_name
+        )
         results_dir.mkdir(parents=True, exist_ok=True)
-        os.makedirs(results_dir, exist_ok=True)
 
         print(f"Computing geoclip surgery maps for {place}...")
 
@@ -99,11 +99,10 @@ def main():
         mlp = geo_model.image_encoder.mlp
 
         for location in tqdm(all_locations_place, desc=f"CLIP Surgery {place}"):
-            n = id_to_idx.get(location.id)
-            if n is None:
-                continue
-
-            data_path = os.path.join(place, data_folder, location.id)
+            data_path = os.path.join(place, data_folder, str(location.id))
+            target_feat = encode_locations(
+                [location], encode_location, device, satclip=False
+            )
 
             image = load_image_geoclip(data_path, device=device)
             rgb_img = np.array(Image.open(data_path).convert("RGB"))
@@ -115,39 +114,45 @@ def main():
             h, w = rgb_img.shape[:2]
 
             with torch.no_grad():
-                vision_out, layer_hiddens = vm.forward_intermediates(
-                    pixel_values=image,
-                    interpolate_pos_encoding=False,
-                )
+                if use_surgery:
+                    vision_out, layer_hiddens = vm.forward_intermediates(
+                        pixel_values=image,
+                        interpolate_pos_encoding=False,
+                    )
+                else:
+                    vision_out = vm(
+                        pixel_values=image,
+                        interpolate_pos_encoding=False,
+                    )
+                    layer_hiddens = []
+
                 patch_tokens = vproj(vm.post_layernorm(vision_out.last_hidden_state))
                 image_features = mlp(patch_tokens)
-
                 image_features = image_features / image_features.norm(
                     dim=-1, keepdim=True
                 )
-                # here we compute the similarity between the image features and all the locations
-                similarity = clip.clip_feature_surgery(
-                    image_features,
-                    all_location_features,
-                    redundant_feats=redundant_feats,
-                )  # (1, # vis patch tokens, # num_locations)
 
-                # reshape to (1, h, w, # num_locations)
-                similarity_map = clip.get_similarity_map(
-                    surgery_similarity_patch_rows(similarity), (h, w)
-                )
+                if use_surgery:
+                    similarity = clip.clip_feature_surgery(
+                        image_features, target_feat, redundant_feats=redundant_feats
+                    )
+                else:
+                    similarity = image_features @ target_feat.t()
+
+                visual_patches_sim = similarity[:, 1:, :] # strip CLS token 
+                similarity_map = clip.get_similarity_map(visual_patches_sim, (h, w))
 
             if not layer_grid:
                 plot_similarity_maps(
-                    similarity_map[0, :, :, n].cpu().numpy(),
+                    similarity_map[0, :, :, 0].cpu().numpy(),
                     cv2_img_bgr,
                     os.path.join(out_dir, "layers.png"),
-                    titles=["Original Surgery"],
+                    titles=[],
                     suptitle="",
                     ncols=1,
+                    heatmap_normalize=norm,
                 )
             else:
-                # compute per layer similarity maps
                 with torch.no_grad():
                     heatmaps = []
                     titles = []
@@ -155,13 +160,12 @@ def main():
                     for li, hid in enumerate(layer_hiddens[-6:]):
                         feat = mlp(vproj(vm.post_layernorm(hid)))
                         feat = feat / feat.norm(dim=-1, keepdim=True)
-                        sim = clip.clip_feature_surgery(
-                            feat, all_location_features, redundant_feats=redundant_feats
+                        similarity = clip.clip_feature_surgery(
+                            feat, target_feat, redundant_feats=redundant_feats
                         )
-                        smap = clip.get_similarity_map(
-                            surgery_similarity_patch_rows(sim), (h, w)
-                        )
-                        hm = smap[0, :, :, n].cpu().numpy()
+                        visual_patches_sim = similarity[:, 1:, :] # strip CLS token 
+                        similarity_map = clip.get_similarity_map(visual_patches_sim, (h, w))
+                        hm = similarity_map[0, :, :, 0].cpu().numpy()
                         heatmaps.append(hm)
                         titles.append(
                             f"L{len(layer_hiddens) - min(6, len(layer_hiddens)) + li}"
@@ -175,18 +179,16 @@ def main():
                         sum_display = (sum_hm - smin) / (smax - smin + 1e-8)
                         sum_display = sum_display.astype(np.float32)
 
-                # plot per layer similarity maps
                 plot_similarity_maps(
                     heatmaps,
                     cv2_img_bgr,
                     os.path.join(out_dir, "layers.png"),
                     titles=titles,
-                    suptitle=f"geoclip per-layer — idx {n}",
+                    suptitle=f"geoclip per-layer — {location.id}",
                     ncols=4,
                     heatmap_normalize=norm,
                 )
 
-                # plot summed similarity map
                 plot_similarity_maps(
                     [sum_display],
                     cv2_img_bgr,

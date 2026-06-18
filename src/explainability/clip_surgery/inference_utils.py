@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import math
 import random
 from dataclasses import dataclass
@@ -60,6 +58,22 @@ def seed_everything(seed: int) -> None:
     torch.backends.cudnn.benchmark = False
 
 
+_ID_ALIASES = ("id", "IMG_ID", "fn", "image_id")
+_LON_ALIASES = ("lon", "LON", "longitude")
+_LAT_ALIASES = ("lat", "LAT", "latitude")
+
+
+def _resolve_column(df: pd.DataFrame, column: str | None, aliases: tuple[str, ...]) -> str:
+    if column and column in df.columns:
+        return column
+    for alias in aliases:
+        if alias in df.columns:
+            return alias
+    raise KeyError(
+        f"Could not find column {column!r} (tried aliases: {aliases}) in {list(df.columns)}"
+    )
+
+
 def load_locations(
     csv_path: str,
     lon_column: str,
@@ -67,6 +81,9 @@ def load_locations(
     id_column: str | None = None,
 ) -> list[Location]:
     df = pd.read_csv(csv_path)
+    id_column = _resolve_column(df, id_column, _ID_ALIASES)
+    lon_column = _resolve_column(df, lon_column, _LON_ALIASES)
+    lat_column = _resolve_column(df, lat_column, _LAT_ALIASES)
     return [
         Location(id=df[id_column][i], lon=df[lon_column][i], lat=df[lat_column][i])
         for i in range(len(df))
@@ -151,17 +168,6 @@ def encode_locations(
     return location_features
 
 
-def surgery_similarity_patch_rows(sim: torch.Tensor) -> torch.Tensor:
-    """Strip CLS when token count is ``1 + H*W``; keep rows if already ``H*W``."""
-    n = sim.shape[1]
-    s = int(round(float(n) ** 0.5))
-    if s * s == n:
-        return sim
-    if n > 1 and (n - 1) == s * s:
-        return sim[:, 1:, :]
-    return sim
-
-
 def _minmax_normalize(hm: np.ndarray) -> np.ndarray:
     lo, hi = float(hm.min()), float(hm.max())
     if hi - lo < 1e-12:
@@ -210,7 +216,8 @@ def plot_similarity_maps(
             vis = cv2_bgr_background * 0.6 + vis * 0.4
             vis = cv2.cvtColor(vis.astype(np.uint8), cv2.COLOR_BGR2RGB)
             ax.imshow(vis)
-            ax.set_title(titles[i] if titles else f"L{i}")
+            if i < len(titles) and titles[i] is not None:
+                ax.set_title(titles[i])
         ax.axis("off")
     if suptitle:
         fig.suptitle(suptitle, fontsize=10)

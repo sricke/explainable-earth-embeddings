@@ -113,7 +113,7 @@ class SatCLIPSurgery(nn.Module):
             self.visual.num_prefix_tokens = 0  # return cls token too
 
         else:
-            print("using surgery vision transformer")
+
             vision_heads = vision_width // 64
             self.visual = VisionTransformer(
                 img_size=image_resolution,

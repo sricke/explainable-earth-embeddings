@@ -21,18 +21,31 @@ from inference_utils import (
     load_rgb_from_images_corr,
     plot_similarity_maps,
     seed_everything,
-    surgery_similarity_patch_rows,
 )
 from satclip_surgery.load import get_satclip
 from tqdm import tqdm
 
 SEED = 42
-
-SUPPORTED_MODELS = {
-    "vit16": "microsoft/SatCLIP-ViT16-L40",
-}
-
 PLACES_FOLDER = "/data/cities50"
+
+
+def _satclip_patch_image_features(vm, image: torch.Tensor) -> torch.Tensor:
+    """Per-token image embeddings for spatial similarity maps from original 
+    VisionTransformer in SatCLIP"""
+    
+    tokens, _ = vm.forward_intermediates(
+        image,
+        indices=None,
+        norm=False,
+        output_fmt="NLC",
+    )
+    if hasattr(vm, "norm"):
+        tokens = vm.norm(tokens)
+    elif hasattr(vm, "fc_norm"):
+        tokens = vm.fc_norm(tokens)
+    return vm.head(tokens)
+
+   
 
 
 def main():
@@ -40,20 +53,20 @@ def main():
     parser = ArgumentParser(
         description="SatCLIP CLIP surgery maps for Sentinel-2 tiles."
     )
-
     parser.add_argument("--source_folder", type=str, default=PLACES_FOLDER)
+    parser.add_argument("--lon_column", type=str, default="lon")
+    parser.add_argument("--lat_column", type=str, default="lat")
+    parser.add_argument("--id_column", type=str, default="id")
     parser.add_argument(
         "--no_surgery",
         action="store_true",
         help="Disable surgery (per-layer similarity disabled).",
     )
-
     parser.add_argument(
         "--no_layer_grid",
         action="store_true",
         help="Skip per-layer similarity grid; defaults to original surgery",
     )
-
     parser.add_argument(
         "--normalize",
         choices=["none", "minmax"],
@@ -134,6 +147,15 @@ def main():
     model.eval()
     encode_location = model.encode_location
 
+    redundant_feats = None
+    if use_surgery:
+        redundant_feats = encode_locations(
+            [Location(id="north_pole", lon=0, lat=90)],
+            encode_location,
+            device,
+            satclip=True,
+        )
+
     places_folder = args.source_folder
     data_folder = "data"
 
@@ -143,33 +165,34 @@ def main():
         if os.path.isdir(os.path.join(places_folder, place))
     )
 
-    # to emulate noise
-    NORTH_POLE_LOCATION = Location(id="north_pole", lon=0, lat=90)
-
     for place in places:
         index_path = os.path.join(place, "index.csv")
-        all_locations = load_locations(
-            index_path, lon_column="lon", lat_column="lat", id_column="id"
-        )
-        all_location_features = encode_locations(
-            all_locations, encode_location, device, satclip=True
-        )
-        id_to_idx = {loc.id: idx for idx, loc in enumerate(all_locations)}
-        redundant_feats = encode_locations(
-            [NORTH_POLE_LOCATION], encode_location, device, satclip=True
+        all_locations_place = load_locations(
+            index_path,
+            lon_column=args.lon_column,
+            lat_column=args.lat_column,
+            id_column=args.id_column,
         )
 
         place_name = Path(place).name
-        results_dir = _THIS_DIR / "out" / "satclip" / place_name
+        results_dir = (
+            _THIS_DIR
+            / "out"
+            / ("satclip_no_surgery" if not use_surgery else "satclip_surgery")
+            / place_name
+        )
         results_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"Computing satclip surgery maps for {place}...")
 
-        for location in tqdm(all_locations, desc=f"CLIP Surgery {place}"):
-            n = id_to_idx.get(location.id)
-            if n is None:
-                continue
+        vm = model.visual
+
+        for location in tqdm(all_locations_place, desc=f"CLIP Surgery {place}"):
             data_path = os.path.join(place, data_folder, location.id)
+            target_feat = encode_locations(
+                [location], encode_location, device, satclip=True
+            )
+
             image, _ = load_image_sentinel(data_path, device=device)
             rgb_img = load_rgb_from_images_corr(place, location.id)
 
@@ -180,40 +203,45 @@ def main():
             h, w = rgb_img.shape[:2]
 
             with torch.no_grad():
-                vm = model.visual
-
-                final_tokens, layer_hiddens = vm.forward_intermediates(
-                    image,
-                    indices=None,
-                    norm=False,
-                    output_fmt="NLC",
-                )
-                image_features = vm.forward_head(final_tokens, pre_logits=False)
+                if use_surgery:
+                    final_tokens, layer_hiddens = vm.forward_intermediates(
+                        image,
+                        indices=None,
+                        norm=False,
+                        output_fmt="NLC",
+                    )
+                    image_features = vm.forward_head(final_tokens, pre_logits=False)
+                else:
+                    layer_hiddens = []
+                    # original forward method of VisionTransformer in SatCLIP
+                    # but returning all the tokens instead of only cls token
+                    image_features = _satclip_patch_image_features(vm, image)
 
                 image_features = image_features / image_features.norm(
                     dim=-1, keepdim=True
                 )
-                similarity = clip.clip_feature_surgery(
-                    image_features,
-                    all_location_features,
-                    redundant_feats=redundant_feats,
-                )
-                similarity_map = clip.get_similarity_map(
-                    surgery_similarity_patch_rows(similarity), (h, w)
-                )
 
-            if not layer_grid:  # original surgery map
+                if use_surgery:
+                    similarity = clip.clip_feature_surgery(
+                        image_features, target_feat, redundant_feats=redundant_feats
+                    )
+                else:
+                    similarity = image_features @ target_feat.t()
+
+                visual_patches_sim = similarity[:, 1:, :]
+                similarity_map = clip.get_similarity_map(visual_patches_sim, (h, w))
+
+            if not layer_grid:
                 plot_similarity_maps(
-                    similarity_map[0, :, :, n].cpu().numpy(),
+                    similarity_map[0, :, :, 0].cpu().numpy(),
                     cv2_img_bgr,
-                    os.path.join(out_dir, f"layers_{location.id}.png"),
-                    titles=["Original Surgery"],
+                    os.path.join(out_dir, "layers.png"),
+                    titles=[],
                     suptitle="",
                     ncols=1,
+                    heatmap_normalize=norm,
                 )
-
             else:
-                # compute per layer similarity maps
                 with torch.no_grad():
                     heatmaps = []
                     titles = []
@@ -221,13 +249,14 @@ def main():
                     for li, hid in enumerate(layer_hiddens[-6:]):
                         feat = vm.forward_head(vm.norm(hid), pre_logits=False)
                         feat = feat / feat.norm(dim=-1, keepdim=True)
-                        sim = clip.clip_feature_surgery(
-                            feat, all_location_features, redundant_feats=redundant_feats
+                        similarity = clip.clip_feature_surgery(
+                            feat, target_feat, redundant_feats=redundant_feats
                         )
-                        smap = clip.get_similarity_map(
-                            surgery_similarity_patch_rows(sim), (h, w)
+                        visual_patches_sim = similarity[:, 1:, :]
+                        similarity_map = clip.get_similarity_map(
+                            visual_patches_sim, (h, w)
                         )
-                        hm = smap[0, :, :, n].cpu().numpy()
+                        hm = similarity_map[0, :, :, 0].cpu().numpy()
                         heatmaps.append(hm)
                         titles.append(
                             f"L{len(layer_hiddens) - min(6, len(layer_hiddens)) + li}"
@@ -235,11 +264,8 @@ def main():
                         if sum_hm is None:
                             sum_hm = np.zeros_like(hm, dtype=np.float64)
                         sum_hm = sum_hm + hm
-                    sum_display = None
                     sum_hm_f32 = sum_hm.astype(np.float32)
-                    # minmax normalization
-                    sum_display = _minmax_normalize(sum_hm)
-                    sum_display = sum_display.astype(np.float32)
+                    sum_display = _minmax_normalize(sum_hm).astype(np.float32)
                     saliency_mask = get_saliency_mask(
                         sum_hm_f32,
                         percentile=float(args.bbox_percentile),
@@ -247,22 +273,20 @@ def main():
                         open_kernel_size=ok,
                     )
 
-                # plot per layer similarity maps
                 plot_similarity_maps(
                     heatmaps,
                     cv2_img_bgr,
-                    os.path.join(out_dir, f"layers_{location.id}.png"),
+                    os.path.join(out_dir, "layers.png"),
                     titles=titles,
-                    suptitle=f"satclip per-layer — idx {n}",
+                    suptitle=f"satclip per-layer — {location.id}",
                     ncols=4,
                     heatmap_normalize=norm,
                 )
 
-                # plot summed similarity map
                 plot_similarity_maps(
                     [sum_display],
                     cv2_img_bgr,
-                    os.path.join(out_dir, f"sum_layers_{location.id}.png"),
+                    os.path.join(out_dir, "sum_layers.png"),
                     titles=[""],
                     suptitle="",
                     ncols=1,
@@ -270,7 +294,7 @@ def main():
                     heatmap_normalize=norm,
                     pad_inches=0.0,
                 )
-                # plot bbox and mask
+
                 if args.bbox and sum_hm_f32 is not None:
                     boxes, eroded_mask = boxes_from_saliency(
                         saliency_mask,
@@ -291,17 +315,14 @@ def main():
                         os.path.join(out_dir, "bbox.png"),
                         cv2.cvtColor(boxed_rgb, cv2.COLOR_RGB2BGR),
                     )
-                    # Binary foreground mask after threshold + opening (0 / 255).
                     cv2.imwrite(os.path.join(out_dir, "mask.png"), eroded_mask)
                     cv2.imwrite(
                         os.path.join(out_dir, "original_mask.png"), saliency_mask
                     )
-                    # Crop each bbox from RGB and save under <out_dir>/bboxes/.
+
                     crops_dir = os.path.join(out_dir, "bboxes")
-
                     if os.path.exists(crops_dir):
-                        shutil.rmtree(crops_dir)  # delete last results
-
+                        shutil.rmtree(crops_dir)
                     os.makedirs(crops_dir)
                     sorted_boxes = sorted(
                         enumerate(boxes), key=lambda kv: kv[1][4], reverse=True
@@ -314,7 +335,10 @@ def main():
                         if x2 <= x1 or y2 <= y1:
                             continue
                         crop_rgb = rgb_img[y1:y2, x1:x2]
-                        crop_name = f"bbox_{rank:03d}_area{int(area)}_x{x1}_y{y1}_w{x2 - x1}_h{y2 - y1}.png"
+                        crop_name = (
+                            f"bbox_{rank:03d}_area{int(area)}_x{x1}_y{y1}_"
+                            f"w{x2 - x1}_h{y2 - y1}.png"
+                        )
                         cv2.imwrite(
                             os.path.join(crops_dir, crop_name),
                             cv2.cvtColor(crop_rgb, cv2.COLOR_RGB2BGR),
