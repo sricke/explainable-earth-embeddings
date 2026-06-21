@@ -55,6 +55,8 @@ class S2GeoDataModule(pl.LightningDataModule):
         N_train = len(dataset) - N_val
         self.train_dataset, self.val_dataset = torch.utils.data.random_split(dataset, [N_train, N_val])
 
+        print(f"Training samples: {len(self.train_dataset)}, Validation samples: {len(self.val_dataset)}")
+
     def train_dataloader(self):
         return DataLoader(
             self.train_dataset,

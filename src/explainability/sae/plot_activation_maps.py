@@ -19,7 +19,7 @@ def parse_args():
         description="Plot world maps for each non-sparse activation column in a CSV file."
     )
     parser.add_argument(
-        "--input-csv",
+        "--input_csv",
         required=True,
         help="CSV file with columns lon, lat, act1, act2, ..., actN.",
     )
@@ -70,7 +70,7 @@ def save_activation_maps(input_csv, min_positive, max_features):
         raise ValueError("Input CSV must contain 'lon' and 'lat' columns.")
 
     #activation_columns = [c for c in df.columns if c not in {"lon", "lat", "index", "filename"}]
-    activation_columns = ["act406"]
+    activation_columns = ["act732", 'act31']
     print(activation_columns)
     if not activation_columns:
         raise ValueError("No activation columns found in the CSV.")
