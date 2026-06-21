@@ -1,12 +1,11 @@
-#!/usr/bin/env python3
 import argparse
 import os
 import re
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
 
-# Attempt to import Cartopy for geographic plotting
 try:
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
@@ -14,105 +13,87 @@ try:
 except ImportError:
     HAS_CARTOPY = False
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Generate a wide map where point size represents activation strength."
-    )
-    parser.add_argument(
-        "--input-csv",
-        required=True,
-        help="Path to the CSV file containing lon, lat, and activation columns.",
-    )
-    parser.add_argument(
-        "--min-positive",
-        type=int,
-        default=5,
-        help="Minimum positive values required for a neuron to be plotted.",
-    )
-    return parser.parse_args()
+def plot_neuron_activations_on_map(input_csv_s2100k, input_csv_geoyfcc, activation_columns_s2100k, activation_columns_geoyfcc, min_positive):
+    output_dir = os.path.dirname(input_csv_s2100k) or os.getcwd()
+    df_s2100k = pd.read_csv(input_csv_s2100k)
+    df_geoyfcc = pd.read_csv(input_csv_geoyfcc)
+    
+    act_s2 = [c.strip() for c in activation_columns_s2100k.split(",") if c.strip()]
+    act_geo = [c.strip() for c in activation_columns_geoyfcc.split(",") if c.strip()]
+    
+    dataset_configs = [
+        ("S2-100k", df_s2100k, "o", act_s2, 4.0), 
+        ("Geo-YFCC", df_geoyfcc, "D", act_geo, 8.0)
+    ]
 
-def save_wide_scaled_map(input_csv, min_positive):
-    output_dir = os.path.dirname(input_csv)
-    df = pd.read_csv(input_csv)
-    
-    activation_columns = ["act872", "act395", "act294"]
+    unique_neurons = []
+    neuron_to_marker = {}
+    for _, _, marker, cols, _ in dataset_configs:
+        for col in cols:
+            if col not in unique_neurons:
+                unique_neurons.append(col)
+                neuron_to_marker[col] = marker
 
-    cmap = plt.get_cmap("tab10")
-    
-    size_factor = 5.0 
-    
-    # Wide aspect ratio: (Width, Height)
-    fig = plt.figure(figsize=(10, 4)) 
+    custom_colors = {'act758': '#ffaa00'}
+    hsv_cmap = plt.get_cmap("hsv")
+    gen_colors = hsv_cmap(np.linspace(0, 1, len(unique_neurons), endpoint=False))
+    neuron_to_color = {n: custom_colors.get(n, gen_colors[i]) for i, n in enumerate(unique_neurons)}
+
+    fig = plt.figure(figsize=(8, 11))
+    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree()) if HAS_CARTOPY else fig.add_subplot(1, 1, 1)
     
     if HAS_CARTOPY:
-        ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-        ax.spines['geo'].set_linewidth(0.5) 
-        ax.add_feature(cfeature.LAND, facecolor="#eeeeee", zorder=0)
-        ax.coastlines(linewidth=0.4, zorder=1)
-        ax.set_global() 
+        ax.add_feature(cfeature.LAND, facecolor="#eeeeee"); ax.coastlines(linewidth=0.4); ax.set_global()
     else:
-        ax = fig.add_subplot(1, 1, 1)
-        ax.set_xlim(-180, 180)
-        ax.set_ylim(-90, 90)
-        ax.set_axis_off() 
+        ax.set_xlim(-180, 180); ax.set_ylim(-90, 90); ax.set_axis_off()
 
-    plotted_count = 0
-    for i, col in enumerate(activation_columns):
-        if col not in df.columns:
-            continue
+    for label, df, ds_marker, cols, scale_factor in dataset_configs:
+        for col in cols:
+            if col not in df.columns: continue
+            mask = df[col] > 0
+            if mask.sum() < min_positive: continue
             
-        mask = df[col] > 0
-        if mask.sum() < min_positive:
-            continue
+            kwargs = {"s": df.loc[mask, col] * scale_factor, "color": neuron_to_color[col], 
+                      "alpha": 0.8, "marker": ds_marker, "edgecolors": 'black', "linewidth": 0.5}
+            if HAS_CARTOPY: kwargs["transform"] = ccrs.PlateCarree()
+            ax.scatter(df.loc[mask, "lon"], df.loc[mask, "lat"], **kwargs)
 
-        numeric_match = re.search(r'\d+', col)
-        if numeric_match:
-            neuron_num = int(numeric_match.group()) - 1
-            new_label = f'Neuron {neuron_num}'
-        else:
-            new_label = col
+    def _format_label(c): 
+        m = re.search(r"\d+", c)
+        return f"Neuron {int(m.group()) - 1}" if m else c
 
-        active_data = df.loc[mask]
-        
-        scaled_sizes = active_data[col] * size_factor
+    # Neuron Legend - Font size set to 8.5
+    neuron_handles = [Line2D([0], [0], marker=neuron_to_marker[n], color='w', 
+                             markerfacecolor=neuron_to_color[n], markeredgecolor='black', 
+                             markeredgewidth=0.5, markersize=6) for n in unique_neurons]
+    
+    leg1 = ax.legend(neuron_handles, [_format_label(n) for n in unique_neurons],
+                     loc='upper center', bbox_to_anchor=(0.5, -0.02), ncol=6,
+                     prop={'size': 8.5}, frameon=False,
+                     columnspacing=0.5, handletextpad=0.2, borderpad=0)
+    ax.add_artist(leg1)
 
-        scatter_kwargs = {
-            "s": scaled_sizes, 
-            "color": cmap(i % 10),
-            "alpha": 0.6, # Slightly lower alpha helps see overlapping scaled points
-            "label": new_label,
-            "edgecolors": "none",
-            "zorder": 2 + i
-        }
-        
-        if HAS_CARTOPY:
-            scatter_kwargs["transform"] = ccrs.PlateCarree()
+    # Dataset Legend
+    ds_handles = [Line2D([0], [0], marker=cfg[2], color='w', markerfacecolor='k', 
+                         markeredgecolor='black', markersize=6) for cfg in dataset_configs]
+    
+    ax.legend(ds_handles, [cfg[0] for cfg in dataset_configs],
+              loc='upper center', bbox_to_anchor=(0.5, -0.06), ncol=2, 
+              prop={'weight': 'normal', 'size': 9}, frameon=False)
 
-        ax.scatter(active_data["lon"], active_data["lat"], **scatter_kwargs)
-        plotted_count += 1
-
-    if plotted_count > 0:
-        
-        leg = ax.legend(
-            loc='upper center', 
-            bbox_to_anchor=(0.5, -0.05),
-            ncol=plotted_count, 
-            prop={'weight': 'bold', 'size': 8},
-            frameon=False,
-            handletextpad=0.4,
-            columnspacing=2.5
-        )
-        
-        for handle in leg.legend_handles:
-            handle.set_sizes([30.0])
-
-        outfile = os.path.join(output_dir, "neuron_map_scaled.png")
-        fig.savefig(outfile, dpi=300, bbox_inches="tight", pad_inches=0.1)
-        plt.close(fig)
-        print(f"Successfully saved wide scaled map to: {outfile}")
-    else:
-        print("No activation columns met the plotting criteria.")
+    outfile = os.path.join(output_dir, "neuron_map_final_final.png")
+    fig.savefig(outfile, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved to: {outfile}")
 
 if __name__ == "__main__":
-    args = parse_args()
-    save_wide_scaled_map(args.input_csv, args.min_positive)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_csv_s2100k", required=True)
+    parser.add_argument("--input_csv_geoyfcc", required=True)
+    parser.add_argument("--activation_columns_s2100k", default="act242,act758,act103")
+    parser.add_argument("--activation_columns_geoyfcc", default="act732,act31,act824")
+    parser.add_argument("--min-positive", type=int, default=5)
+    args = parser.parse_args()
+    plot_neuron_activations_on_map(args.input_csv_s2100k, args.input_csv_geoyfcc, 
+                                   args.activation_columns_s2100k, args.activation_columns_geoyfcc, 
+                                   args.min_positive)

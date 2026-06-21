@@ -110,7 +110,7 @@ def _load_csp(variant: str, device: str):
     return wrapper.loc_enc.eval()
 
 
-def _get_visual_encoder(device):
+def _get_satclip_visual_encoder(device):
     from huggingface_hub import hf_hub_download
     from location_encoders.satclip.load import get_satclip
 
@@ -124,7 +124,16 @@ def _get_visual_encoder(device):
     image_encoder = satclip_model.visual.eval()
     return image_encoder
 
-def _load_model(location_model: str, device: str = "cuda:0", return_image_encoder=False):
+def get_visual_encoder(dataset, device):
+    if dataset == "s2-100k":
+        return _get_satclip_visual_encoder(device)
+    else:
+        from geoclip import GeoCLIP
+        geoclip_model = GeoCLIP().to(device).double()
+        image_encoder = geoclip_model.image_encoder.eval()
+        return image_encoder
+
+def _load_model(location_model: str, device: str = "cuda:0"):
     """
     Load a pretrained location encoder by name.
     """
@@ -144,9 +153,8 @@ def _load_model(location_model: str, device: str = "cuda:0", return_image_encode
 
     elif location_model == "geoclip":
         from geoclip import GeoCLIP
-
-        location_encoder = GeoCLIP().location_encoder.to(device).double()
-
+        geoclip_model = GeoCLIP().to(device).double()
+        location_encoder = geoclip_model.location_encoder.eval()
 
     elif location_model == "climplicit":
         from rshf.climplicit import Climplicit
@@ -166,11 +174,7 @@ def _load_model(location_model: str, device: str = "cuda:0", return_image_encode
         raise ValueError(f"Location model '{location_model}' is not supported")
     
     location_encoder.eval()
-    if return_image_encoder:
-        image_encoder = _get_visual_encoder(device)
-        return location_encoder, image_encoder
-    else:
-        return location_encoder
+    return location_encoder
 
 
 class LocationEncoder(nn.Module):
