@@ -1,5 +1,7 @@
 # Explainable Earth Embeddings
 
+[![Paper](https://img.shields.io/badge/Paper-arXiv%3A2606.24997-B31B1B.svg)](https://arxiv.org/abs/2606.24997)
+
 In this work, we analyze the information content of geographic INRs through their location embeddings. We decompose these embeddings into human-interpretable features---namely, (i) learned latent concepts, (ii) natural language concepts, and (iii) visual features.
 
 The latent concept embeddings are learned using sparse autoencoders ([SAE repo](https://github.com/HoagyC/sparse_coding)). To recover natural language concepts, we apply Sparse Linear Concept Embeddings (SpLiCE) using the official implementation from the [SpLiCE repository](https://github.com/AI4LIFE-GROUP/SpLiCE). Finally, visual features are extracted using saliency maps derived from [CLIP Surgery](https://github.com/xmed-lab/clip_surgery).
