@@ -21,7 +21,7 @@ CHECK_MIN_FILESIZE = 10000 # 10kb
 class CoordinatesDataModule(pl.LightningDataModule):
     def __init__(
         self,
-        data_dir: str = "/data/geoclip_s2",
+        data_dir: str = "",  # insert path to geoclip S2 data
         batch_size: int = 64,
         num_workers: int = 6,
         val_random_split_fraction: float = 0.1

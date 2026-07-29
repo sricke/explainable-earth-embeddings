@@ -30,6 +30,8 @@ src/explainability/splice/outputs/
 saved_eval_data/
 
 notebooks/check_polygons.ipynb
+notebooks/generate_splice_bar_plots.py
+notebooks/splice_bar_plots/
 run_climplicit_uar_1
 run_climplicit_uar_2
 run_climplicit_uar_3
