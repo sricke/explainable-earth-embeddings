@@ -1,8 +1,10 @@
 import argparse
+import gc
 import sys
 from pathlib import Path
 
-import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
 from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -42,20 +44,40 @@ def precompute_location_embeddings(
             shuffle=False,
             num_workers=4,
             pin_memory=True,
-            persistent_workers=True,
         )
 
-        loc_embs = []
+        out_path = out_dir / f"{split}.parquet"
+        tmp_path = out_path.with_suffix(".parquet.tmp")
+        meta = dataset.df[["lat", "lon", "text"]]
+
+        # Stream each batch to disk so host memory stays flat; shuffle=False
+        # keeps batches aligned with the dataframe rows.
+        writer = None
+        start = 0
+        loc_dim = None
         with torch.no_grad(), torch.autocast("cuda"):
             for latlons, _ in tqdm(loader, desc=split):
-                loc_embs.append(loc_encoder(latlons.to(DEVICE)).cpu().float().numpy())
+                emb = loc_encoder(latlons.to(DEVICE)).cpu().float().numpy()
+                loc_dim = emb.shape[1]
+                n = len(emb)
+                batch_df = meta.iloc[start : start + n].reset_index(drop=True)
+                start += n
 
-        loc_embs = np.concatenate(loc_embs)
+                table = pa.Table.from_pandas(batch_df, preserve_index=False)
+                table = table.append_column(
+                    "location_embedding",
+                    pa.FixedSizeListArray.from_arrays(pa.array(emb.ravel()), loc_dim),
+                )
+                if writer is None:
+                    writer = pq.ParquetWriter(tmp_path, table.schema)
+                writer.write_table(table)
+        writer.close()
+        tmp_path.rename(out_path)
+        print(f"  -> {out_path}  loc_dim={loc_dim}")
 
-        out_df = dataset.df[["lat", "lon", "text"]].copy()
-        out_df["location_embedding"] = list(loc_embs)
-        out_df.to_parquet(out_dir / f"{split}.parquet", index=False)
-        print(f"  -> {out_dir / f'{split}.parquet'}  loc_dim={loc_embs.shape[1]}")
+        del loader, dataset, meta
+        gc.collect()
+        torch.cuda.empty_cache()
 
 
 if __name__ == "__main__":

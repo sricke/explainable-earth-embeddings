@@ -117,6 +117,18 @@ def run_train(
                     args,
                 )
 
+            # Always keep the latest state so a killed job can resume
+            save_checkpoint(
+                save_path.with_name("last.pt"),
+                global_step,
+                model,
+                criterion,
+                optimizer,
+                scheduler,
+                best_val,
+                args,
+            )
+
             # Check for early stopping
             if early_stopper is not None and early_stopper(val_loss):
                 logger.info(
