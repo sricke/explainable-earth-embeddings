@@ -1,7 +1,10 @@
 import logging
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import torch
 from matplotlib.pyplot import Figure
 from torch.utils.data import DataLoader, Dataset
@@ -39,7 +42,11 @@ class GeoTextDataset(Dataset):
         # If split path exists, load this
         if parquet_path.exists() or csv_path.exists():
             if parquet_path.exists():
-                self.df = pd.read_parquet(parquet_path)
+                if subset_size is not None:
+                    self.df = self._read_parquet_subsample(parquet_path, subset_size)
+                    subset_size = None  # already subsampled
+                else:
+                    self.df = pd.read_parquet(parquet_path)
             else:
                 self.df = pd.read_csv(csv_path, index_col=False)
 
@@ -120,6 +127,27 @@ class GeoTextDataset(Dataset):
             }
 
         return loc, txt
+
+    @staticmethod
+    def _read_parquet_subsample(path: Path, n: int, seed: int = 42) -> pd.DataFrame:
+        """
+        Sample n rows from a parquet file one row group at a time, so the full
+        file never has to fit in memory.
+        """
+        pf = pq.ParquetFile(path)
+        total = pf.metadata.num_rows
+        if n >= total:
+            return pf.read().to_pandas()
+
+        keep = np.sort(np.random.default_rng(seed).choice(total, n, replace=False))
+        tables, offset = [], 0
+        for i in range(pf.num_row_groups):
+            rows = pf.metadata.row_group(i).num_rows
+            lo, hi = np.searchsorted(keep, [offset, offset + rows])
+            if hi > lo:
+                tables.append(pf.read_row_group(i).take(keep[lo:hi] - offset))
+            offset += rows
+        return pa.concat_tables(tables).to_pandas()
 
     def subsample(self, n: int, seed: int = 42):
         """
