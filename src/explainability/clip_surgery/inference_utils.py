@@ -94,6 +94,16 @@ def load_image_geoclip(path: str, device: str = "cpu") -> torch.Tensor:
     image = Image.open(path).convert("RGB")
     return _geoclip_preprocess(image).unsqueeze(0).to(device)
 
+def correlation(a, b) -> float:
+    a = np.asarray(a, dtype=np.float64).reshape(-1)
+    b = np.asarray(b, dtype=np.float64).reshape(-1)
+    a = a - a.mean()
+    b = b - b.mean()
+    denom = float(np.linalg.norm(a) * np.linalg.norm(b))
+    if denom < 1e-8:
+        return float("nan")
+    return float(np.dot(a, b) / denom)
+
 
 def load_image_sentinel(
     path: str, device: str = "cpu"
@@ -227,6 +237,34 @@ def plot_similarity_maps(
         plt.close(fig)
     else:
         plt.show()
+        
+def centroid_null(
+    loc_feats: torch.Tensor,
+    image_feats: torch.Tensor | None = None,
+    tau: float = 2.0,
+    weighted: bool = False,
+) -> torch.Tensor:
+    """Center location embeddings by mu, then score each patch.
+
+    patch_feats: (N_patch, D). global_feat: (D,) class token, used only when
+        weighted. loc_feats: (N_loc, D). Returns centroid (D,).
+
+    mu is the mean of the location embeddings, or the softmax-weighted mean
+    using the class token. The score is ``(location - mu) · patch``.
+    """
+    locations = F.normalize(loc_feats, dim=-1)
+    if weighted:
+        if image_feats is None:
+            raise ValueError("image_feats is required when weighted is True")
+        cls = F.normalize(image_feats[:, :1, :], dim=-1)
+        # cls is (B, 1, D); the location axis has to be the one softmax reduces
+        probas = torch.softmax(tau * (cls @ locations.T), dim=-1)
+        weights = probas / probas.mean(-1, keepdim=True)
+        mu = (weights.reshape(-1) @ locations) / weights.sum()
+    else:
+        weights = torch.ones(locations.shape[0], device=locations.device)
+        mu = locations.mean(dim=0)
+    return mu, weights
 
 
 # FOR BBOXES
